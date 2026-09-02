@@ -185,8 +185,7 @@
 .btn-primary:hover { background: var(--accent-dark); color: #fff; }
 .btn-ghost { border-color: var(--line-strong); color: var(--ink-soft); }
 .link-arrow { font: 11px var(--app-font-mono); color: var(--accent-hex); }
-.reveal { opacity: 0; transform: translateY(14px); filter: blur(6px); transition: opacity .7s var(--ease), transform .7s var(--ease), filter .7s var(--ease); }
-.reveal.is-visible { opacity: 1; transform: none; filter: none; }
+.reveal { opacity: 1; transform: none; filter: none; }
 .stagger-1 { transition-delay: 60ms; } .stagger-2 { transition-delay: 120ms; } .stagger-3 { transition-delay: 180ms; } .stagger-4 { transition-delay: 240ms; }
 .site-nav {
   position: fixed; z-index: 20; top: 0; left: 50%; transform: translateX(-50%);
@@ -290,6 +289,10 @@
 .chart-box { min-height: 225px; padding: 20px; }
 .chart-box.wide { grid-row: span 2; }
 .chart-title { font: 11px var(--app-font-mono); color: var(--ink-soft); }
+.recharts-wrap { width: 100%; height: 180px; margin-top: 12px; }
+.bklit-chart .recharts-surface { overflow: visible; }
+.bklit-chart .recharts-tooltip-wrapper { z-index: 3; }
+.bklit-chart .recharts-default-tooltip { box-shadow: none; }
 .area-chart { display: flex; align-items: end; gap: 8px; height: 130px; margin-top: 20px; padding: 0 8px; border-bottom: 1px solid var(--line-strong); background: repeating-linear-gradient(0deg, transparent 0 31px, var(--line) 32px); }
 .area-chart i { flex: 1; background: var(--accent-hex); opacity: .75; min-height: 8px; transform-origin: bottom; }
 .bar-chart { display: grid; align-items: end; grid-template-columns: repeat(6, 1fr); gap: 8px; height: 130px; margin-top: 20px; border-bottom: 1px solid var(--line-strong); }
@@ -378,6 +381,20 @@
 .switch { width: 42px; height: 22px; border: 1px solid var(--line-strong); padding: 2px; background: transparent; cursor: pointer; }
 .switch i { display: block; width: 16px; height: 16px; background: var(--ink-faint); transition: transform .25s var(--ease), background-color .25s var(--ease); }
 .switch.on i { transform: translateX(18px); background: var(--accent-hex); }
+.signal-gallery { padding-top: 56px; padding-bottom: 56px; }
+.signal-intro { display: flex; align-items: baseline; justify-content: space-between; gap: 30px; margin-bottom: 28px; }
+.signal-intro .section-copy { margin: 0; max-width: 430px; font: 11px/1.6 var(--app-font-mono); }
+.signal-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 14px; }
+.signal-card { margin: 0; border: 1px solid var(--line-strong); background: var(--panel); overflow: hidden; }
+.signal-image-wrap { position: relative; aspect-ratio: 16 / 8; overflow: hidden; background: #0b0d12; }
+.signal-card:nth-child(2) .signal-image-wrap { aspect-ratio: 16 / 10; }
+.signal-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .84; filter: grayscale(1) contrast(1.08); transition: transform .8s var(--ease), filter .8s var(--ease), opacity .8s var(--ease); }
+.signal-card:hover .signal-image-wrap img { transform: scale(1.045); filter: grayscale(.55) contrast(1.12); opacity: 1; }
+.signal-scan { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, transparent 0 48%, color-mix(in srgb, var(--accent-hex) 45%, transparent) 49%, transparent 51% 100%); opacity: .5; transform: translateY(-100%); animation: signal-scan 5s var(--ease) infinite; }
+.signal-card figcaption { display: grid; gap: 8px; padding: 17px 18px 20px; border-top: 1px solid var(--line-strong); }
+.signal-card figcaption strong { font: 400 26px/1.05 var(--app-font-serif); letter-spacing: -.01em; }
+.signal-card figcaption > span:last-child { color: var(--ink-soft); font: 12px/1.5 var(--app-font-mono); max-width: 520px; }
+@keyframes signal-scan { 0%, 20% { transform: translateY(-100%); } 55%, 100% { transform: translateY(100%); } }
 
 @media (max-width: 760px) {
   .content-pad { padding: 58px 20px; }
@@ -407,6 +424,9 @@
   .footer-cell:nth-child(2) { border-right: 0; }
   .footer-cell { border-bottom: 1px solid var(--line); }
   .sub-layout, .docs-shell { grid-template-columns: 1fr; }
+  .signal-intro { display: grid; gap: 12px; }
+  .signal-grid { grid-template-columns: 1fr; }
+  .signal-card figcaption strong { font-size: 23px; }
   .toc { position: static; display: flex; overflow-x: auto; padding-bottom: 13px; white-space: nowrap; }
   .docs-nav { border-right: 0; border-bottom: 1px solid var(--line); display: flex; overflow-x: auto; padding: 15px; }
   .docs-content { padding: 40px 20px; }

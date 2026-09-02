@@ -1,4 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion, useScroll, useSpring } from "motion/react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { z } from "zod";
 import { Link, Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -59,21 +61,14 @@ const faqs = [
 ];
 
 function Reveal({ children, className = "" }: { children: ReactNode; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setVisible(true);
-        observer.disconnect();
-      }
-    }, { threshold: 0.15 });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  return <div ref={ref} className={`reveal ${visible ? "is-visible" : ""} ${className}`}>{children}</div>;
+  const reduce = useReducedMotion();
+  return <motion.div
+    initial={reduce ? false : { opacity: 0, y: 14, filter: "blur(6px)" }}
+    whileInView={reduce ? undefined : { opacity: 1, y: 0, filter: "blur(0px)" }}
+    viewport={{ once: true, amount: 0.15 }}
+    transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+    className={`reveal ${className}`}
+  >{children}</motion.div>;
 }
 
 function AsciiField() {
@@ -150,6 +145,8 @@ function Footer() {
 function SharedShell({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [grid, setGrid] = useState(false);
+  const { scrollYProgress } = useScroll();
+  const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30, restDelta: 0.001 });
   useEffect(() => {
     const stored = window.localStorage.getItem("void-theme");
     if (stored === "dark") setTheme("dark");
@@ -168,17 +165,35 @@ function SharedShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.body.classList.toggle("grid-overlay", grid);
   }, [grid]);
-  const [progress, setProgress] = useState(0);
-  useEffect(() => {
-    const update = () => {
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      setProgress(max > 0 ? (window.scrollY / max) * 100 : 0);
-    };
-    window.addEventListener("scroll", update, { passive: true });
-    update();
-    return () => window.removeEventListener("scroll", update);
-  }, []);
-  return <div className="void-app"><AsciiField /><div className="scroll-progress" style={{ width: `${progress}%` }} /><SiteNav /><main className="frame">{children}</main><Footer /></div>;
+  return <div className="void-app"><AsciiField /><motion.div className="scroll-progress" style={{ scaleX: progress, transformOrigin: "0%" }} /><SiteNav /><main className="frame">{children}</main><Footer /></div>;
+}
+
+function SignalGallery() {
+  const reduce = useReducedMotion();
+  const media = [
+    { src: `${import.meta.env.BASE_URL}void-rack.jpg`, label: "01 / WRITE PATH", title: "A side effect is still a surface.", copy: "VOID makes the invisible middle layer observable before it becomes a cleanup ticket." },
+    { src: `${import.meta.env.BASE_URL}void-blueprint.jpg`, label: "02 / BEFORE STATE", title: "Keep the state that came before.", copy: "Snapshots are not decoration. They are the raw material for a defensible inverse." },
+  ];
+  return <section className="signal-gallery hairline-section content-pad">
+    <div className="signal-intro">
+      <div className="kicker">[ 00A ] FIELD SIGNALS</div>
+      <p className="section-copy">Two reference frames from the write path. Generated for VOID, illustrative by design.</p>
+    </div>
+    <div className="signal-grid">
+      {media.map((item, index) => <motion.figure
+        className="signal-card crop"
+        key={item.label}
+        initial={reduce ? false : { opacity: 0, scale: 0.97, y: 18 }}
+        whileInView={reduce ? undefined : { opacity: 1, scale: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.8, delay: index * 0.12, ease: [0.16, 1, 0.3, 1] }}
+        whileHover={reduce ? undefined : { y: -6 }}
+      >
+        <div className="signal-image-wrap"><img src={item.src} alt="" /><span className="signal-scan" aria-hidden="true" /></div>
+        <figcaption><span className="kicker">{item.label}</span><strong>{item.title}</strong><span>{item.copy}</span></figcaption>
+      </motion.figure>)}
+    </div>
+  </section>;
 }
 
 function Hero() {
@@ -252,7 +267,22 @@ function Classes() {
 }
 
 function Telemetry() {
-  return <Section id="telemetry" index="07" title="TELEMETRY"><Reveal><h2 className="section-title">The numbers your risk team will ask for.</h2></Reveal><div className="chart-grid"><Reveal className="ascii-box crop chart-box wide"><div className="chart-title">reversible coverage / 12 weeks</div><div className="area-chart">{[28, 35, 42, 39, 53, 56, 61, 68, 71, 76, 82, 87].map((height, index) => <i key={index} style={{ height: `${height}%` }} />)}</div><div className="mono-small" style={{ marginTop: 10 }}>week 01&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;week 12</div><div className="caption">fig. 05, coverage</div></Reveal><Reveal className="ascii-box chart-box stagger-1"><div className="chart-title">blast radius / tool</div><div className="bar-chart">{[62, 90, 47, 76, 38, 56].map((height, index) => <i key={index} style={{ height: `${height}%` }} />)}</div><div className="mono-small" style={{ marginTop: 10 }}>crm&nbsp;&nbsp;pay&nbsp;&nbsp;mail&nbsp;&nbsp;db&nbsp;&nbsp;infra&nbsp;&nbsp;files</div><div className="caption">fig. 06, radius</div></Reveal><Reveal className="ascii-box chart-box stagger-2"><div className="chart-title">budget burned / today</div><div className="ring">37%</div><div className="mono-small" style={{ textAlign: "center", marginTop: 10 }}>billing-ops / 2 of 5 R3</div><div className="caption">fig. 07, budget</div></Reveal></div><div className="mono-small" style={{ marginTop: 24 }}>dataset illustrative, generated from a fictional production workspace</div></Section>;
+  const coverage = [
+    { week: "01", value: 28 }, { week: "02", value: 35 }, { week: "03", value: 42 },
+    { week: "04", value: 39 }, { week: "05", value: 53 }, { week: "06", value: 56 },
+    { week: "07", value: 61 }, { week: "08", value: 68 }, { week: "09", value: 71 },
+    { week: "10", value: 76 }, { week: "11", value: 82 }, { week: "12", value: 87 },
+  ];
+  const radius = [
+    { tool: "crm", value: 62 }, { tool: "pay", value: 90 }, { tool: "mail", value: 47 },
+    { tool: "db", value: 76 }, { tool: "infra", value: 38 }, { tool: "files", value: 56 },
+  ];
+  const tooltipStyle = { background: "var(--panel)", border: "1px solid var(--line-strong)", borderRadius: 0, fontFamily: "var(--app-font-mono)", fontSize: 10, color: "var(--ink)" };
+  return <Section id="telemetry" index="07" title="TELEMETRY"><Reveal><h2 className="section-title">The numbers your risk team will ask for.</h2></Reveal><div className="chart-grid">
+    <Reveal className="ascii-box crop chart-box wide bklit-chart"><div className="chart-title">reversible coverage / 12 weeks</div><div className="recharts-wrap"><ResponsiveContainer width="100%" height={180}><AreaChart data={coverage} margin={{ top: 12, right: 8, left: -25, bottom: 0 }}><CartesianGrid stroke="var(--line)" strokeDasharray="2 4" /><XAxis dataKey="week" tick={{ fill: "var(--ink-faint)", fontSize: 9, fontFamily: "var(--app-font-mono)" }} tickLine={false} axisLine={{ stroke: "var(--line-strong)" }} /><YAxis domain={[0, 100]} tick={{ fill: "var(--ink-faint)", fontSize: 9, fontFamily: "var(--app-font-mono)" }} tickLine={false} axisLine={false} /><Tooltip contentStyle={tooltipStyle} cursor={{ stroke: "var(--accent-hex)", strokeDasharray: "2 3" }} /><Area type="monotone" dataKey="value" stroke="var(--accent-hex)" fill="var(--accent-hex)" fillOpacity={0.12} strokeWidth={2} dot={{ r: 2, fill: "var(--accent-hex)", strokeWidth: 0 }} activeDot={{ r: 4, fill: "var(--accent-hex)", stroke: "var(--paper)", strokeWidth: 2 }} /></AreaChart></ResponsiveContainer></div><div className="mono-small">coverage rises as inverses compile</div><div className="caption">fig. 05, coverage, Bklit UI language</div></Reveal>
+    <Reveal className="ascii-box chart-box stagger-1 bklit-chart"><div className="chart-title">blast radius / tool</div><div className="recharts-wrap"><ResponsiveContainer width="100%" height={180}><BarChart data={radius} margin={{ top: 12, right: 4, left: -25, bottom: 0 }}><CartesianGrid stroke="var(--line)" strokeDasharray="2 4" vertical={false} /><XAxis dataKey="tool" tick={{ fill: "var(--ink-faint)", fontSize: 9, fontFamily: "var(--app-font-mono)" }} tickLine={false} axisLine={{ stroke: "var(--line-strong)" }} /><YAxis tick={{ fill: "var(--ink-faint)", fontSize: 9, fontFamily: "var(--app-font-mono)" }} tickLine={false} axisLine={false} /><Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--accent-hex)", opacity: 0.08 }} /><Bar dataKey="value" fill="var(--ink)" activeBar={{ fill: "var(--accent-hex)" }} /></BarChart></ResponsiveContainer></div><div className="caption">fig. 06, radius, Bklit UI language</div></Reveal>
+    <Reveal className="ascii-box chart-box stagger-2 bklit-chart"><div className="chart-title">budget burned / today</div><motion.div className="ring" initial={{ rotate: -24, scale: 0.8, opacity: 0 }} whileInView={{ rotate: 0, scale: 1, opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}>37%</motion.div><div className="mono-small" style={{ textAlign: "center", marginTop: 10 }}>billing-ops / 2 of 5 R3</div><div className="caption">fig. 07, budget, Bklit UI language</div></Reveal>
+  </div><div className="mono-small" style={{ marginTop: 24 }}>dataset illustrative, generated from a fictional production workspace</div></Section>;
 }
 
 function Rollout() {
@@ -313,7 +343,7 @@ function Explore() {
 }
 
 function Home() {
-  return <><Hero /><Marquee /><Gap /><Mechanisms /><Install /><Replay /><Topology /><Classes /><Telemetry /><Rollout /><PricingSection /><FieldNotes /><Record /><Faq /><Access /><Explore /></>;
+  return <><Hero /><Marquee /><SignalGallery /><Gap /><Mechanisms /><Install /><Replay /><Topology /><Classes /><Telemetry /><Rollout /><PricingSection /><FieldNotes /><Record /><Faq /><Access /><Explore /></>;
 }
 
 function SubHeader({ kicker, title, copy }: { kicker: string; title: string; copy: string }) {
