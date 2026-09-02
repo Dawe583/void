@@ -1,44 +1,78 @@
-# [Project name]
+# VOID
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+The launch website for VOID, a concept product: the reversible autonomy layer for
+AI agents. It explains the product, demonstrates cross system replay, documents
+the technical model, and captures private beta access requests.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/api-server run dev`: API on port 8080, also serves the built site if one exists
+- `PORT=18944 BASE_PATH=/ pnpm --filter @workspace/void run dev`: the site, proxies `/api` to 8080
+- `pnpm run typecheck`: full typecheck across all packages
+- `pnpm run build`: typecheck + build all packages
+- `pnpm --filter @workspace/api-spec run codegen`: regenerate API hooks and Zod schemas from the OpenAPI spec
+- `pnpm --filter @workspace/db run push`: push DB schema changes (dev only)
+- Optional env: `DATABASE_URL` (without it, form submissions live in memory), `STATIC_DIR`, `API_URL`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
+- Web: React 19, Vite 7, wouter, Tailwind CSS v4, `motion/react`, Recharts, Fontsource
+- API: Express 5, Zod, pino
+- DB: PostgreSQL + Drizzle ORM (optional)
+- Validation: Zod (`zod/v4` in the db package), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Build: Vite for the site, esbuild for the API
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/void/src/index.css`: the entire design system: tokens, both themes, every keyframe. Change colours here, nowhere else.
+- `artifacts/void/src/lib/site-data.ts`: every piece of site copy and demo data, one source of truth for the homepage, the spec page and the Czech mutation.
+- `artifacts/void/src/lib/motion.ts`: the shared reveal variants and easings.
+- `artifacts/void/src/lib/use-site.ts`: theme, media query, visibility aware interval, active section, page meta, copy helpers.
+- `artifacts/void/src/sections/`: homepage sections, one file per idea.
+- `artifacts/void/src/pages/`: routed pages. `docs.tsx` holds all five doc pages as data.
+- `artifacts/void/src/components/site/`: shell (nav, footer, backdrop, cursor, easter eggs) and the motion primitives.
+- `artifacts/api-server/src/routes/`: `/api` endpoints. `lib/storage.ts` is the persistence boundary.
+- `lib/db/src/schema/`: Drizzle tables, one file per table.
+- `lib/api-spec/openapi.yaml`: the API contract, source for codegen.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **The API also serves the site.** `artifacts/api-server/src/lib/static-site.ts` mounts the Vite build with a SPA fallback when it finds one. The platform can still route the two separately, but a single Node process behind a bare domain works with no extra config.
+- **Storage degrades instead of failing.** Without `DATABASE_URL` the forms keep entries in memory and set `stored: false` in the response. A brand new deployment never loses a visitor to a missing database.
+- **The waitlist receipt is a real hash chain.** Each row links to the previous row's hash, mirroring the product's own saga ledger, so the receipt on screen means something.
+- **Everything content lives in one module.** Sections import from `site-data.ts` rather than holding copy inline, which is what makes the Czech mutation and the spec page cheap to keep in sync.
+- **Recharts and every subpage are lazily loaded.** The homepage ships roughly 150kB gzipped of JS. Charts (109kB gzipped on their own) arrive after first paint.
+- **Motion is transform and opacity only.** Reveals deliberately do not animate `filter: blur()`: it forces a compositing layer per element and is the difference between smooth and janky on a mid range phone.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+A single long homepage plus real subpages:
+
+- `/` hero with a typing terminal, integration marquee, the gap, six mechanisms, a photographic band, install tabs, the replay demo, topology, reversibility classes, telemetry charts, rollout, pricing, field notes, the compliance record, FAQ, the access form and an explore grid.
+- `/spec` the nine section technical specification with a sticky table of contents and a twenty tool compensation table.
+- `/docs` and `/docs/:slug` five real pages: quickstart, policy language, ledger format, MCP proxy, writing an adapter.
+- `/pricing` plans plus a protected actions calculator.
+- `/security`, `/compliance`, `/changelog`, `/blog` and `/blog/:slug` (three long posts), `/status` (live, calls `/api/status`), `/company`, `/contact`.
+- `/cs` a full Czech mutation with translated navigation and footer.
+- A 404 with a dissolving wordmark.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Never use an em dash or an en dash anywhere: UI copy, code comments, commit messages, README. Use a comma, a colon, parentheses, or split the sentence. For ranges write "X to Y". Plain hyphens inside words are fine.
+- No fabricated companies, logos, customers or certifications. Every metric or quote carries a visible "illustrative" label, and the footer keeps the concept disclaimer.
+- Animation everywhere, but it must run on every device: no hover only affordances, no effect that a phone cannot do at 60fps, and `prefers-reduced-motion` respected throughout.
+- The design is deliberately not all ASCII. Monospace is an accent, not the whole language.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- **Prefix every keyframe with `v-`.** Tailwind ships `ping`, `spin`, `pulse`, `bounce` and more. An unprefixed `@keyframes ping` is silently overridden by Tailwind's, which scaled the live status dot to 2x and faded it to nothing.
+- **Never write a bare descendant `span` rule.** `Counter` and `Scramble` render inline spans, so `.stat span { font-size: 13px }` shrinks the number it was meant to label. Scope those rules to `> span`.
+- **`display: grid` on a `ul` or `ol` removes the list markers** in Chromium. Use margins between items.
+- **`vite preview` only proxies GET.** Test form posts against the API server (which serves the build) rather than the preview server.
+- **`lib/db` throws at import time when `DATABASE_URL` is missing.** `storage.ts` imports it lazily inside a try; keep it that way or the API cannot boot without a database.
+- Before pointing a domain at the site, replace `https://void.systems` in `artifacts/void/index.html` and in `artifacts/void/public/{sitemap.xml,robots.txt}`.
 
 ## Pointers
 

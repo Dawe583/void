@@ -27,6 +27,15 @@ if (!basePath) {
   );
 }
 
+const apiTarget = process.env.API_URL ?? 'http://127.0.0.1:8080';
+
+const apiProxy = {
+  '/api': {
+    target: apiTarget,
+    changeOrigin: true,
+  },
+};
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -63,6 +72,17 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
+    // Keep the framework, the animation runtime and the charting library in
+    // their own chunks so a route change never re-downloads them.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          motion: ['motion/react'],
+          charts: ['recharts'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 700,
   },
   server: {
     port,
@@ -72,10 +92,14 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    // In production the platform router sends /api to the API service. Locally
+    // the two run on separate ports, so proxy the same path here.
+    proxy: apiProxy,
   },
   preview: {
     port,
     host: '0.0.0.0',
     allowedHosts: true,
+    proxy: apiProxy,
   },
 });

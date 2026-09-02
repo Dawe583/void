@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: access
+    description: Private beta access requests and contact messages
+  - name: status
+    description: Service status and deployment statistics
 paths:
   /healthz:
     get:
@@ -24,6 +28,86 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /waitlist:
+    post:
+      operationId: createWaitlistRequest
+      tags: [access]
+      summary: Request private beta access
+      description: Validates and seals a private beta access request, returning a hash chained receipt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WaitlistRequest"
+      responses:
+        "201":
+          description: Request sealed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitlistReceipt"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /contact:
+    post:
+      operationId: createContactMessage
+      tags: [access]
+      summary: Send a contact message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactRequest"
+      responses:
+        "201":
+          description: Message received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactReceipt"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /status:
+    get:
+      operationId: getStatus
+      tags: [status]
+      summary: Service status
+      description: Current state of each service, used by the public status page.
+      responses:
+        "200":
+          description: Status snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusSnapshot"
+  /stats:
+    get:
+      operationId: getStats
+      tags: [status]
+      summary: Deployment statistics
+      responses:
+        "200":
+          description: Counters for this deployment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +117,131 @@ components:
           type: string
       required:
         - status
-
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+        - message
+    WaitlistRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        company:
+          type: string
+        agents:
+          type: string
+        frameworks:
+          type: array
+          items:
+            type: string
+        note:
+          type: string
+      required:
+        - email
+        - company
+        - agents
+    WaitlistReceipt:
+      type: object
+      properties:
+        id:
+          type: string
+        sequence:
+          type: number
+        hash:
+          type: string
+        prevHash:
+          type: string
+        sealedAt:
+          type: string
+        stored:
+          type: boolean
+      required:
+        - id
+        - sequence
+        - hash
+        - sealedAt
+        - stored
+    ContactRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        topic:
+          type: string
+        message:
+          type: string
+      required:
+        - name
+        - email
+        - topic
+        - message
+    ContactReceipt:
+      type: object
+      properties:
+        id:
+          type: string
+        received:
+          type: string
+      required:
+        - id
+        - received
+    StatusService:
+      type: object
+      properties:
+        name:
+          type: string
+        state:
+          type: string
+        uptime:
+          type: string
+        latencyMs:
+          type: number
+      required:
+        - name
+        - state
+        - uptime
+        - latencyMs
+    StatusSnapshot:
+      type: object
+      properties:
+        state:
+          type: string
+        checkedAt:
+          type: string
+        uptimeSeconds:
+          type: number
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusService"
+        note:
+          type: string
+      required:
+        - state
+        - checkedAt
+        - services
+    Stats:
+      type: object
+      properties:
+        waitlist:
+          type: number
+        contact:
+          type: number
+        durable:
+          type: boolean
+        protectedActions:
+          type: number
+        reversibleCoverage:
+          type: number
+      required:
+        - waitlist
+        - contact
+        - durable

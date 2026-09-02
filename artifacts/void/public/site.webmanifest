@@ -1,0 +1,15 @@
+{
+  "name": "VOID, reversible autonomy for AI agents",
+  "short_name": "VOID",
+  "description": "VOID intercepts every write an agent makes, classifies how reversible it is, and keeps a signed record you can replay.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#05070d",
+  "theme_color": "#05070d",
+  "lang": "en",
+  "categories": ["developer", "productivity", "security"],
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
