@@ -1,0 +1,582 @@
+# VOID, prompt pro Replit Agent
+
+Podklad pro postavení produktového webu smyšleného AI produktu **VOID** (4 znaky),
+vizuálně vycházejícího z dsak.tech, celé v ASCII stylu.
+
+Prompt je psaný anglicky schválně: Replit Agent na dlouhých technických zadáních
+drží angličtinu spolehlivěji a texty na webu mají být stejně anglicky, protože
+produkt cílí globálně. Česká mutace je v zadání popsaná jako `/cs`.
+
+Kopíruj vše mezi značkami ZAČÁTEK PROMPTU a KONEC PROMPTU.
+
+## Proč zrovna VOID (shrnutí researche)
+
+Dnešní agentní stack má observabilitu (tracing, evaly), guardrails (filtrace vstupu
+a výstupu) a schvalování člověkem. Co v něm chybí jako samostatná vrstva: možnost
+**vrátit zpět to, co agent už reálně udělal** ve světě, tedy v CRM, e-mailu,
+platbách, databázi, infrastruktuře. Rollback existuje jako návrhový vzor uvnitř
+jednotlivých frameworků (saga pattern, kompenzační transakce), a jako marketingová
+vlastnost uvnitř uzavřených platforem. Neexistuje jako nezávislá, systémově
+agnostická vrstva mezi libovolným agentem a libovolným nástrojem, s kryptograficky
+podepsaným logem, který zároveň plní záznamovou povinnost podle článku 12 AI Actu
+(vymahatelný od srpna 2026).
+
+To je díra na trhu, která je zároveň skvěle vizualizovatelná: časová osa akcí,
+posuvník, a systémy se před očima vracejí do původního stavu.
+
+Náhradní názvy, pokud by VOID kolidoval: REVOK, ANNUL, SAGA, VETO.
+
+---
+
+=== ZAČÁTEK PROMPTU ===
+
+# BUILD: "VOID" product website
+
+You are building a complete, production quality marketing website for a fictional
+but technically coherent developer infrastructure product called **VOID**.
+
+Treat this as a real launch site for a real company. Ship polished code, not a demo.
+
+---
+
+## 0. NON NEGOTIABLE RULES
+
+1. **Never use the characters "—" (em dash) or "–" (en dash)** anywhere: not in UI
+   copy, not in code comments, not in commit messages, not in README. Use a comma,
+   a colon, parentheses, or split the sentence. For ranges write "X to Y". A plain
+   hyphen inside words (self-hosted, e-mail, B2B) is fine.
+2. This is a **concept product**. Do not fabricate real company logos, real
+   customer names, real certifications, or real funding. Any testimonial, metric,
+   or logo must be either clearly generic ("Series B fintech, 40 agents in
+   production") or visibly labeled as illustrative. Put a small, honest line in the
+   footer: "VOID is a product concept. Numbers on this page are illustrative."
+3. **No lorem ipsum.** All copy is provided below. Use it verbatim where given.
+4. Everything must work with **JavaScript disabled** for content and navigation.
+   Animations are enhancement, never a prerequisite for reading the page.
+5. Respect `prefers-reduced-motion: reduce` everywhere. That mode gets a static
+   ASCII field, no scramble, no parallax, instant reveals, no autoplaying demos.
+6. Accessibility: WCAG 2.2 AA. Every decorative ASCII layer gets `aria-hidden`,
+   every interactive control is keyboard reachable with a visible focus ring, the
+   scrubber demo has a real `<input type="range">` under the custom visuals.
+
+---
+
+## 1. THE PRODUCT
+
+**VOID, the reversible autonomy layer for AI agents.**
+
+Positioning line: *Every action your agents take, reversible.*
+Secondary line: *Ctrl+Z for autonomous systems.*
+
+### The problem
+
+AI agents no longer just answer. They write to CRMs, issue refunds, send email,
+delete files, change infrastructure. The current safety stack watches (tracing),
+filters (guardrails) and asks (human approval). None of it can **undo**. Once an
+agent has acted, the damage is a manual cleanup ticket, and the audit trail is a
+pile of unsigned JSON logs nobody can defend in front of a regulator.
+
+### The product
+
+VOID sits between any agent and any tool, as an MCP proxy or an SDK wrapper, and
+turns agent side effects into reversible, provable transactions.
+
+Six core mechanisms, these are the six feature cells on the site:
+
+1. **Interceptor**
+   Drop in front of any tool surface: MCP servers, HTTP tools, function calling,
+   your own SDK. One line of config. Framework agnostic: LangGraph, CrewAI,
+   OpenAI Agents SDK, Claude Agent SDK, custom loops.
+
+2. **Preflight**
+   Before a call commits, VOID computes its blast radius: which systems change,
+   how many records, which fields, and the reversibility class. Policy decides:
+   allow, require approval, or veto. Veto happens before the write, not after.
+
+3. **Compensation compiler**
+   For every intercepted call, VOID synthesizes the inverse action and captures a
+   before snapshot. Create becomes delete. Field update becomes field restore.
+   Meeting booked becomes meeting cancelled with a notice. Commit becomes revert.
+   Object overwritten becomes object version restored.
+
+4. **Saga ledger**
+   An append only, hash chained, signed record of intent, payload, result,
+   snapshot and compensation plan for every action. This is the undo stack and the
+   compliance record in one. Exportable as an AI Act Article 12 style log.
+
+5. **Time scrubber**
+   Pick a moment. VOID replays compensations in LIFO order across every connected
+   system and shows you, live, what came back and what did not.
+
+6. **Irreversibility budget**
+   Each agent gets a daily allowance of irreversible action. Spend it and the agent
+   drops to read only until a human tops it up. Autonomy becomes a metered
+   resource instead of a binary switch.
+
+### Reversibility classes (a core visual on the site)
+
+```
+R0  fully reversible      snapshot restore, exact prior state    green
+R1  reversible with trace  undone, but the change was visible     blue
+R2  mitigable only         cannot unsend, can retract and notify  amber
+R3  irreversible           money moved, data destroyed, no path   red
+```
+
+The pitch: *VOID does not promise everything is undoable. It promises you know
+which class you are in before the agent acts, and that R3 costs budget.*
+
+### Who it is for
+
+Platform and infrastructure teams running agents in production, in fintech,
+health, e-commerce operations and internal automation, plus the compliance people
+who have to sign off on it.
+
+---
+
+## 2. TECH STACK (use exactly this)
+
+- **Next.js 15**, App Router, TypeScript strict, React 19
+- **Tailwind CSS v4** with CSS variables as the single source of design tokens
+- **motion.dev** (`motion/react`) as the primary animation library: layout
+  animations, `useScroll`, `useTransform`, springs, `AnimatePresence`, stagger
+- **GSAP + ScrollTrigger** only where motion.dev is awkward: pinned scroll scenes,
+  the scrubber timeline, the serpentine pricing path
+- **Lenis** for smooth scrolling, wired into both motion.dev scroll and ScrollTrigger
+- **shadcn/ui** as the component base (Radix under the hood) for accordion, tabs,
+  dialog, tooltip, form
+- **Bklit UI** (`@bklit` shadcn registry, built on visx and Motion) for every chart
+  on the page. Do not hand roll charts. If a specific Bklit chart is unavailable,
+  fall back to visx directly and keep the same visual language.
+- **Motion Primitives** and **Aceternity UI / Magic UI** patterns as a reference for
+  effects (text scramble, spotlight, border beam, marquee, animated grid). Do not
+  paste their default look. Reimplement each one in the ASCII language defined
+  below. Take the motion, drop the gradients.
+- **next-themes** for the light and dark switch
+- **Fontsource** self hosted fonts, no requests to Google Fonts
+- **Zod + react-hook-form** for the waitlist form
+- **next/font**, `next/image`, route level metadata, `sitemap.ts`, `robots.ts`,
+  JSON-LD (Organization, SoftwareApplication, FAQPage)
+- Deploy target: Vercel. Zero runtime dependencies for the marketing pages.
+
+Design references to internalize before writing CSS: search Dribbble for
+"developer tool landing page", "terminal ui", "ascii web", "swiss brutalist web"
+and Framer templates in the "design tool" category. The target is the intersection
+of a Swiss print spec sheet and a terminal: hairline rules, crop marks, figure
+numbers, dense monospace annotation, almost no color.
+
+---
+
+## 3. VISUAL SYSTEM
+
+The site copies the structural language of a "design tool utility landing":
+a narrow centered frame with visible hairline rules, a serif display face against
+a technical sans, and monospace annotation everywhere. Then everything decorative
+is redrawn in ASCII.
+
+### 3.1 Tokens
+
+```css
+:root {
+  --bg:          #f7f8fb;
+  --panel:       #f0f2f7;
+  --line:        #e7e9f0;
+  --line-strong: #d9dce6;
+  --ink:         #000000;
+  --gray-1:      #333333;
+  --gray-2:      #545454;
+  --gray-3:      #63666e;
+  --gray-4:      #686c79;
+  --accent:      #3455fa;   /* the only color, used sparingly */
+  --accent-dark: #2040e3;
+  --ok:          #1a7f5a;   /* R0 */
+  --warn:        #a86a12;   /* R2 */
+  --bad:         #b3261e;   /* R3 */
+  --max:         1180px;
+  --cell:        14px;      /* the ASCII grid unit, everything snaps to it */
+  --ease:        cubic-bezier(0.16, 1, 0.3, 1);
+}
+```
+
+Dark theme (`[data-theme="dark"]`, the "CRT" mode): `--bg: #07090d`,
+`--panel: #0d1017`, `--line: #1b2029`, `--ink: #d7e2d9`, accent `#5f7dff`, plus a
+very subtle scanline overlay at 3% opacity and a 0.4px text glow on monospace.
+Both themes must be fully defined, no color may exist only inside a media query.
+
+### 3.2 Type
+
+- Display: **Instrument Serif** 400, `clamp(46px, 6.8vw, 74px)`, line height 1.06,
+  letter spacing -0.01em. Used for h1 and h2 only.
+- Text: **Inter** 400 and 500, base 15px, line height 1.6, letter spacing 0.01em.
+- Mono: **JetBrains Mono** 400 and 500, used for every label, chip, code block,
+  annotation, number, diagram and the entire ASCII layer.
+- Kicker style above every section heading: mono, 11px, uppercase, letter spacing
+  0.2em, color `--gray-3`, prefixed with a bracketed index, for example
+  `[ 04 ] COMPENSATION`.
+
+### 3.3 Frame and rules
+
+- `main` is `max-width: var(--max)`, centered, with a 1px left and right border in
+  `--line`. Every section has a 1px bottom border. This creates the spec sheet grid.
+- At every intersection of those rules, render a small `+` crosshair in mono,
+  9px, color `--gray-3`. Four of them per section corner set.
+- Cards and figures get **crop marks**: four L shaped corner ticks, 1px, 9px long,
+  offset 5px outside the box.
+- Every figure carries a caption in mono 11px in the bottom left of its box:
+  `fig. 03, compensation replay`.
+- Section index in the top right corner of the viewport, fixed, mono 11px:
+  `07 / 17  PRICING`, updated by an IntersectionObserver, hidden on mobile.
+- A 2px scroll progress bar pinned to the very top, color `--accent`.
+
+### 3.4 The ASCII layer
+
+Build these as reusable client components in `components/ascii/`.
+
+**`<AsciiField />`** the page background.
+Full viewport fixed canvas at `z-index: -1`, drawn once and on resize only, no
+requestAnimationFrame loop. Deterministic hash noise per cell so the pattern is
+stable between redraws. Cell size 14px. Three character sets:
+
+```
+LIGHT  · . : ˙ , ; ° ' ^ ~ - _        most cells, alpha 0.06 to 0.20
+MID    + * = < > / \ | [ ] { } ( ) !  about 15 percent, alpha 0.07 to 0.21
+HEAVY  ░ ▒ ▚ ▞ # % & 0                about 5 percent, drawn in --accent
+```
+
+Density is weighted by distance to the nearest viewport edge: roughly 0.55 at the
+edges falling to 0.16 in the center, so the reading column stays calm and the page
+still feels full. On pointer move, only the 9 by 9 cell neighbourhood under the
+cursor is redrawn one class brighter, with a 400ms decay. That local redraw must
+stay under 1ms. Skip the pointer effect entirely on touch and in reduced motion.
+
+**`<AsciiText>`** maps any string to a chosen ramp for headline treatment, and
+provides the scramble decode: on reveal, each character cycles through
+`!<>-_\\/[]{}=+*^?#` for 6 to 14 frames, staggered 18ms per character, then
+settles. Use on every kicker and on the hero h1 once.
+
+**`<AsciiArt>`** renders a luminance ramp `"  .:-=+*#%@"` from an SVG mask or a
+signed distance field. Use it for the wordmark VOID in the hero, sized to the
+character grid, animating from noise to legible over 900ms on load.
+
+**`<AsciiBox>`** a bordered container drawn with `+ - |` characters instead of CSS
+borders, corners as `+`, used for the terminal, the architecture diagram and the
+ledger panel.
+
+**`<AsciiBeam>`** animated connection lines between two DOM nodes, drawn as a
+string of `-` and `=` with a `>` head that travels along the path. Speed 60 cells
+per second. Used in the architecture section.
+
+**`<AsciiSparkline>`** and **`<AsciiBars>`** monospace mini charts for inline
+numbers, using `▁▂▃▄▅▆▇█` and `#`, used inside cards.
+
+**Cursor**: replace the default cursor on pointer devices with a blinking block
+caret `█` in `--accent`, 14px, that snaps to the ASCII grid (round position to the
+nearest cell). It grows to a bracket pair `[  ]` around interactive elements on
+hover. Fall back to the system cursor on touch and in reduced motion.
+
+**Easter eggs**: key `G` toggles a 14px grid overlay, key `T` toggles the CRT
+theme, and typing `void` anywhere dissolves the whole page into falling ASCII rain
+for 1.5s and back. Announce nothing, just make it work, and disable all three in
+reduced motion.
+
+### 3.5 Motion rules
+
+- One reveal primitive everywhere: opacity 0 to 1, `translateY(14px)` to 0,
+  `filter: blur(6px)` to 0, 700ms, `--ease`, triggered at 15 percent visibility,
+  `once: true`, staggered 60ms between siblings.
+- Headlines use a word mask reveal: each word in an overflow hidden span, rising
+  from 100 percent with 40ms stagger.
+- Hero uses a load sequence: 5 steps, 90ms apart, eyebrow, h1, sub, buttons,
+  figure.
+- Buttons: pill, 22px radius, a light sweep gradient crossing on hover, 2px lift,
+  0.97 scale on press.
+- Cards: a radial spotlight following the cursor at 8 percent opacity, plus a
+  1px running border light on the primary card.
+- Numbers count up when they enter the viewport, with mono tabular figures so the
+  layout never shifts.
+- Page to page navigation uses the View Transitions API where supported.
+
+---
+
+## 4. PAGE STRUCTURE
+
+Single long homepage at `/`, plus real subpages. Section order and content:
+
+### 4.1 Nav
+Fixed, transparent over the ASCII field, backdrop blur 10px, hides on scroll down
+and returns on scroll up. Logo centered, drawn as the ASCII wordmark at small size.
+Links on both sides in brackets, mono: `[Product]` `[Docs]` (dropdown), logo,
+`[Pricing]` `[Company]`. Dropdown items get a 6px `+` marker that rotates 45
+degrees on hover. Mobile: a two line toggle that opens a full width panel.
+
+### 4.2 Hero
+```
+eyebrow   VOID · reversible autonomy layer · private beta
+h1        Every action your agents take, reversible.
+sub       VOID sits between your agents and your tools. It intercepts every
+          write, computes what it would take to undo it, and keeps a signed
+          record you can replay. Ctrl+Z for autonomous systems.
+cta       [ Request access ]   [ Read the spec ]
+note      Private beta · self hosted or managed · SDK, MCP proxy or CLI
+status    ● Live now: <rotator> reversing a Stripe refund /
+          restoring 412 CRM fields / cancelling 3 calendar holds
+```
+Right of the copy, `fig. 01`: an `<AsciiBox>` terminal, 62 columns wide, that types
+out a real looking session at 28ms per character:
+
+```
+$ npx void init
+  + detected 4 tool surfaces (mcp: stripe, hubspot, gmail, postgres)
+  + compensation plans generated for 37 of 41 tools
+  ! 4 tools have no inverse: class R3, budget required
+$ void watch --agent billing-ops
+  [09:14:02] intent   issue_refund(ch_3P9k, 4200 EUR)
+  [09:14:02] preflight blast radius: 1 payment, 1 ledger row, 1 email
+  [09:14:02] class    R3  irreversible
+  [09:14:02] policy   HOLD, budget 0/2 spent today
+  [09:14:11] human    approved by dana@ (SSO)
+  [09:14:11] commit   ok, sealed 0x9f3c..a10e
+$ void rewind --to 09:12:00
+  <- restoring 412 fields across 3 systems ....... done
+  <- cancelling 3 calendar holds ................. done
+  <- retracting 1 email .......................... mitigated (R2)
+  1 action could not be reversed (R3) and is listed above.
+```
+Then a `[ scroll ↓ ]` cue in brackets at the bottom, mono.
+
+### 4.3 Integration marquee
+Label: "Speaks to the systems your agents already touch." Infinite marquee,
+40s linear, paused on hover, listing in mono with a small ASCII glyph each:
+Stripe, HubSpot, Salesforce, Gmail, Slack, Postgres, GitHub, S3, Zendesk, Twilio,
+Notion, Linear, Snowflake, Kubernetes. Mark clearly in a caption that these are
+integration targets, not endorsements.
+
+### 4.4 The problem (`[ 01 ] THE GAP`)
+h2: "Your stack can watch, filter and ask. It cannot undo."
+A three column comparison, each column an `<AsciiBox>`: Observability (sees it
+after), Guardrails (blocks the prompt, not the write), Approvals (a human clicks
+yes and then owns the mess). Under them, one full width row in `--accent`: VOID,
+reverses the write.
+Then four counted stats with `<AsciiSparkline>` underneath, labeled illustrative.
+
+### 4.5 Six mechanisms (`[ 02 ] MECHANISMS`)
+h2: "Six moving parts, one guarantee."
+A 3 by 2 grid of feature cells, hairline separated, no card backgrounds. Each cell:
+a 12 by 6 character ASCII pictogram that animates on hover, an h3, two sentences,
+and a mono meta line. Content is the six mechanisms from section 1.
+
+### 4.6 Install (`[ 03 ] INSTALL`)
+h2: "Three lines, in front of anything."
+Tabbed code block (shadcn tabs) with four tabs: `MCP`, `TypeScript`, `Python`,
+`CLI`. Real, plausible code. Copy button that shows `copied ✓` for 1.4s. The block
+sits in an `<AsciiBox>` with a mono gutter of line numbers and a fake window bar
+made of `[ ][ ][ ]`.
+
+Example TypeScript tab:
+```ts
+import { void_ } from "@void/sdk";
+
+const tools = void_.wrap(myTools, {
+  policy: "./void.policy.ts",
+  budget: { irreversible: 2 },   // per agent, per day
+  ledger: { sink: "s3://acme-void-ledger", sign: true },
+});
+```
+
+### 4.7 THE DEMO (`[ 04 ] REPLAY`) the centerpiece
+h2: "Drag the past back."
+Full width, pinned with ScrollTrigger for the length of one viewport, or draggable
+directly on touch. A horizontal ASCII timeline of 14 agent actions, each a cell
+with a class colored glyph:
+
+```
+09:02  09:04  09:06  09:08  09:11  09:14  09:17  09:21
+  o------o------o------#------o------X------o------o
+  R0     R0     R1     R2     R0     R3     R0     R1
+```
+A `<input type="range">` styled as a block caret drives the scrub position. As the
+user scrubs left, three system panels below (CRM, MAIL, LEDGER) revert their rows
+one by one, characters flipping through scramble as values return to their earlier
+state, LIFO order, 120ms per row. R3 actions stay marked and print a line
+`cannot be reversed, R3, logged and budgeted`. A running counter shows
+`reversed 11 · mitigated 2 · irreversible 1`. Keyboard: left and right arrows step
+one action, Home and End jump to the ends. In reduced motion, the scrubber becomes
+a static before and after table with a simple select.
+
+This section must feel like the reason the product exists. Spend the most time here.
+
+### 4.8 Architecture (`[ 05 ] TOPOLOGY`)
+h2: "One layer, in the write path."
+An ASCII diagram, center is the VOID node, left are agent frameworks, right are
+tool surfaces, drawn with `<AsciiBox>` nodes and `<AsciiBeam>` connections. Beams
+carry travelling `>` heads at a low rate. Hovering a node dims the rest to 25
+percent and prints a tooltip in mono. Below, three toggle chips switch the diagram
+between `MCP proxy`, `SDK wrap` and `Sidecar` deployment shapes, animating node
+positions with motion.dev layout animations.
+
+### 4.9 Reversibility classes (`[ 06 ] CLASSES`)
+h2: "Know the class before the call."
+Four horizontal rows, R0 to R3, each expanding on click (Radix accordion) to show
+examples, what VOID stores, and what the compensation looks like. A left rail of
+color chips is the only place saturated color appears outside the accent.
+
+### 4.10 Telemetry (`[ 07 ] TELEMETRY`) charts, Bklit UI
+h2: "The numbers your risk team will ask for."
+Three charts, all Bklit UI, all restyled to the mono language: dotted grid, mono
+axis labels, no rounded corners, single accent color plus the class colors.
+1. Area chart: reversible coverage percentage over 12 weeks.
+2. Bar chart: blast radius distribution by tool.
+3. Ring chart: irreversibility budget burned today per agent.
+Each chart sits in an `<AsciiBox>` with a `fig. NN` caption and a one line takeaway
+underneath. Label the dataset as illustrative in a mono footnote.
+
+### 4.11 Rollout (`[ 08 ] ROLLOUT`)
+h2: "Four weeks from shadow mode to enforcing."
+A sticky left heading with four steps on a vertical rail, each step a card with a
+small self animating ASCII scene: 01 Shadow (record only), 02 Preflight (classify
+and warn), 03 Compensate (undo enabled), 04 Enforce (policy and budget on).
+Timeline progress line draws as you scroll.
+
+### 4.12 Pricing (`[ 09 ] PRICING`)
+h2: "Priced per protected action, not per seat."
+Three cards that stack with a scroll driven serpentine path (GSAP): **Dev** free,
+10k protected actions per month, community support. **Team** 490 EUR per month,
+1M actions, SSO, signed ledger export, 8h support. **Self hosted** custom, your
+infra, your keys, no data leaves, audit support. Middle card gets a running border
+light and a `[ most common ]` chip. All prices marked illustrative.
+Under the cards, a four column comparison table: VOID vs Tracing vs Guardrails vs
+Build it yourself, rows are Reverses writes, Pre commit veto, Signed record,
+Cross system, Time to value.
+
+### 4.13 Design partners (`[ 10 ] FIELD NOTES`)
+Three quote cards, each attributed generically and each carrying a visible mono
+label `illustrative, design partner pilot`. Example: "Our agents were fine 99
+percent of the time. VOID is for the other 1 percent, and it is the only reason
+legal let us go past shadow mode." Head of Platform, Series B fintech, 40 agents
+in production.
+
+### 4.14 Compliance (`[ 11 ] RECORD`)
+h2: "A log you can hand to a regulator."
+Two columns: left, prose about the EU AI Act Article 12 record keeping duty and why
+a hash chained, signed, replayable ledger is a better answer than log files. Right,
+an `<AsciiBox>` showing one sealed ledger entry as pretty printed JSON with the
+hash chain fields highlighted. A mono disclaimer: "Informational, not legal advice."
+
+### 4.15 FAQ (`[ 12 ] FAQ`)
+Radix accordion, smooth height animation, plus/minus toggle drawn in mono. Eight
+questions:
+1. What happens when an action genuinely cannot be undone?
+2. Does VOID slow my agents down? (answer: preflight adds 8 to 40ms, commits are
+   not blocked unless policy says so)
+3. Do you see my payloads? (self hosted mode, field level redaction, keys stay yours)
+4. Which frameworks are supported?
+5. What if a tool has no API to reverse a change?
+6. How is this different from database transactions?
+7. How is this different from tracing tools?
+8. Can I run it in shadow mode first?
+
+### 4.16 CTA (`[ 13 ] ACCESS`)
+h2: "Let your agents act. Keep the undo."
+Waitlist form: work email, company, which frameworks (multi chip select), how many
+agents in production (select), free text. Zod validation, inline errors in mono,
+optimistic success state that prints a sealed pseudo receipt in ASCII with a fake
+hash. Store submissions in a simple server action, log to console if no backend.
+Beside it, a second card: "Read the spec" linking to `/spec`.
+
+### 4.17 Explore grid
+Nine small cards linking to subpages, each with a mono tag and a `↗` that slides on
+hover: Docs, Spec, Changelog, Security, Compliance, Pricing, Blog, Status, Contact.
+
+### 4.18 Footer
+Four columns, hairline separated, mono. Left: the ASCII wordmark plus a live UTC
+clock updating every second, and a status dot `● all systems nominal`. Bottom line:
+the concept disclaimer, the illustrative numbers note, and the theme and grid
+shortcut hints (`press T for CRT, G for grid`).
+
+---
+
+## 5. SUBPAGES
+
+Build these for real, using the same system, not as stubs:
+
+- `/spec` a long form technical spec page with a sticky table of contents on the
+  left, mono headings, code blocks, and the compensation table for 20 example
+  tools. This is the page an engineer sends to a colleague.
+- `/pricing` the pricing section expanded with a protected actions calculator: a
+  slider for actions per month and a toggle for self hosted, output in mono with a
+  count up animation.
+- `/security` data flow, what is stored, redaction, key handling, self hosting.
+- `/changelog` reverse chronological, each entry with a mono version chip.
+- `/docs` a minimal docs shell with three real pages: quickstart, policy language,
+  ledger format.
+- `/cs` a full Czech mutation of the homepage. Same layout, translated copy, and
+  again no em dash or en dash. Add `hreflang` alternates between `/` and `/cs`.
+- `404` an ASCII page: the wordmark dissolving into noise, plus links back.
+
+---
+
+## 6. FILE STRUCTURE
+
+```
+app/
+  layout.tsx            fonts, theme provider, Lenis, AsciiField, nav, footer
+  page.tsx              homepage, composed of section components
+  spec/ pricing/ security/ changelog/ docs/ cs/ page.tsx
+  sitemap.ts robots.ts opengraph-image.tsx
+components/
+  ascii/                AsciiField AsciiText AsciiArt AsciiBox AsciiBeam
+                        AsciiSparkline AsciiBars AsciiCursor AsciiRain
+  sections/             Hero Marquee Gap Mechanisms Install Replay Topology
+                        Classes Telemetry Rollout Pricing FieldNotes Record
+                        Faq Cta Explore
+  ui/                   shadcn generated primitives
+  charts/               Bklit UI wrappers with the mono restyle
+lib/
+  ascii.ts              hash noise, ramps, grid math, scramble
+  motion.ts             shared variants and easings
+  demo-data.ts          the 14 timeline actions and the three system panels
+  seo.ts
+styles/globals.css      tokens, both themes, the reveal primitive
+```
+
+Keep every section component under 200 lines. Put all demo data in
+`lib/demo-data.ts` as typed objects so the timeline, the panels and the counters
+all read from one source of truth.
+
+---
+
+## 7. PERFORMANCE BUDGET
+
+- Lighthouse: performance 95 or above on desktop, 90 or above on mobile,
+  accessibility 100, best practices 100, SEO 100.
+- LCP under 1.8s, CLS 0, INP under 200ms.
+- The ASCII field draw stays under 6ms at 1440p. Never draw it in a rAF loop.
+- Total JS for the homepage under 180kB gzipped. GSAP loads only on routes that
+  need it, dynamically imported, `ssr: false`.
+- Fonts self hosted, subset to latin plus latin-ext, `font-display: swap`,
+  preload only the two faces the first paint needs.
+- Every canvas respects `devicePixelRatio` capped at 2.
+- Pause every animation when the tab is hidden and when the element leaves the
+  viewport.
+
+---
+
+## 8. DELIVERY ORDER
+
+Work in this order and keep the site deployable at every step:
+
+1. Scaffold, tokens, fonts, both themes, the frame with hairline rules and
+   crosshairs, nav and footer.
+2. `AsciiField` plus `AsciiBox`, `AsciiText` scramble, the reveal primitive.
+3. Hero including the typed terminal.
+4. Sections 4.3 to 4.6.
+5. The Replay demo, section 4.7. Budget the most time here, it is the hero of the
+   product.
+6. Sections 4.8 to 4.11 including Bklit charts.
+7. Sections 4.12 to 4.18.
+8. Subpages.
+9. Reduced motion pass, keyboard pass, screen reader pass, Lighthouse pass.
+10. README with a short architecture note and the list of keyboard shortcuts.
+
+When you finish a step, tell me what changed and what is next. Do not ask me to
+choose between options unless something is genuinely ambiguous, pick the better
+option and note the choice.
