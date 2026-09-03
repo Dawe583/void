@@ -1,11 +1,29 @@
 {
-  "extends": "../tsconfig.base.json",
+  // Deliberately standalone rather than extending tsconfig.base.json.
+  //
+  // The Vercel Node builder compiles the functions in this directory with this
+  // exact file, so it has to describe a real emit. The base config sets
+  // noEmitOnError, module esnext and a workspace resolution condition, all of
+  // which are right for the bundled packages and wrong here: the repository
+  // root has no "type": "module", so these functions are emitted and loaded as
+  // CommonJS.
+  //
+  // `pnpm run typecheck` passes --noEmit on the command line, so nothing here
+  // needs to turn emit off.
   "compilerOptions": {
-    "noEmit": true,
+    "target": "es2022",
     "lib": ["es2022"],
-    "types": ["node"],
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "sourceMap": true,
+    "types": ["node"]
   },
   "include": ["**/*.ts"]
 }

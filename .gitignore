@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Scratch output from the api function emit check
+.tsc-api-emit
