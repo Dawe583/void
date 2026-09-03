@@ -64,7 +64,7 @@ function BudgetRing() {
           <defs>
             <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="var(--accent)" />
-              <stop offset="100%" stopColor="var(--violet)" />
+              <stop offset="100%" stopColor="var(--accent-dark)" />
             </linearGradient>
           </defs>
           <circle className="track" cx="74" cy="74" r={radius} strokeWidth="10" />
@@ -97,7 +97,7 @@ function BudgetRing() {
   );
 }
 
-const axisStyle = { fontFamily: "var(--font-code)", fontSize: 10, fill: "var(--ink-4)" };
+const axisStyle = { fontFamily: "var(--font-code)", fontSize: 10, fill: "var(--ink-faint)" };
 
 export function Telemetry() {
   return (
@@ -126,7 +126,7 @@ export function Telemetry() {
                 <CartesianGrid stroke="var(--line)" strokeDasharray="2 5" vertical={false} />
                 <XAxis dataKey="week" tick={axisStyle} axisLine={false} tickLine={false} />
                 <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={40} domain={[0, 100]} />
-                <Tooltip cursor={{ stroke: "var(--line-3)" }} />
+                <Tooltip cursor={{ stroke: "var(--line-strong)" }} />
                 <Area
                   type="monotone"
                   dataKey="coverage"

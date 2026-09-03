@@ -234,9 +234,7 @@ export default function CzechPage() {
                 <span className="mech-index" aria-hidden="true">
                   {String(index + 1).padStart(2, "0")}
                 </span>
-                <span className="mech-icon">
-                  <Icon name={mechanism.icon} size={20} />
-                </span>
+                <pre className="mech-art" aria-hidden="true">{mechanism.art}</pre>
                 <h3 className="h3">{cs.name}</h3>
                 <p>{cs.body}</p>
                 <span className="mech-meta">{cs.meta}</span>

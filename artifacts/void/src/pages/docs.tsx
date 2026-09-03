@@ -246,7 +246,7 @@ function DocsNav({ current }: { current: string }) {
               fontSize: 10.5,
               letterSpacing: "0.18em",
               textTransform: "uppercase",
-              color: "var(--ink-4)",
+              color: "var(--ink-faint)",
             }}
           >
             {group}

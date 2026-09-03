@@ -214,8 +214,9 @@ export function Replay() {
                         }}
                         aria-label={`Jump to ${action.time}, ${action.label}, class ${action.tone.toUpperCase()}`}
                         data-testid={`button-timeline-${index}`}
+                        data-tone={action.tone}
                       >
-                        <i style={{ background: index <= position ? toneVar[action.tone] : "var(--surface)" }} />
+                        <i />
                         <b>{action.time}</b>
                         <em>{action.tone.toUpperCase()}</em>
                       </button>

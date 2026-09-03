@@ -132,7 +132,7 @@ export function Access() {
                 </div>
 
                 <div className="field">
-                  <span id="wl-frameworks-label" style={{ display: "block", fontFamily: "var(--font-code)", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ink-3)" }}>
+                  <span id="wl-frameworks-label" style={{ display: "block", fontFamily: "var(--font-code)", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
                     frameworks
                   </span>
                   <div className="chip-row" role="group" aria-labelledby="wl-frameworks-label">

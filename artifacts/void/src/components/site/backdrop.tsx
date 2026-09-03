@@ -1,81 +1,21 @@
 import { useEffect, useState } from "react";
 import { useReducedMotion } from "motion/react";
-import { useFinePointer } from "@/lib/use-site";
 
 /**
- * The layered page backdrop: a soft aurora mesh, a technical grid, a dot field
- * and film grain. Everything is CSS driven, so it costs no main thread work and
- * renders identically on low powered phones.
+ * The ASCII field: a 14px rule grid under a band of scattered glyphs, masked so
+ * the reading column stays calm, plus the CRT scanlines the dark theme turns on.
+ *
+ * Both are drawn entirely in CSS on two elements. There is no canvas and no
+ * animation loop, so the field costs nothing to render and behaves the same on
+ * a low powered phone as on a workstation.
  */
 export function Backdrop() {
   return (
     <>
-      <div className="backdrop" aria-hidden="true">
-        <div className="aurora aurora-a" />
-        <div className="aurora aurora-b" />
-        <div className="aurora aurora-c" />
-        <div className="backdrop-grid" />
-        <div className="backdrop-dots" />
-      </div>
-      <div className="grain" aria-hidden="true" />
+      <div className="backdrop" aria-hidden="true" />
       <div className="scanlines" aria-hidden="true" />
     </>
   );
-}
-
-/**
- * A blinking block caret that follows a mouse. Never rendered on touch devices
- * or when reduced motion is requested, and it never blocks pointer events.
- */
-export function Cursor() {
-  const fine = useFinePointer();
-  const reduced = useReducedMotion();
-
-  useEffect(() => {
-    if (!fine || reduced) return;
-    const dot = document.createElement("div");
-    const ring = document.createElement("div");
-    dot.className = "cursor-dot";
-    ring.className = "cursor-ring";
-    document.body.append(dot, ring);
-
-    let ringX = -100;
-    let ringY = -100;
-    let mouseX = -100;
-    let mouseY = -100;
-    let raf = 0;
-
-    const onMove = (event: MouseEvent) => {
-      mouseX = event.clientX;
-      mouseY = event.clientY;
-      dot.style.transform = `translate3d(${mouseX - 3}px, ${mouseY - 3}px, 0)`;
-      const target = event.target as HTMLElement | null;
-      const interactive = target?.closest("a, button, input, select, textarea, [role='button']");
-      ring.style.width = interactive ? "44px" : "30px";
-      ring.style.height = interactive ? "44px" : "30px";
-      ring.style.borderColor = interactive ? "var(--accent)" : "var(--a45)";
-    };
-
-    const loop = () => {
-      ringX += (mouseX - ringX) * 0.16;
-      ringY += (mouseY - ringY) * 0.16;
-      const half = ring.offsetWidth / 2;
-      ring.style.transform = `translate3d(${ringX - half}px, ${ringY - half}px, 0)`;
-      raf = window.requestAnimationFrame(loop);
-    };
-
-    window.addEventListener("mousemove", onMove, { passive: true });
-    raf = window.requestAnimationFrame(loop);
-
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.cancelAnimationFrame(raf);
-      dot.remove();
-      ring.remove();
-    };
-  }, [fine, reduced]);
-
-  return null;
 }
 
 const RAIN_CHARS = "01<>[]{}=+*#%&/\\|.:-_";

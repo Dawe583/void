@@ -78,7 +78,7 @@ export default function CompanyPage() {
                   <span className="tag tag-accent">{when}</span>
                 </div>
                 <h3 className="h3">{title}</h3>
-                <p style={{ margin: 0, color: "var(--ink-3)" }}>{body}</p>
+                <p style={{ margin: 0, color: "var(--ink-faint)" }}>{body}</p>
               </article>
             </RevealItem>
           ))}

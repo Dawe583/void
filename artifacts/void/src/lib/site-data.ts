@@ -7,7 +7,7 @@ export type Tone = "r0" | "r1" | "r2" | "r3";
 
 export const toneVar: Record<Tone, string> = {
   r0: "var(--ok)",
-  r1: "var(--info)",
+  r1: "var(--accent)",
   r2: "var(--warn)",
   r3: "var(--bad)",
 };
@@ -63,6 +63,8 @@ export type Mechanism = {
   body: string;
   meta: string;
   icon: string;
+  /** A pictogram drawn on the same character grid as everything else. */
+  art: string;
 };
 
 export const mechanisms: Mechanism[] = [
@@ -72,6 +74,7 @@ export const mechanisms: Mechanism[] = [
     body: "Drop in front of any tool surface: MCP servers, HTTP tools, function calling, your own SDK. One line of config, no change to the agent loop.",
     meta: "MCP / SDK / HTTP / CLI",
     icon: "plug",
+    art: "  +----+  \n  | <> |  \n  +--+--+  \n     |     "
   },
   {
     id: "preflight",
@@ -79,6 +82,7 @@ export const mechanisms: Mechanism[] = [
     body: "Before a call commits, VOID computes its blast radius: which systems change, how many records, which fields, and the reversibility class. Policy allows, holds or vetoes.",
     meta: "8 to 40ms added latency",
     icon: "radar",
+    art: "  .----.  \n /  /\\  \\ \n|  /  \\  |\n \\______ /"
   },
   {
     id: "compensation",
@@ -86,6 +90,7 @@ export const mechanisms: Mechanism[] = [
     body: "For every intercepted call, VOID synthesizes the inverse action and captures a before snapshot. Create becomes delete, update becomes restore, commit becomes revert.",
     meta: "inverse + snapshot per call",
     icon: "undo",
+    art: "  [ + ]   \n   | |    \n  [ - ]   \n   | |    \n  { 0 }   "
   },
   {
     id: "ledger",
@@ -93,6 +98,7 @@ export const mechanisms: Mechanism[] = [
     body: "An append only, hash chained, signed record of intent, payload, result, snapshot and compensation plan. The undo stack and the compliance record are the same object.",
     meta: "ed25519 signed, append only",
     icon: "chain",
+    art: "  #==#==# \n  |  |  | \n  #==#==# \n    \\_|_  "
   },
   {
     id: "scrubber",
@@ -100,6 +106,7 @@ export const mechanisms: Mechanism[] = [
     body: "Pick a moment. VOID replays compensations in LIFO order across every connected system and shows you, live, what came back and what did not.",
     meta: "LIFO replay, cross system",
     icon: "rewind",
+    art: "  o---o---o\n      ^    \n  o---o---o\n  <  time  >"
   },
   {
     id: "budget",
@@ -107,6 +114,7 @@ export const mechanisms: Mechanism[] = [
     body: "Each agent gets a daily allowance of irreversible action. Spend it and the agent drops to read only until a human tops it up. Autonomy becomes a metered resource.",
     meta: "per agent, per day",
     icon: "gauge",
+    art: "  [###]   \n  [## ]   \n  [#  ]   \n  [0  ]   "
   },
 ];
 

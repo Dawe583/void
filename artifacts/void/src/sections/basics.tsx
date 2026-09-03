@@ -126,9 +126,7 @@ export function Mechanisms() {
             <span className="mech-index" aria-hidden="true">
               {String(index + 1).padStart(2, "0")}
             </span>
-            <span className="mech-icon">
-              <Icon name={item.icon} size={20} />
-            </span>
+            <pre className="mech-art" aria-hidden="true">{item.art}</pre>
             <h3 className="h3">{item.name}</h3>
             <p>{item.body}</p>
             <span className="mech-meta">{item.meta}</span>

@@ -1,8 +1,8 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useScroll, useSpring } from "motion/react";
 import { Link, useLocation } from "wouter";
-import { Backdrop, Cursor, EasterEggs } from "@/components/site/backdrop";
-import { Icon, Magnetic } from "@/components/site/primitives";
+import { Backdrop, EasterEggs } from "@/components/site/backdrop";
+import { Icon } from "@/components/site/primitives";
 import { useTheme, useVisibleInterval } from "@/lib/use-site";
 
 const NAV_LINKS = [
@@ -101,10 +101,9 @@ function Nav() {
     <>
       <header className={`nav ${stuck ? "is-stuck" : ""}`}>
         <div className="nav-inner">
-          <Brand />
-
+          {/* Links flank a centred wordmark, the way the spec sheet reads. */}
           <nav className="nav-links" aria-label="Primary">
-            {NAV_LINKS.map((link) => (
+            {NAV_LINKS.slice(0, 3).map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -116,7 +115,21 @@ function Nav() {
             ))}
           </nav>
 
+          <Brand />
+
           <div className="nav-actions">
+            <nav className="nav-links right" aria-label="Secondary">
+              {NAV_LINKS.slice(3).map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  data-testid={`link-nav-${link.label.toLowerCase()}`}
+                  className={`nav-link ${location === link.href ? "is-active" : ""}`}
+                >
+                  [{locale === "cs" ? link.cs : link.label}]
+                </Link>
+              ))}
+            </nav>
             <button
               type="button"
               className="icon-btn"
@@ -126,11 +139,9 @@ function Nav() {
             >
               <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
             </button>
-            <Magnetic strength={0.18}>
-              <Link href="/#access" className="btn btn-primary btn-sm" data-testid="link-nav-access">
-                {copy.cta}
-              </Link>
-            </Magnetic>
+            <Link href="/#access" className="btn btn-primary btn-sm" data-testid="link-nav-access">
+              {copy.cta}
+            </Link>
             <button
               type="button"
               className="icon-btn burger"
@@ -293,7 +304,6 @@ export function Shell({ children }: { children: ReactNode }) {
         {copy.skip}
       </a>
       <Backdrop />
-      <Cursor />
       <EasterEggs onGrid={() => setGridOn((value) => !value)} onTheme={toggle} />
       <motion.div
         className="scroll-progress"
