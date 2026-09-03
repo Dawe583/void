@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f6f7fb" />
+    <meta name="theme-color" content="#faf7f0" />
 
     <title>VOID, reversible autonomy for AI agents</title>
     <meta
@@ -111,8 +111,8 @@
 
     <style>
       /* Painted before the bundle arrives so the first frame is never white. */
-      html { background: #f6f7fb; }
-      html[data-theme="dark"] { background: #05070d; }
+      html { background: #faf7f0; }
+      html[data-theme="dark"] { background: #0d0b07; }
       #boot {
         position: fixed;
         inset: 0;
@@ -120,10 +120,10 @@
         place-items: center;
         font: 500 12px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
         letter-spacing: 0.34em;
-        color: #3a55f5;
-        background: #f6f7fb;
+        color: #c44608;
+        background: #faf7f0;
       }
-      html[data-theme="dark"] #boot { background: #05070d; color: #6e86ff; }
+      html[data-theme="dark"] #boot { background: #0d0b07; color: #ff7a33; }
       #boot span { animation: bootpulse 1.2s ease-in-out infinite; }
       @keyframes bootpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
       @media (prefers-reduced-motion: reduce) { #boot span { animation: none; } }
@@ -146,36 +146,36 @@
     <div id="root">
       <div id="boot"><span>VOID</span></div>
       <noscript>
-        <div style="max-width: 760px; margin: 0 auto; padding: 48px 24px; font-family: system-ui, sans-serif; color: #0b0e1a">
-          <p style="font: 500 11px/1 ui-monospace, monospace; letter-spacing: 0.24em; color: #3a55f5">
+        <div style="max-width: 760px; margin: 0 auto; padding: 48px 24px; font-family: system-ui, sans-serif; color: #17150f">
+          <p style="font: 500 11px/1 ui-monospace, monospace; letter-spacing: 0.24em; color: #c44608">
             [ VOID ] REVERSIBLE AUTONOMY LAYER
           </p>
           <h1 style="font-size: 40px; line-height: 1.1; margin: 18px 0">
             Every action your agents take, reversible.
           </h1>
-          <p style="line-height: 1.6; color: #2b3145">
+          <p style="line-height: 1.6; color: #3d382c">
             VOID sits between your agents and your tools. It intercepts every write, computes what it would take
             to undo it, and keeps a signed record you can replay. Ctrl+Z for autonomous systems.
           </p>
-          <p style="line-height: 1.6; color: #2b3145">
+          <p style="line-height: 1.6; color: #3d382c">
             Six mechanisms: an interceptor in front of any tool surface, preflight blast radius and class
             computation, a compensation compiler that synthesises the inverse action, an append only signed saga
             ledger, a time scrubber that replays compensations across systems, and an irreversibility budget that
             turns autonomy into a metered resource.
           </p>
           <p style="line-height: 2">
-            <a style="color: #3a55f5" href="/spec">Read the spec</a> ·
-            <a style="color: #3a55f5" href="/docs">Docs</a> ·
-            <a style="color: #3a55f5" href="/pricing">Pricing</a> ·
-            <a style="color: #3a55f5" href="/security">Security</a> ·
-            <a style="color: #3a55f5" href="/compliance">Compliance</a> ·
-            <a style="color: #3a55f5" href="/changelog">Changelog</a> ·
-            <a style="color: #3a55f5" href="/blog">Blog</a> ·
-            <a style="color: #3a55f5" href="/status">Status</a> ·
-            <a style="color: #3a55f5" href="/contact">Contact</a> ·
-            <a style="color: #3a55f5" href="/cs">Cesky</a>
+            <a style="color: #c44608" href="/spec">Read the spec</a> ·
+            <a style="color: #c44608" href="/docs">Docs</a> ·
+            <a style="color: #c44608" href="/pricing">Pricing</a> ·
+            <a style="color: #c44608" href="/security">Security</a> ·
+            <a style="color: #c44608" href="/compliance">Compliance</a> ·
+            <a style="color: #c44608" href="/changelog">Changelog</a> ·
+            <a style="color: #c44608" href="/blog">Blog</a> ·
+            <a style="color: #c44608" href="/status">Status</a> ·
+            <a style="color: #c44608" href="/contact">Contact</a> ·
+            <a style="color: #c44608" href="/cs">Cesky</a>
           </p>
-          <p style="font: 11px/1.6 ui-monospace, monospace; color: #868da1">
+          <p style="font: 11px/1.6 ui-monospace, monospace; color: #6f6857">
             VOID is a product concept. Numbers on this page are illustrative. This page needs JavaScript for the
             interactive replay demo, everything else is readable without it.
           </p>

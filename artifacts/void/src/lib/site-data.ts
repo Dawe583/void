@@ -7,7 +7,7 @@ export type Tone = "r0" | "r1" | "r2" | "r3";
 
 export const toneVar: Record<Tone, string> = {
   r0: "var(--ok)",
-  r1: "var(--accent)",
+  r1: "var(--info)",
   r2: "var(--warn)",
   r3: "var(--bad)",
 };

@@ -67,30 +67,36 @@
   --font-text: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   --font-code: "JetBrains Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
 
-  --paper: #f7f8fb;
-  --panel: #f0f2f7;
-  --panel-2: #e9ecf3;
-  --line: #e2e5ed;
-  --line-strong: #cfd4e0;
+  --paper: #faf7f0;
+  --panel: #f3efe4;
+  --panel-2: #ebe5d7;
+  --line: #e6e0d2;
+  --line-strong: #d3cab6;
 
-  --ink: #111218;
-  --ink-soft: #343743;
-  --ink-faint: #686d7b;
+  --ink: #17150f;
+  --ink-soft: #3d382c;
+  --ink-faint: #6f6857;
 
-  --accent: #3455fa;
-  --accent-dark: #2040e3;
+  /* Burnt orange is the brand colour and the only place it is used. Every
+     value here clears 4.5:1 on the paper, which small mono type needs. */
+  --accent: #c44608;
+  --accent-dark: #a63a05;
+
+  /* The four reversibility classes keep their own ramp so they never read as
+     the accent. Minimum separation between any two of them is 55 degrees. */
   --ok: #1a7f5a;
-  --warn: #a86a12;
-  --bad: #b3261e;
+  --info: #2f5fd0;
+  --warn: #8a6d0a;
+  --bad: #b3122a;
 
   /* Explicit alpha tints, so nothing depends on one colour function. */
-  --a04: rgba(52, 85, 250, 0.04);
-  --a08: rgba(52, 85, 250, 0.08);
-  --a14: rgba(52, 85, 250, 0.14);
-  --a28: rgba(52, 85, 250, 0.28);
+  --a04: rgba(196, 70, 8, 0.05);
+  --a08: rgba(196, 70, 8, 0.09);
+  --a14: rgba(196, 70, 8, 0.14);
+  --a28: rgba(196, 70, 8, 0.28);
   --ok-soft: rgba(26, 127, 90, 0.1);
-  --warn-soft: rgba(168, 106, 18, 0.1);
-  --bad-soft: rgba(179, 38, 30, 0.08);
+  --warn-soft: rgba(138, 109, 10, 0.12);
+  --bad-soft: rgba(179, 18, 42, 0.09);
 
   --max: 1180px;
   --gut: clamp(22px, 5vw, 72px);
@@ -100,8 +106,8 @@
   --dur-1: 160ms;
   --dur-2: 250ms;
 
-  --field-line: rgba(17, 18, 24, 0.05);
-  --field-char: rgba(17, 18, 24, 0.09);
+  --field-line: rgba(23, 21, 15, 0.055);
+  --field-char: rgba(23, 21, 15, 0.1);
   --field-opacity: 0.75;
   --scan-opacity: 0;
 }
@@ -109,32 +115,34 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --paper: #07090d;
-  --panel: #0d1017;
-  --panel-2: #131722;
-  --line: #1b2029;
-  --line-strong: #2b333f;
+  --paper: #0d0b07;
+  --panel: #141109;
+  --panel-2: #1c1810;
+  --line: #241f14;
+  --line-strong: #372f1f;
 
-  --ink: #d7e2d9;
-  --ink-soft: #aab5ac;
-  --ink-faint: #78857d;
+  --ink: #e8e2d5;
+  --ink-soft: #b3ab99;
+  --ink-faint: #837a67;
 
-  --accent: #5f7dff;
-  --accent-dark: #7891ff;
+  --accent: #ff7a33;
+  --accent-dark: #ff9155;
+
   --ok: #55ba8d;
-  --warn: #d59b4e;
-  --bad: #ef7169;
+  --info: #7d9bff;
+  --warn: #d9b95c;
+  --bad: #f4707f;
 
-  --a04: rgba(95, 125, 255, 0.05);
-  --a08: rgba(95, 125, 255, 0.1);
-  --a14: rgba(95, 125, 255, 0.16);
-  --a28: rgba(95, 125, 255, 0.3);
+  --a04: rgba(255, 122, 51, 0.05);
+  --a08: rgba(255, 122, 51, 0.1);
+  --a14: rgba(255, 122, 51, 0.16);
+  --a28: rgba(255, 122, 51, 0.3);
   --ok-soft: rgba(85, 186, 141, 0.12);
-  --warn-soft: rgba(213, 155, 78, 0.12);
-  --bad-soft: rgba(239, 113, 105, 0.12);
+  --warn-soft: rgba(217, 185, 92, 0.12);
+  --bad-soft: rgba(244, 112, 127, 0.12);
 
-  --field-line: rgba(215, 226, 217, 0.05);
-  --field-char: rgba(215, 226, 217, 0.08);
+  --field-line: rgba(232, 226, 213, 0.05);
+  --field-char: rgba(232, 226, 213, 0.08);
   --field-opacity: 0.34;
   --scan-opacity: 0.025;
 }
@@ -495,7 +503,7 @@
 }
 .tag-accent { border-color: var(--a28); color: var(--accent); }
 .tag-r0 { border-color: var(--ok); color: var(--ok); }
-.tag-r1 { border-color: var(--accent); color: var(--accent); }
+.tag-r1 { border-color: var(--info); color: var(--info); }
 .tag-r2 { border-color: var(--warn); color: var(--warn); }
 .tag-r3 { border-color: var(--bad); color: var(--bad); }
 
@@ -1194,14 +1202,14 @@
   height: 11px;
   display: block;
   border: 1px solid var(--line-strong);
-  background: var(--paper) !important;
+  background: var(--paper);
   transition: transform var(--dur-2) var(--ease);
 }
 .tl-node.is-past i { border-color: transparent; }
-.tl-node.is-past[data-tone="r0"] i { background: var(--ok) !important; }
-.tl-node.is-past[data-tone="r1"] i { background: var(--accent) !important; }
-.tl-node.is-past[data-tone="r2"] i { background: var(--warn) !important; }
-.tl-node.is-past[data-tone="r3"] i { background: var(--bad) !important; }
+.tl-node.is-past[data-tone="r0"] i { background: var(--ok); }
+.tl-node.is-past[data-tone="r1"] i { background: var(--info); }
+.tl-node.is-past[data-tone="r2"] i { background: var(--warn); }
+.tl-node.is-past[data-tone="r3"] i { background: var(--bad); }
 .tl-node.is-here i { transform: scale(1.45); }
 .tl-node b { font: 400 9px var(--font-code); color: var(--ink-faint); }
 .tl-node.is-here b { color: var(--accent); font-weight: 500; }
@@ -1714,12 +1722,12 @@ td.partial { color: var(--warn); }
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, rgba(247, 248, 251, 0.42), rgba(52, 85, 250, 0.14));
+  background: linear-gradient(120deg, rgba(250, 247, 240, 0.44), rgba(196, 70, 8, 0.16));
   mix-blend-mode: lighten;
   pointer-events: none;
 }
 [data-theme="dark"] .signal-media::after {
-  background: linear-gradient(120deg, rgba(7, 9, 13, 0.55), rgba(95, 125, 255, 0.16));
+  background: linear-gradient(120deg, rgba(13, 11, 7, 0.55), rgba(255, 122, 51, 0.16));
   mix-blend-mode: normal;
 }
 .signal-media figcaption {
@@ -1931,9 +1939,6 @@ pre.block {
 }
 /* The spotlight belonged to the card design. Here a hover is a tint. */
 .spotlight { position: relative; }
-
-.cursor-dot,
-.cursor-ring { display: none !important; }
 
 /* --------------------------------------------------------------------------
    24. Responsive and preference overrides
