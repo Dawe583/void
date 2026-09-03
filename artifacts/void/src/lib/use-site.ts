@@ -28,13 +28,15 @@ export function useFinePointer(): boolean {
   return useMediaQuery("(hover: hover) and (pointer: fine)");
 }
 
-/** Reads and persists the theme, defaulting to the system preference. */
+/** Reads and persists the theme, defaulting to light. */
 export function useTheme() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window === "undefined") return "dark";
+    // Light is the site's look, so it is what a first time visitor gets,
+    // whatever their system preference. A stored choice always wins, and the
+    // toggle in the nav still reaches the dark CRT theme.
+    if (typeof window === "undefined") return "light";
     const stored = window.localStorage.getItem("void-theme");
-    if (stored === "light" || stored === "dark") return stored;
-    return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    return stored === "light" || stored === "dark" ? stored : "light";
   });
 
   useEffect(() => {

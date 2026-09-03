@@ -27,7 +27,7 @@ the technical model, and captures private beta access requests.
 
 ## Where things live
 
-- `artifacts/void/src/index.css`: the entire design system: tokens, both themes, every keyframe. Change colours here, nowhere else.
+- `artifacts/void/src/index.css`: the entire design system: tokens, both themes, every keyframe. Light is the default; dark is the CRT theme behind the nav toggle. Change colours here, nowhere else.
 - `artifacts/void/src/lib/site-data.ts`: every piece of site copy and demo data, one source of truth for the homepage, the spec page and the Czech mutation.
 - `artifacts/void/src/lib/motion.ts`: the shared reveal variants and easings.
 - `artifacts/void/src/lib/use-site.ts`: theme, media query, visibility aware interval, active section, page meta, copy helpers.
@@ -48,6 +48,7 @@ the technical model, and captures private beta access requests.
 - **The waitlist receipt is a real hash chain.** Each row links to the previous row's hash, mirroring the product's own saga ledger, so the receipt on screen means something.
 - **Everything content lives in one module.** Sections import from `site-data.ts` rather than holding copy inline, which is what makes the Czech mutation and the spec page cheap to keep in sync.
 - **Recharts and every subpage are lazily loaded.** The homepage ships roughly 150kB gzipped of JS. Charts (109kB gzipped on their own) arrive after first paint.
+- **Light is the default theme for every visitor,** regardless of `prefers-color-scheme`. It is the site's look, so a first time visitor sees it whatever their operating system is set to. A stored choice still wins, and the nav toggle reaches the dark theme. Changing that back to following the system is one line in `useTheme` plus one in the pre-paint script in `index.html`.
 - **Motion is transform and opacity only.** Reveals deliberately do not animate `filter: blur()`: it forces a compositing layer per element and is the difference between smooth and janky on a mid range phone.
 
 ## Product

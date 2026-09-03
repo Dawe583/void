@@ -20,8 +20,9 @@
 
 /* ==========================================================================
    VOID design system
-   A dark-first instrument panel: deep ink, electric indigo, hairline glass,
-   fluid type, and motion that degrades gracefully on every device.
+   Light by default, with a complete dark CRT theme behind the nav toggle:
+   paper grounds, electric indigo, hairline glass, fluid type, and motion that
+   degrades gracefully on every device.
    ========================================================================== */
 
 @theme inline {
