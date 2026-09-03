@@ -4,6 +4,10 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { mountStaticSite } from "./lib/static-site";
+import { setStoreLogger } from "@shared/_store";
+
+// Route the shared store's logs through pino instead of console.
+setStoreLogger(logger);
 
 const app: Express = express();
 

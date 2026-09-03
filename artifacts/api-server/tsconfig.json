@@ -4,14 +4,20 @@
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",
     "outDir": "dist",
-    "rootDir": "src",
-    "types": ["node"]
+    "rootDir": "../..",
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@shared/*": [
+        "../../api/*"
+      ]
+    }
   },
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
   "references": [
-    {
-      "path": "../../lib/db"
-    },
     {
       "path": "../../lib/api-zod"
     }

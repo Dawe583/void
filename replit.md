@@ -13,6 +13,7 @@ the technical model, and captures private beta access requests.
 - `pnpm --filter @workspace/api-spec run codegen`: regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push`: push DB schema changes (dev only)
 - Optional env: `DATABASE_URL` (without it, form submissions live in memory), `STATIC_DIR`, `API_URL`
+- Deploys to Vercel with no configuration beyond `vercel.json`: the site is static, `/api/*` runs as Vercel Functions from `api/`. Set `DATABASE_URL` there for durable form storage.
 
 ## Stack
 
@@ -33,12 +34,15 @@ the technical model, and captures private beta access requests.
 - `artifacts/void/src/sections/`: homepage sections, one file per idea.
 - `artifacts/void/src/pages/`: routed pages. `docs.tsx` holds all five doc pages as data.
 - `artifacts/void/src/components/site/`: shell (nav, footer, backdrop, cursor, easter eggs) and the motion primitives.
-- `artifacts/api-server/src/routes/`: `/api` endpoints. `lib/storage.ts` is the persistence boundary.
-- `lib/db/src/schema/`: Drizzle tables, one file per table.
+- `api/`: Vercel Functions, and the code both HTTP layers share. `_core.ts` holds request schemas, receipt sealing, the status payload and rate limiting; `_store.ts` holds persistence; `_http.ts` is the small amount of plumbing Express gives for free.
+- `artifacts/api-server/src/routes/`: the same endpoints as a long lived Express server, importing `@shared/_core` and `@shared/_store`.
+- `lib/db/src/schema/`: Drizzle tables, one file per table. The migration source of truth.
 - `lib/api-spec/openapi.yaml`: the API contract, source for codegen.
 
 ## Architecture decisions
 
+- **One implementation, two HTTP layers.** The Vercel Functions in `api/` and the Express routes both import `api/_core` and `api/_store`, so the serverless and long lived shapes cannot drift. `_store.ts` uses `pg` rather than the Drizzle client because Vercel bundles functions from the repository root, where workspace packages do not resolve.
+- **No build step requires an environment variable.** The Vite configs default `PORT` and `BASE_PATH`. They used to throw, which meant the repository could not build on any CI that did not happen to set Replit's variables, Vercel included.
 - **The API also serves the site.** `artifacts/api-server/src/lib/static-site.ts` mounts the Vite build with a SPA fallback when it finds one. The platform can still route the two separately, but a single Node process behind a bare domain works with no extra config.
 - **Storage degrades instead of failing.** Without `DATABASE_URL` the forms keep entries in memory and set `stored: false` in the response. A brand new deployment never loses a visitor to a missing database.
 - **The waitlist receipt is a real hash chain.** Each row links to the previous row's hash, mirroring the product's own saga ledger, so the receipt on screen means something.
@@ -72,6 +76,10 @@ A single long homepage plus real subpages:
 - **`display: grid` on a `ul` or `ol` removes the list markers** in Chromium. Use margins between items.
 - **`vite preview` only proxies GET.** Test form posts against the API server (which serves the build) rather than the preview server.
 - **`lib/db` throws at import time when `DATABASE_URL` is missing.** `storage.ts` imports it lazily inside a try; keep it that way or the API cannot boot without a database.
+- **Never let a build config throw on a missing environment variable.** `PORT` and `BASE_PATH` now default. The previous `throw` made `pnpm run build` fail on every machine outside Replit.
+- **Anything under `api/` must import only npm packages and relative files.** Vercel bundles those functions from the repository root, where `@workspace/*` does not resolve. `zod` and `pg` are root dependencies for exactly this reason.
+- **Do not exclude workspace packages in `.vercelignore`.** `pnpm install --frozen-lockfile` fails if a package the lockfile knows about is missing from the upload.
+- **`pg` is imported statically in `api/_store.ts`.** A dynamic `import("pg")` bundled into ESM output dies with "Dynamic require of events is not supported", and the storage fallback hides it as a quiet `stored: false`.
 - Before pointing a domain at the site, replace `https://void.systems` in `artifacts/void/index.html` and in `artifacts/void/public/{sitemap.xml,robots.txt}`.
 
 ## Pointers

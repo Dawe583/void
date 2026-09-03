@@ -36,23 +36,45 @@ Environment:
 
 ## Deploying to a domain
 
-Two shapes work without code changes.
+Three shapes work without code changes.
 
-1. **Two services**, which is what `.replit-artifact/artifact.toml` configures:
-   the static build is served from `artifacts/void/dist/public` with a
-   `/* -> /index.html` rewrite, and the API is routed at `/api`.
-2. **One Node process**: build both packages, then run the API server. It serves
-   `/api/*` and, if it finds `artifacts/void/dist/public`, the site as well,
-   including the SPA fallback that deep links like `/docs/policy` need.
+### Vercel
+
+`vercel.json` configures everything. Import the repository, leave every build
+setting on its default, and deploy. There is nothing to fill in.
+
+- install: `pnpm install --frozen-lockfile`
+- build: `pnpm run build:web`, which builds only the site
+- output: `artifacts/void/dist/public`
+- `/api/*` is served by the Vercel Functions in `api/`
+- everything else falls back to `index.html`, so `/docs/policy` resolves
+
+Set `DATABASE_URL` in the project's environment variables to make the two forms
+persist. Without it the functions accept submissions, log them and answer
+`stored: false`, which is honest but not durable, and on a serverless runtime it
+means nothing is kept. Any Postgres works; Vercel Postgres and Neon both do.
+
+### One Node process
+
+Build both packages, then run the API server. It serves `/api/*` and, if it
+finds `artifacts/void/dist/public`, the site as well, including the SPA fallback
+that deep links need.
 
 ```bash
 pnpm run build
 PORT=8080 NODE_ENV=production node artifacts/api-server/dist/index.mjs
 ```
 
-Before pointing a real domain at it, replace `https://void.systems` in
-`artifacts/void/index.html` (canonical, hreflang, Open Graph) and in
-`artifacts/void/public/{sitemap.xml,robots.txt}`.
+### Two services
+
+What `.replit-artifact/artifact.toml` configures: the static build is served
+from `artifacts/void/dist/public` with a `/* -> /index.html` rewrite, and the
+API is routed at `/api`.
+
+### Before pointing a real domain at it
+
+Replace `https://void.systems` in `artifacts/void/index.html` (canonical,
+hreflang, Open Graph) and in `artifacts/void/public/{sitemap.xml,robots.txt}`.
 
 ## Stack
 
@@ -74,9 +96,11 @@ Before pointing a real domain at it, replace `https://void.systems` in
 | `artifacts/void/src/sections/`       | homepage sections                                            |
 | `artifacts/void/src/pages/`          | routed pages, including the Czech mutation                   |
 | `artifacts/void/src/components/site/`| shell, nav, footer, backdrop, motion primitives              |
-| `artifacts/api-server/src/routes/`   | `/api` endpoints                                             |
-| `artifacts/api-server/src/lib/storage.ts` | persistence with the in memory fallback                 |
-| `lib/db/src/schema/`                 | Drizzle tables                                               |
+| `api/`                               | Vercel Functions, plus the code both HTTP layers share       |
+| `api/_core.ts`                       | request schemas, receipt sealing, status data, rate limiting  |
+| `api/_store.ts`                      | Postgres persistence with the in memory fallback             |
+| `artifacts/api-server/src/routes/`   | the same endpoints as a long lived Express server            |
+| `lib/db/src/schema/`                 | Drizzle tables, the migration source of truth                |
 
 ## Routes
 
@@ -98,6 +122,18 @@ Both POST endpoints are Zod validated and rate limited per IP (5 and 4 per
 minute). Without `DATABASE_URL` they store in memory and say so in the response,
 so a fresh deployment never drops a visitor on the floor.
 
+There are two HTTP layers over one implementation. The Vercel Functions in
+`api/` and the Express routes in `artifacts/api-server/` both import `api/_core`
+for validation, receipt sealing and rate limiting, and `api/_store` for
+persistence, so the two deployment shapes cannot drift.
+
+`api/_store.ts` talks to Postgres through `pg` rather than the Drizzle client,
+because Vercel bundles functions from the repository root where workspace
+packages do not resolve. Its `CREATE TABLE IF NOT EXISTS` bootstrap mirrors
+`lib/db/src/schema` exactly, verified by creating the tables both ways and
+diffing the result. `pnpm --filter @workspace/db run push` stays the canonical
+migration path; change one definition and change the other.
+
 ## Keyboard
 
 - `T` toggles the theme
@@ -116,3 +152,5 @@ All three are disabled when the visitor asks for reduced motion.
   looks like a metric or a quote carries a visible "illustrative" label.
 - Keyframe names are prefixed `v-`. Tailwind ships its own `ping`, `spin`,
   `pulse` and friends, and an unprefixed name silently picks up the wrong one.
+- No build step may require an environment variable. `PORT` and `BASE_PATH`
+  default, because a config that throws without them cannot build on any CI.
