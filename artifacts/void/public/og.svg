@@ -5,26 +5,26 @@
     </pattern>
   </defs>
 
-  <rect width="1200" height="630" fill="#faf7f0"/>
+  <rect width="1200" height="630" fill="#f6f0e3"/>
   <rect width="1200" height="630" fill="url(#grid)"/>
 
   <!-- The frame and its crosshairs, the same spec sheet furniture as the site -->
-  <rect x="60.5" y="40.5" width="1079" height="549" fill="none" stroke="#d3cab6"/>
+  <rect x="60.5" y="40.5" width="1079" height="549" fill="none" stroke="#c9bda3"/>
   <g fill="#6f6857" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" text-anchor="middle">
     <text x="60" y="46">+</text><text x="1140" y="46">+</text>
     <text x="60" y="595">+</text><text x="1140" y="595">+</text>
   </g>
 
   <text x="110" y="112" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="26" letter-spacing="9" fill="#17150f" font-weight="700">VOID</text>
-  <text x="110" y="150" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" letter-spacing="4" fill="#c44608">PRIVATE BETA</text>
+  <text x="110" y="150" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" letter-spacing="4" fill="#bd4206">PRIVATE BETA</text>
   <text x="286" y="150" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" letter-spacing="4" fill="#6f6857">· REVERSIBLE AUTONOMY LAYER</text>
 
   <text x="110" y="272" font-family="Georgia, 'Times New Roman', serif" font-size="78" fill="#17150f">Every action your agents</text>
-  <text x="110" y="356" font-family="Georgia, 'Times New Roman', serif" font-size="78" fill="#17150f">take, <tspan fill="#c44608">reversible</tspan>.</text>
+  <text x="110" y="356" font-family="Georgia, 'Times New Roman', serif" font-size="78" fill="#17150f">take, <tspan fill="#bd4206">reversible</tspan>.</text>
 
   <text x="110" y="414" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" fill="#3d382c">Ctrl+Z for autonomous systems. Intercept, classify, compensate, replay.</text>
 
-  <line x1="110" y1="452" x2="1090" y2="452" stroke="#e6e0d2"/>
+  <line x1="110" y1="452" x2="1090" y2="452" stroke="#ded5c1"/>
 
   <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19" letter-spacing="2">
     <g transform="translate(110 486)">

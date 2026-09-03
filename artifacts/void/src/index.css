@@ -67,20 +67,21 @@
   --font-text: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   --font-code: "JetBrains Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
 
-  --paper: #faf7f0;
-  --panel: #f3efe4;
-  --panel-2: #ebe5d7;
-  --line: #e6e0d2;
-  --line-strong: #d3cab6;
+  --paper: #f6f0e3;
+  --panel: #efe8d8;
+  --panel-2: #e6ddc9;
+  --line: #ded5c1;
+  --line-strong: #c9bda3;
 
   --ink: #17150f;
   --ink-soft: #3d382c;
   --ink-faint: #6f6857;
 
-  /* Burnt orange is the brand colour and the only place it is used. Every
-     value here clears 4.5:1 on the paper, which small mono type needs. */
-  --accent: #c44608;
-  --accent-dark: #a63a05;
+  /* Burnt orange is the brand colour and the only place it is used. It sits a
+     step deeper than the paper's warmth so it still clears 4.5:1, which the
+     10px mono labels need. */
+  --accent: #bd4206;
+  --accent-dark: #9c3504;
 
   /* The four reversibility classes keep their own ramp so they never read as
      the accent. Minimum separation between any two of them is 55 degrees. */
@@ -90,10 +91,10 @@
   --bad: #b3122a;
 
   /* Explicit alpha tints, so nothing depends on one colour function. */
-  --a04: rgba(196, 70, 8, 0.05);
-  --a08: rgba(196, 70, 8, 0.09);
-  --a14: rgba(196, 70, 8, 0.14);
-  --a28: rgba(196, 70, 8, 0.28);
+  --a04: rgba(189, 66, 6, 0.055);
+  --a08: rgba(189, 66, 6, 0.1);
+  --a14: rgba(189, 66, 6, 0.15);
+  --a28: rgba(189, 66, 6, 0.3);
   --ok-soft: rgba(26, 127, 90, 0.1);
   --warn-soft: rgba(138, 109, 10, 0.12);
   --bad-soft: rgba(179, 18, 42, 0.09);
@@ -106,8 +107,8 @@
   --dur-1: 160ms;
   --dur-2: 250ms;
 
-  --field-line: rgba(23, 21, 15, 0.055);
-  --field-char: rgba(23, 21, 15, 0.1);
+  --field-line: rgba(23, 21, 15, 0.06);
+  --field-char: rgba(23, 21, 15, 0.11);
   --field-opacity: 0.75;
   --scan-opacity: 0;
 }
@@ -115,36 +116,41 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --paper: #0d0b07;
-  --panel: #141109;
-  --panel-2: #1c1810;
-  --line: #241f14;
-  --line-strong: #372f1f;
+  /* The dark theme used to read flat and glaring at the same time, and those
+     were the same fault: the rules sat at 1.20:1 against the ground, so the
+     spec sheet structure was invisible, which left the accent at 7.57:1 as the
+     only bright thing on the page. The fix is to raise the rules and lower the
+     accent, not to turn anything up. */
+  --paper: #12100a;
+  --panel: #1a1610;
+  --panel-2: #241f16;
+  --line: #38311f;
+  --line-strong: #564a34;
 
-  --ink: #e8e2d5;
-  --ink-soft: #b3ab99;
-  --ink-faint: #837a67;
+  --ink: #f0eade;
+  --ink-soft: #c0b7a2;
+  --ink-faint: #8f8672;
 
-  --accent: #ff7a33;
-  --accent-dark: #ff9155;
+  --accent: #e8702c;
+  --accent-dark: #ff8b4d;
 
-  --ok: #55ba8d;
-  --info: #7d9bff;
-  --warn: #d9b95c;
-  --bad: #f4707f;
+  --ok: #5cc094;
+  --info: #8aa4ff;
+  --warn: #dcbc63;
+  --bad: #f47a88;
 
-  --a04: rgba(255, 122, 51, 0.05);
-  --a08: rgba(255, 122, 51, 0.1);
-  --a14: rgba(255, 122, 51, 0.16);
-  --a28: rgba(255, 122, 51, 0.3);
-  --ok-soft: rgba(85, 186, 141, 0.12);
-  --warn-soft: rgba(217, 185, 92, 0.12);
-  --bad-soft: rgba(244, 112, 127, 0.12);
+  --a04: rgba(232, 112, 44, 0.06);
+  --a08: rgba(232, 112, 44, 0.11);
+  --a14: rgba(232, 112, 44, 0.17);
+  --a28: rgba(232, 112, 44, 0.32);
+  --ok-soft: rgba(92, 192, 148, 0.12);
+  --warn-soft: rgba(220, 188, 99, 0.12);
+  --bad-soft: rgba(244, 122, 136, 0.12);
 
-  --field-line: rgba(232, 226, 213, 0.05);
-  --field-char: rgba(232, 226, 213, 0.08);
-  --field-opacity: 0.34;
-  --scan-opacity: 0.025;
+  --field-line: rgba(240, 234, 222, 0.07);
+  --field-char: rgba(240, 234, 222, 0.1);
+  --field-opacity: 0.5;
+  --scan-opacity: 0.03;
 }
 
 /* --------------------------------------------------------------------------
@@ -1722,12 +1728,12 @@ td.partial { color: var(--warn); }
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, rgba(250, 247, 240, 0.44), rgba(196, 70, 8, 0.16));
+  background: linear-gradient(120deg, rgba(246, 240, 227, 0.44), rgba(189, 66, 6, 0.17));
   mix-blend-mode: lighten;
   pointer-events: none;
 }
 [data-theme="dark"] .signal-media::after {
-  background: linear-gradient(120deg, rgba(13, 11, 7, 0.55), rgba(255, 122, 51, 0.16));
+  background: linear-gradient(120deg, rgba(18, 16, 10, 0.52), rgba(232, 112, 44, 0.18));
   mix-blend-mode: normal;
 }
 .signal-media figcaption {
