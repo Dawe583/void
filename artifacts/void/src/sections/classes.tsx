@@ -8,7 +8,7 @@ export function Classes() {
   const [open, setOpen] = useState<Tone | null>("r0");
 
   return (
-    <Section id="classes" index="06" label="CLASSES">
+    <Section id="classes" index="09" label="CLASSES">
       <SplitHeading text="Know the class before the call." className="h2" />
       <p className="lede mt-sm">
         VOID does not promise everything is undoable. It promises you know which class you are in before the

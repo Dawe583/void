@@ -7,6 +7,7 @@ import { useTheme, useVisibleInterval } from "@/lib/use-site";
 
 const NAV_LINKS = [
   { label: "Product", cs: "Produkt", href: "/#mechanisms" },
+  { label: "Registry", cs: "Registr", href: "/registry" },
   { label: "Docs", cs: "Dokumentace", href: "/docs" },
   { label: "Spec", cs: "Specifikace", href: "/spec" },
   { label: "Pricing", cs: "Ceny", href: "/pricing" },
@@ -214,6 +215,8 @@ const FOOTER_COLUMNS = [
     links: [
       { label: "Mechanisms", cs: "Mechanismy", href: "/#mechanisms" },
       { label: "Replay demo", cs: "Přehrání", href: "/#replay" },
+      { label: "Hold queue", cs: "Fronta držení", href: "/#hold" },
+      { label: "Taint graph", cs: "Graf nákazy", href: "/#taint" },
       { label: "Pricing", cs: "Ceny", href: "/pricing" },
       { label: "Changelog", cs: "Changelog", href: "/changelog" },
       { label: "Status", cs: "Stav", href: "/status" },
@@ -227,6 +230,7 @@ const FOOTER_COLUMNS = [
       { label: "Policy language", cs: "Jazyk politik", href: "/docs/policy" },
       { label: "Ledger format", cs: "Formát ledgeru", href: "/docs/ledger" },
       { label: "Specification", cs: "Specifikace", href: "/spec" },
+      { label: "Reversibility Registry", cs: "Registr vratnosti", href: "/registry" },
     ],
   },
   {
@@ -234,6 +238,7 @@ const FOOTER_COLUMNS = [
     links: [
       { label: "Security", cs: "Bezpečnost", href: "/security" },
       { label: "Compliance", cs: "Compliance", href: "/compliance" },
+      { label: "Attestation", cs: "Attestace", href: "/attestation" },
       { label: "Reversibility classes", cs: "Třídy vratnosti", href: "/#classes" },
       { label: "FAQ", cs: "Otázky", href: "/#faq" },
     ],

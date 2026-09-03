@@ -57,7 +57,7 @@ export function Access() {
   };
 
   return (
-    <Section id="access" index="13" label="ACCESS">
+    <Section id="access" index="16" label="ACCESS">
       <div className="cta-grid">
         <div>
           <SplitHeading text="Let your agents act. Keep the undo." className="h2" />

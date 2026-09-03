@@ -27,7 +27,7 @@ const LEDGER_ENTRY = [
 
 export function Record() {
   return (
-    <Section id="record" index="11" label="RECORD">
+    <Section id="record" index="14" label="RECORD">
       <SplitHeading text="A log you can hand to a regulator." className="h2" />
       <div className="record-grid mt-lg">
         <Reveal className="prose">
@@ -85,7 +85,7 @@ export function Faq() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <Section id="faq" index="12" label="FAQ">
+    <Section id="faq" index="15" label="FAQ">
       <SplitHeading text="The uncomfortable questions, answered plainly." className="h2" />
       <div className="faq-list mt-lg">
         {faqs.map(([question, answer], index) => {

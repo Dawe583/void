@@ -4,6 +4,9 @@ import { Hero } from "@/sections/hero";
 import { Explore, FieldNotes, Gap, Marquee, Mechanisms } from "@/sections/basics";
 import { Install } from "@/sections/install";
 import { Replay } from "@/sections/replay";
+import { Blast } from "@/sections/blast";
+import { Hold } from "@/sections/hold";
+import { Taint } from "@/sections/taint";
 import { Signal } from "@/sections/signal";
 import { Topology } from "@/sections/topology";
 import { Classes } from "@/sections/classes";
@@ -32,7 +35,10 @@ export default function Home() {
       <Mechanisms />
       <Signal />
       <Install />
+      <Blast />
+      <Hold />
       <Replay />
+      <Taint />
       <Topology />
       <Classes />
       <Suspense fallback={<div className="section" style={{ minHeight: 320 }} aria-hidden="true" />}>

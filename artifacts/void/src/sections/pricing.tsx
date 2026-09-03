@@ -84,7 +84,7 @@ export function ComparisonTable() {
 
 export function PricingSection() {
   return (
-    <Section id="pricing" index="09" label="PRICING">
+    <Section id="pricing" index="12" label="PRICING">
       <SplitHeading text="Priced per protected action, not per seat." className="h2" />
       <p className="lede mt-sm">
         Seats are not the risk surface. The number of writes VOID stands in front of is, so that is the meter.

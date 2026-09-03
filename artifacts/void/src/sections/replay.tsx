@@ -143,7 +143,7 @@ export function Replay() {
   };
 
   return (
-    <Section id="replay" index="04" label="REPLAY">
+    <Section id="replay" index="06" label="REPLAY">
       <SplitHeading text="Drag the past back." className="h2" />
       <p className="lede mt-sm">
         Pick a moment. VOID replays compensations in LIFO order across every connected system and shows you, live,

@@ -49,6 +49,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, 'src'),
+      // The reversibility registry is one file read by three consumers: this
+      // bundle, the Vercel Function and the Express route. Aliasing rather than
+      // copying is what stops the site and the API from drifting.
+      '@shared': path.resolve(import.meta.dirname, '..', '..', 'api'),
       '@assets': path.resolve(
         import.meta.dirname,
         '..',

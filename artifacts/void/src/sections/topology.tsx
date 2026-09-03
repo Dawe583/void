@@ -56,7 +56,7 @@ export function Topology() {
   const shape = shapes[mode];
 
   return (
-    <Section id="topology" index="05" label="TOPOLOGY">
+    <Section id="topology" index="08" label="TOPOLOGY">
       <SplitHeading text="One layer, in the write path." className="h2" />
       <p className="lede mt-sm">
         The same event model in three deployment shapes. Pick the one that matches how much of the agent runtime

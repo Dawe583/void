@@ -101,7 +101,7 @@ const axisStyle = { fontFamily: "var(--font-code)", fontSize: 10, fill: "var(--i
 
 export function Telemetry() {
   return (
-    <Section id="telemetry" index="07" label="TELEMETRY">
+    <Section id="telemetry" index="10" label="TELEMETRY">
       <SplitHeading text="The numbers your risk team will ask for." className="h2" />
       <p className="lede mt-sm">
         Coverage, blast radius and budget burn, on one screen. These are the three questions that decide whether

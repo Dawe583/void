@@ -85,6 +85,22 @@ export const mechanisms: Mechanism[] = [
     art: "  .----.  \n /  /\\  \\ \n|  /  \\  |\n \\______ /"
   },
   {
+    id: "shadow",
+    name: "Shadow run",
+    body: "Preflight does not estimate the blast radius, it measures it. The call runs against a twin first: the predicate as a counting SELECT in a transaction VOID aborts, the segment resolved without a send, the prefix listed key by key. The number you approve against is a fact.",
+    meta: "measured, not estimated",
+    icon: "layers",
+    art: "  +---+   \n  | # |   \n  +---+   \n  : ? :   \n  '- -'   "
+  },
+  {
+    id: "hold",
+    name: "Hold queue",
+    body: "A third state next to allow and deny. The call goes into a countdown, the agent gets a provisional receipt and keeps working, and the action commits when the timer runs out unless somebody cancels it. Cancelling takes every action that consumed the provisional result with it.",
+    meta: "30 to 900s, cascading cancel",
+    icon: "clock",
+    art: "  --| |-- \n    | |   \n   [0:42] \n    | |   "
+  },
+  {
     id: "compensation",
     name: "Compensation compiler",
     body: "For every intercepted call, VOID synthesizes the inverse action and captures a before snapshot. Create becomes delete, update becomes restore, commit becomes revert.",
@@ -107,6 +123,14 @@ export const mechanisms: Mechanism[] = [
     meta: "LIFO replay, cross system",
     icon: "rewind",
     art: "  o---o---o\n      ^    \n  o---o---o\n  <  time  >"
+  },
+  {
+    id: "taint",
+    name: "Taint graph",
+    body: "One agent writes a field, a second reads it and issues a refund, a third reads it and mails a thousand customers. Undoing the first means finding the other two. VOID tracks which action consumed which result, across agents and across hours, so a compensation knows its own true scope.",
+    meta: "cross agent, cross session",
+    icon: "git",
+    art: "    o     \n   / \\    \n  o   o   \n  |    \\  \n  o     o "
   },
   {
     id: "budget",
@@ -349,6 +373,8 @@ export const quotes = [
 /* -------------------------------------------------------------------------- */
 
 export const exploreItems = [
+  { label: "Registry", href: "/registry", tag: "open data", copy: "What undoes what, classified against the state of the target." },
+  { label: "Attestation", href: "/attestation", tag: "evidence", copy: "Verify the hash chain in your own browser." },
   { label: "Docs", href: "/docs", tag: "guides", copy: "Quickstart, policy language, ledger format." },
   { label: "Spec", href: "/spec", tag: "technical", copy: "The full reversible autonomy model." },
   { label: "Pricing", href: "/pricing", tag: "commercial", copy: "Per protected action, with a calculator." },
@@ -589,4 +615,232 @@ export const statusServices = [
   { name: "Saga ledger, write path", uptime: "99.99%", state: "operational" },
   { name: "Ledger export API", uptime: "99.95%", state: "operational" },
   { name: "Control plane and dashboard", uptime: "99.97%", state: "operational" },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Hold queue demo                                                            */
+/* -------------------------------------------------------------------------- */
+
+export type HeldAction = {
+  id: string;
+  label: string;
+  tone: Tone;
+  system: string;
+  /** Remaining hold in seconds when the demo starts. */
+  seconds: number;
+  detail: string;
+  /**
+   * Actions that were issued against this one's provisional result. Cancelling
+   * a held action has to take its dependents with it, which is the part that
+   * makes a hold queue harder than a delay.
+   */
+  dependents: string[];
+};
+
+export const heldActions: HeldAction[] = [
+  {
+    id: "h1",
+    label: "stripe.refund.create",
+    tone: "r2",
+    system: "LEDGER",
+    seconds: 96,
+    detail: "EUR 2,480.00 against ch_3P9k. The agent read a duplicate charge that turned out to be a captured authorisation and a capture, not two payments.",
+    dependents: ["h2", "h3", "h4"],
+  },
+  {
+    id: "h2",
+    label: "gmail.message.send",
+    tone: "r3",
+    system: "MAIL",
+    seconds: 74,
+    detail: "Refund confirmation to the billing contact. Written against the provisional refund id, so it is only correct if the refund is released.",
+    dependents: ["h4"],
+  },
+  {
+    id: "h3",
+    label: "crm.case.close",
+    tone: "r1",
+    system: "CRM",
+    seconds: 52,
+    detail: "Closes case 7781 as resolved by refund. Depends on the refund existing.",
+    dependents: [],
+  },
+  {
+    id: "h4",
+    label: "slack.chat.postMessage",
+    tone: "r2",
+    system: "MAIL",
+    seconds: 38,
+    detail: "Posts the resolution summary to #billing-ops, quoting both the refund and the confirmation email.",
+    dependents: [],
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Blast radius probes                                                        */
+/* -------------------------------------------------------------------------- */
+
+export type BlastProbe = {
+  id: string;
+  call: string;
+  tone: Tone;
+  statement: string;
+  /** How the number was obtained. Never an estimate, always an execution. */
+  method: string;
+  rows: { target: string; count: number; note: string; tone: Tone }[];
+  verdict: string;
+  latency: string;
+};
+
+export const blastProbes: BlastProbe[] = [
+  {
+    id: "p1",
+    call: "postgres.row.delete",
+    tone: "r1",
+    statement: "DELETE FROM orders WHERE status = 'draft' AND updated_at < now() - interval '90 days'",
+    method: "The predicate runs as a counting SELECT inside a transaction VOID opens and aborts. Foreign keys are walked to find what cascades.",
+    latency: "31ms",
+    rows: [
+      { target: "orders", count: 41883, note: "matched directly by the predicate", tone: "r0" },
+      { target: "order_items", count: 6204, note: "reached through ON DELETE CASCADE, not in the statement", tone: "r0" },
+      { target: "refund_queue", count: 114, note: "unprocessed refunds attached to draft orders, cascaded", tone: "r2" },
+    ],
+    verdict: "Held. The agent wrote a statement about orders and would have deleted 114 pending refunds it never mentioned.",
+  },
+  {
+    id: "p2",
+    call: "sendgrid.mail.send",
+    tone: "r3",
+    statement: "POST /v3/mail/send  segment: all-customers-eu  template: d-91f4",
+    method: "The segment is resolved against the list API with no send, so the recipient count is exact rather than estimated from the last run.",
+    latency: "182ms",
+    rows: [
+      { target: "recipients", count: 128400, note: "resolved from the segment at intercept time", tone: "r3" },
+      { target: "unsubscribed", count: 2216, note: "suppression list applied, these are excluded", tone: "r0" },
+      { target: "outside consent scope", count: 411, note: "no marketing consent recorded, a regulatory problem rather than a delivery one", tone: "r3" },
+    ],
+    verdict: "Vetoed. The agent's intent said a test send to a seed list. The segment it resolved was every customer in the EU.",
+  },
+  {
+    id: "p3",
+    call: "aws.s3.object.delete",
+    tone: "r3",
+    statement: "DeleteObjects  bucket: prod-exports  prefix: reports/2025/",
+    method: "The prefix is listed with ListObjectsV2 and each key is probed for a noncurrent version, because versioning can be suspended after objects were written.",
+    latency: "1.4s",
+    rows: [
+      { target: "objects with a prior version", count: 12901, note: "delete writes a marker, fully reversible", tone: "r0" },
+      { target: "objects with no prior version", count: 3, note: "written while versioning was suspended, unrecoverable", tone: "r3" },
+    ],
+    verdict: "Held for approval. Three objects out of 12,904 turn a routine cleanup into an irreversible one, and the worst case in a batch is the class of the batch.",
+  },
+  {
+    id: "p4",
+    call: "salesforce.record.update",
+    tone: "r2",
+    statement: "PATCH /composite/sobjects/Contact  field: OwnerId  count: 412",
+    method: "Each record is read before the write to capture a before image, which also reveals what else is attached to it.",
+    latency: "640ms",
+    rows: [
+      { target: "contacts", count: 412, note: "before image captured, restore is exact", tone: "r0" },
+      { target: "active email sequences", count: 38, note: "reassignment re-triggers sender identity on running sequences", tone: "r2" },
+      { target: "open opportunities", count: 61, note: "forecast attribution moves with the owner", tone: "r1" },
+    ],
+    verdict: "Held. The field update is reversible. The 38 sequences that fire a new email on owner change are not.",
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Cross agent taint graph                                                    */
+/* -------------------------------------------------------------------------- */
+
+export type TaintNode = {
+  id: string;
+  agent: string;
+  label: string;
+  tone: Tone;
+  at: string;
+  detail: string;
+  /** Nodes whose output this one consumed. */
+  reads: string[];
+  /** Layout, in grid units. */
+  col: number;
+  row: number;
+};
+
+export const taintAgents = ["support-triage", "billing-ops", "growth-outbound"] as const;
+
+export const taintNodes: TaintNode[] = [
+  { id: "t1", agent: "support-triage", label: "zendesk.ticket.read", tone: "r0", at: "09:02", detail: "Reads ticket 44120, a duplicate charge complaint.", reads: [], col: 0, row: 1 },
+  { id: "t2", agent: "support-triage", label: "crm.contact.update", tone: "r0", at: "09:04", detail: "Sets acct.9182.billing_state to disputed. Fully reversible on its own, a before image is held.", reads: ["t1"], col: 1, row: 1 },
+  { id: "t3", agent: "billing-ops", label: "crm.contact.read", tone: "r0", at: "09:19", detail: "Polls for accounts in a disputed billing state and picks up 9182.", reads: ["t2"], col: 2, row: 0 },
+  { id: "t4", agent: "billing-ops", label: "stripe.refund.create", tone: "r2", at: "09:21", detail: "Refunds EUR 2,480.00 because the account is flagged disputed.", reads: ["t3"], col: 3, row: 0 },
+  { id: "t5", agent: "billing-ops", label: "stripe.payout.create", tone: "r3", at: "09:24", detail: "Nightly settlement moves the adjusted balance to the external bank. No inverse exists once it settles.", reads: ["t4"], col: 4, row: 0 },
+  { id: "t6", agent: "growth-outbound", label: "crm.segment.read", tone: "r0", at: "09:30", detail: "Builds a win-back segment and excludes accounts in a disputed state, so 9182 lands in a different branch than it should have.", reads: ["t2"], col: 2, row: 2 },
+  { id: "t7", agent: "growth-outbound", label: "sendgrid.mail.send", tone: "r3", at: "09:31", detail: "Sends an apology and discount offer to 1,204 accounts including 9182.", reads: ["t6"], col: 3, row: 2 },
+  { id: "t8", agent: "support-triage", label: "zendesk.ticket.solve", tone: "r1", at: "09:38", detail: "Marks 44120 solved, quoting the refund id.", reads: ["t4"], col: 4, row: 1 },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Compliance frames served by one ledger                                     */
+/* -------------------------------------------------------------------------- */
+
+export type Frame = {
+  id: string;
+  name: string;
+  scope: string;
+  applies: string;
+  asks: string;
+  /** Ledger fields that answer it. */
+  fields: string[];
+  /** What the ledger genuinely does not cover. Stated because every frame has one. */
+  gap: string;
+};
+
+export const frames: Frame[] = [
+  {
+    id: "aiact",
+    name: "EU AI Act, Article 12",
+    scope: "High risk AI systems placed on the EU market",
+    applies: "Annex III obligations apply from 2 August 2026. A delay to December 2027 was proposed through the Digital Omnibus and is in trilogue, not law.",
+    asks: "Automatic recording of events over the lifetime of the system, at a level that lets a competent authority reconstruct what happened.",
+    fields: ["intent", "agent identity", "tool identity", "timestamp", "policy decision", "approver identity", "chain link"],
+    gap: "Article 12 is one obligation among many. Risk management, data governance and human oversight are not things a ledger can evidence on its own.",
+  },
+  {
+    id: "soc2",
+    name: "SOC 2, CC7 and CC8",
+    scope: "Service organisations under a Trust Services audit",
+    applies: "Continuously, once the control is in scope for your report",
+    asks: "Evidence that changes are authorised and that anomalies are detected and responded to.",
+    fields: ["policy decision", "approver identity", "before snapshot reference", "compensation plan", "replay record"],
+    gap: "An auditor tests the operation of the control, not the existence of a log. The ledger is the evidence, your process is the control.",
+  },
+  {
+    id: "dora",
+    name: "DORA, ICT risk and incident records",
+    scope: "EU financial entities and their critical ICT providers",
+    applies: "In force since 17 January 2025",
+    asks: "Records of ICT related incidents and the ability to reconstruct and report them within defined windows.",
+    fields: ["timestamp", "blast radius", "class", "compensation outcome", "chain link"],
+    gap: "Reporting timelines, third party register and resilience testing sit outside anything a write path log produces.",
+  },
+  {
+    id: "nis2",
+    name: "NIS2, incident handling",
+    scope: "Essential and important entities in the EU",
+    applies: "Transposed into national law, with dates varying by member state",
+    asks: "Logging sufficient to detect, handle and report significant incidents.",
+    fields: ["agent identity", "tool identity", "policy decision", "blast radius", "replay record"],
+    gap: "Scope is set by national transposition, so what counts as significant is not something the ledger can decide for you.",
+  },
+  {
+    id: "iso42001",
+    name: "ISO/IEC 42001",
+    scope: "Organisations running an AI management system",
+    applies: "On certification, and on each surveillance audit",
+    asks: "Documented records of AI system operation, including controls over automated decisions and their effects.",
+    fields: ["intent", "class", "budget entry", "approver identity", "compensation plan"],
+    gap: "A management system is policy, roles and review cycles. The ledger evidences the operating layer underneath it.",
+  },
 ];

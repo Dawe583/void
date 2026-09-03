@@ -10,7 +10,7 @@ export function Rollout() {
   const scaleY = useSpring(scrollYProgress, { stiffness: 120, damping: 26, restDelta: 0.001 });
 
   return (
-    <Section id="rollout" index="08" label="ROLLOUT">
+    <Section id="rollout" index="11" label="ROLLOUT">
       <div className="rollout-grid">
         <div className="rollout-sticky">
           <SplitHeading text="Four weeks from shadow mode to enforcing." className="h2" />

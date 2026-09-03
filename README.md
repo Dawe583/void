@@ -97,6 +97,7 @@ hreflang, Open Graph) and in `artifacts/void/public/{sitemap.xml,robots.txt}`.
 | `artifacts/void/src/pages/`          | routed pages, including the Czech mutation                   |
 | `artifacts/void/src/components/site/`| shell, nav, footer, backdrop, motion primitives              |
 | `api/`                               | Vercel Functions, plus the code both HTTP layers share       |
+| `api/_registry.ts`                   | the Reversibility Registry, 89 calls across 35 vendors        |
 | `api/_core.ts`                       | request schemas, receipt sealing, status data, rate limiting  |
 | `api/_store.ts`                      | Postgres persistence with the in memory fallback             |
 | `artifacts/api-server/src/routes/`   | the same endpoints as a long lived Express server            |
@@ -104,7 +105,8 @@ hreflang, Open Graph) and in `artifacts/void/public/{sitemap.xml,robots.txt}`.
 
 ## Routes
 
-`/` `/spec` `/pricing` `/security` `/compliance` `/changelog` `/docs`
+`/` `/registry` `/attestation` `/spec` `/pricing` `/security` `/compliance`
+`/changelog` `/docs`
 `/docs/:slug` (quickstart, policy, ledger, mcp-proxy, adapters) `/blog`
 `/blog/:slug` `/status` `/company` `/contact` `/cs`, plus a 404 for anything else.
 
@@ -117,6 +119,17 @@ hreflang, Open Graph) and in `artifacts/void/public/{sitemap.xml,robots.txt}`.
 | POST   | `/api/contact`  | contact message                                         |
 | GET    | `/api/status`   | service view for the status page                        |
 | GET    | `/api/stats`    | request counters for this deployment                    |
+| GET    | `/api/registry` | the Reversibility Registry, filterable, cacheable        |
+
+`/api/registry` takes `q`, `vendor`, `tag`, `tone`, `conditional=1`, `limit` and
+`offset`, or `id=<call>` for one entry, or `view=stats` for the facets. It is
+static data keyed by the registry version, so unlike the form endpoints it sets
+a public cache header rather than `no-store`.
+
+An entry does not carry a class. It carries an ordered list of cases, each
+guarded by a precondition, and the first one that holds decides. Deleting an S3
+object is R0 with bucket versioning on and R3 with it off. 74 of the 89 entries
+change class this way, which is why classifying by call name does not work.
 
 Both POST endpoints are Zod validated and rate limited per IP (5 and 4 per
 minute). Without `DATABASE_URL` they store in memory and say so in the response,

@@ -9,6 +9,8 @@ import Home from "@/pages/home";
  * from an ad or a link lands on, so it pays for nothing it does not render.
  */
 const SpecPage = lazy(() => import("@/pages/spec"));
+const RegistryPage = lazy(() => import("@/pages/registry"));
+const AttestationPage = lazy(() => import("@/pages/attestation"));
 const PricingPage = lazy(() => import("@/pages/pricing"));
 const SecurityPage = lazy(() => import("@/pages/security"));
 const CompliancePage = lazy(() => import("@/pages/compliance"));
@@ -58,6 +60,8 @@ function Routes() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/spec" component={SpecPage} />
+          <Route path="/registry" component={RegistryPage} />
+          <Route path="/attestation" component={AttestationPage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/security" component={SecurityPage} />
           <Route path="/compliance" component={CompliancePage} />

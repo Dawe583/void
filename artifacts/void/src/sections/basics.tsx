@@ -143,7 +143,7 @@ export function Mechanisms() {
 
 export function FieldNotes() {
   return (
-    <Section id="field-notes" index="10" label="FIELD NOTES">
+    <Section id="field-notes" index="13" label="FIELD NOTES">
       <SplitHeading text="What design partners actually say." className="h2" />
       <p className="lede mt-sm">
         VOID is a product concept. The quotes below are illustrative and describe the kind of pilot the product
@@ -176,7 +176,7 @@ export function FieldNotes() {
 
 export function Explore() {
   return (
-    <Section id="explore" index="14" label="EXPLORE">
+    <Section id="explore" index="17" label="EXPLORE">
       <SplitHeading text="Everything else, in one grid." className="h2" />
       <RevealGroup className="explore-grid mt-md" stagger={0.04}>
         {exploreItems.map((item) => (

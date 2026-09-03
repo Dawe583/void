@@ -34,6 +34,7 @@ the technical model, and captures private beta access requests.
 - `artifacts/void/src/sections/`: homepage sections, one file per idea.
 - `artifacts/void/src/pages/`: routed pages. `docs.tsx` holds all five doc pages as data.
 - `artifacts/void/src/components/site/`: shell (nav, footer, backdrop, cursor, easter eggs) and the motion primitives.
+- `api/_registry.ts`: the Reversibility Registry. 89 calls, 178 preconditioned cases, 35 vendors. Read by three consumers: the Vercel Function, the Express route and the browser bundle for `/registry`, all through the `@shared` alias.
 - `api/`: Vercel Functions, and the code both HTTP layers share. `_core.ts` holds request schemas, receipt sealing, the status payload and rate limiting; `_store.ts` holds persistence; `_http.ts` is the small amount of plumbing Express gives for free.
 - `artifacts/api-server/src/routes/`: the same endpoints as a long lived Express server, importing `@shared/_core` and `@shared/_store`.
 - `lib/db/src/schema/`: Drizzle tables, one file per table. The migration source of truth.
@@ -42,6 +43,8 @@ the technical model, and captures private beta access requests.
 ## Architecture decisions
 
 - **One implementation, two HTTP layers.** The Vercel Functions in `api/` and the Express routes both import `api/_core` and `api/_store`, so the serverless and long lived shapes cannot drift. `_store.ts` uses `pg` rather than the Drizzle client because Vercel bundles functions from the repository root, where workspace packages do not resolve.
+- **A reversibility class is a function of target state, not of the call.** `api/_registry.ts` therefore stores an ordered list of preconditioned cases per entry rather than one class, and the first precondition that holds decides. 74 of the 89 entries change class with configuration, which is the whole argument for the registry existing: a policy engine that classifies by call name is wrong most of the time. Every entry ends with an unguarded `always` case so there is always a verdict.
+- **The registry is one module, not a copy per consumer.** `artifacts/void/vite.config.ts` aliases `@shared` to `api/`, so the page, the endpoint and the classification that would run at intercept time cannot disagree. That is also why `_registry.ts` imports nothing: a workspace package would break the Vercel Function, and `node:*` would break the browser bundle. Request parsing lives in `_registry_http.ts` so the bundle does not carry it.
 - **No build step requires an environment variable.** The Vite configs default `PORT` and `BASE_PATH`. They used to throw, which meant the repository could not build on any CI that did not happen to set Replit's variables, Vercel included.
 - **The API also serves the site.** `artifacts/api-server/src/lib/static-site.ts` mounts the Vite build with a SPA fallback when it finds one. The platform can still route the two separately, but a single Node process behind a bare domain works with no extra config.
 - **Storage degrades instead of failing.** Without `DATABASE_URL` the forms keep entries in memory and set `stored: false` in the response. A brand new deployment never loses a visitor to a missing database.
@@ -76,6 +79,8 @@ A single long homepage plus real subpages:
 ## Gotchas
 
 - **Prefix every keyframe with `v-`.** Tailwind ships `ping`, `spin`, `pulse`, `bounce` and more. An unprefixed `@keyframes ping` is silently overridden by Tailwind's, which scaled the live status dot to 2x and faded it to nothing.
+- **Never let motion drive a transform on an SVG element that carries a `transform` attribute.** A CSS transform overrides the presentation attribute, so `<motion.g transform="translate(x y)" animate={{ y }} />` renders every node at the origin, stacked. All eight taint graph nodes collapsed into one before this was caught. Keep the layout translate on a plain `<g>` and animate an inner `<motion.g>`, which has no attribute of its own to lose.
+- **The terminal classes are `.terminal-bar` and `.terminal-body`,** not `term-*`. A misspelled class silently renders unstyled rather than failing, which is how an unspaced, unpadded transcript panel shipped through a typecheck and a build.
 - **Never write a bare descendant `span` rule.** `Counter` and `Scramble` render inline spans, so `.stat span { font-size: 13px }` shrinks the number it was meant to label. Scope those rules to `> span`.
 - **`display: grid` on a `ul` or `ol` removes the list markers** in Chromium. Use margins between items.
 - **`vite preview` only proxies GET.** Test form posts against the API server (which serves the build) rather than the preview server.
