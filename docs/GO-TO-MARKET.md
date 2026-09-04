@@ -7,6 +7,13 @@ money. Written 4 September 2026, against the market as it stood that week.
 Numbers marked *assumption* are assumptions. They are here so they can be
 argued with, not because they are known.
 
+> **CONFIDENTIAL. This file must not be in a public repository.**
+>
+> It contains pricing strategy, revenue and cost projections, funding plans and
+> acquirer analysis. This repository is private today. The open core strategy in
+> section 3 requires making it public. **Remove this file before that happens**,
+> and move it somewhere private that is still versioned.
+
 ---
 
 ## 1. The position, in one line

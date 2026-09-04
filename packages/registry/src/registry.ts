@@ -11,10 +11,12 @@
  * the class, which is why the last case in every entry is the unguarded
  * fallback ("always").
  *
- * Kept dependency free on purpose. Three consumers read this module: the Vercel
- * Function in api/registry.ts, the Express route in artifacts/api-server, and
- * the browser bundle for /registry. Importing a workspace package here would
- * break the first, importing node:* would break the third.
+ * Kept dependency free on purpose, and it must stay that way. This module is the
+ * canonical copy of the registry. The site repository mirrors it byte for byte so
+ * its /registry page and /api/registry endpoint can build without reaching this
+ * repository, and scripts/src/check-registry-mirror.mjs fails when the two drift.
+ * A workspace import here would break the site's Vercel Function, and a node:*
+ * import would break its browser bundle, so this file depends on neither.
  */
 
 export type RegistryTone = "r0" | "r1" | "r2" | "r3";

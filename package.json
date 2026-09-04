@@ -1,24 +1,17 @@
 {
-  "name": "workspace",
+  "name": "void",
   "version": "0.0.0",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && rm -rf .tsc-api-emit && tsc -p api/tsconfig.json --outDir .tsc-api-emit && test -f .tsc-api-emit/registry.js && test -f .tsc-api-emit/waitlist.js && ! test -e .tsc-api-emit/api && rm -rf .tsc-api-emit && pnpm -r --filter \"./artifacts/**\" --filter \"./packages/**\" --filter \"./scripts\" --if-present run typecheck",
+    "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "node scripts/src/check-tests.mjs",
-    "build:web": "pnpm --filter \"@workspace/void\" run build"
+    "check": "pnpm run typecheck && pnpm test",
+    "check:mirror": "node scripts/src/check-registry-mirror.mjs"
   },
   "private": true,
-  "dependencies": {
-    "@replit/connectors-sdk": "^0.4.1",
-    "pg": "^8.22.0",
-    "zod": "catalog:"
-  },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@types/pg": "^8.20.0",
     "prettier": "^3.9.6",
     "typescript": "~5.9.3"
   },
