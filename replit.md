@@ -93,6 +93,14 @@ A single long homepage plus real subpages:
 - **`pg` is imported statically in `api/_store.ts`.** A dynamic `import("pg")` bundled into ESM output dies with "Dynamic require of events is not supported", and the storage fallback hides it as a quiet `stored: false`.
 - Before pointing a domain at the site, replace `https://void.systems` in `artifacts/void/index.html` and in `artifacts/void/public/{sitemap.xml,robots.txt}`.
 
+## Plans
+
+- `docs/BUILD-PLAN.md`: what to build and in which order, with exit criteria per phase and the model cost arithmetic.
+- `docs/EXECUTION-PLAN.md`: the same build cut into 16 work packages sized for one or two Workflow runs with subagents. Start one with "run WP-NN". Each package lists its agents, exit commands and token budget.
+- `docs/GO-TO-MARKET.md`: positioning against the incumbents, open core line, USD pricing, segments, geography, entity structure, channels, the ninety day launch, financial scenarios, funding and exits.
+
+Each has a PDF next to it rendered in the site's own design. The markdown is the source; regenerate the PDF when the markdown changes.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
