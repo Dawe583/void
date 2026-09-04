@@ -8,9 +8,17 @@
   // root has no "type": "module", so these functions are emitted and loaded as
   // CommonJS.
   //
-  // `pnpm run typecheck` passes --noEmit on the command line, so nothing here
-  // needs to turn emit off.
+  // `pnpm run typecheck` runs a real emit into .tsc-api-emit and then asserts
+  // its layout, because the failure below exits 0. Nothing here turns emit off.
+  //
+  // rootDir is pinned to this directory. Without it TypeScript infers the emit
+  // root from the common source directory of the program, so one relative
+  // import out of api/ raises the root to the repository root and every
+  // compiled function moves from <out>/registry.js to <out>/api/registry.js at
+  // once, which Vercel cannot resolve for any route, with zero diagnostics.
+  // Pinned, that becomes error TS6059 naming the offending file.
   "compilerOptions": {
+    "rootDir": ".",
     "target": "es2022",
     "lib": ["es2022"],
     "module": "commonjs",

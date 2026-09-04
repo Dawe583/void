@@ -78,7 +78,7 @@ hreflang, Open Graph) and in `artifacts/void/public/{sitemap.xml,robots.txt}`.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9 strict
+- pnpm workspaces, Node.js 22, TypeScript 5.9 strict
 - Web: React 19, Vite 7, wouter, Tailwind CSS v4 with CSS variables as tokens
 - Motion: `motion/react` for every animation, scroll linked and viewport triggered
 - Charts: Recharts, loaded lazily so it stays out of the first paint
@@ -102,6 +102,49 @@ hreflang, Open Graph) and in `artifacts/void/public/{sitemap.xml,robots.txt}`.
 | `api/_store.ts`                      | Postgres persistence with the in memory fallback             |
 | `artifacts/api-server/src/routes/`   | the same endpoints as a long lived Express server            |
 | `lib/db/src/schema/`                 | Drizzle tables, the migration source of truth                |
+| `packages/`                          | the product itself, Apache 2.0, six packages, see below       |
+| `docs/`                              | the build plan, the execution plan, the go to market plan     |
+| `docs/DECISIONS.md`                  | why the product is built the way it is, and what was rejected |
+
+## The product packages
+
+The marketing site describes VOID. `packages/` is where VOID itself is being
+built, one work package at a time, following `docs/EXECUTION-PLAN.md`.
+
+| package | responsible for |
+| --- | --- |
+| `@void/registry` | the reversibility data and the case evaluator |
+| `@void/ledger` | hash chain, signing, verification |
+| `@void/proxy` | the MCP proxy |
+| `@void/policy` | match rules, decisions, approval channels |
+| `@void/connectors` | per tool surface snapshot and inverse |
+| `@void/cli` | the `void` command |
+
+Each package README states what it is responsible for and what it must never
+import. Read it before adding to one.
+
+Two things about this layout are deliberate and easy to undo by accident:
+
+**The registry data still physically lives in `api/_registry.ts`.**
+`packages/registry` re-exports it rather than the other way round. Moving the
+file would raise the TypeScript emit root above `api/`, which silently moves
+every compiled function from `<out>/registry.js` to `<out>/api/registry.js` and
+breaks the Vercel deployment with no diagnostic. `api/tsconfig.json` now pins
+`rootDir` so that mistake becomes `error TS6059` instead of a broken deploy, and
+`pnpm run typecheck` asserts the emitted layout rather than just the exit code.
+The move is deferred to WP-04a, gated on a preview deploy. See `docs/DECISIONS.md`
+decision 6b.
+
+**Licensing is split.** The workspace root and the marketing site are MIT, as
+they were. Everything under `packages/` is Apache 2.0, with the text in
+`packages/LICENSE` and attribution in `packages/NOTICE`, because that is the
+open core the product ships. Confirm this before publishing anything to npm.
+
+Tests use the Node 22 built in runner with native type stripping, so there is no
+test framework dependency. `pnpm test` runs every package suite through
+`scripts/src/check-tests.mjs`, which fails a package that ran zero tests: plain
+`node --test` exits 0 when it finds no files, which would make the first exit
+criterion of every work package dishonest.
 
 ## Routes
 

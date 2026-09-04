@@ -6,7 +6,8 @@
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && tsc -p api/tsconfig.json --outDir .tsc-api-emit && rm -rf .tsc-api-emit && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "typecheck": "pnpm run typecheck:libs && rm -rf .tsc-api-emit && tsc -p api/tsconfig.json --outDir .tsc-api-emit && test -f .tsc-api-emit/registry.js && test -f .tsc-api-emit/waitlist.js && ! test -e .tsc-api-emit/api && rm -rf .tsc-api-emit && pnpm -r --filter \"./artifacts/**\" --filter \"./packages/**\" --filter \"./scripts\" --if-present run typecheck",
+    "test": "node scripts/src/check-tests.mjs",
     "build:web": "pnpm --filter \"@workspace/void\" run build"
   },
   "private": true,

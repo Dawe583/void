@@ -50,3 +50,11 @@ Thumbs.db
 
 # Scratch output from the api function emit check
 .tsc-api-emit
+
+# A violating emit under api/ writes .js next to its TypeScript source here.
+# api/tsconfig.json deliberately does not set noEmitOnError, so keep the stray
+# output out of git rather than committing it. Scoped to src/ on purpose: a
+# blanket packages/**/*.js would also swallow a committed bin entry point, and
+# git would refuse it without -f while git status stayed silent about why.
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map

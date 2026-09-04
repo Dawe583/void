@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // noEmit, not the emitDeclarationOnly of lib/*: nothing consumes these
+    // packages by package name yet, so there is nothing to emit for. Consumers
+    // import the .ts source directly, which Node strips at load time.
+    "noEmit": true,
+    // Relative imports carry an explicit .ts extension so Node's type
+    // stripping can resolve them without a build step.
+    "allowImportingTsExtensions": true,
+    // Decision 6a: reject at typecheck time the syntax Node cannot strip,
+    // rather than letting node --test fail at load.
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

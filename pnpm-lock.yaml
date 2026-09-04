@@ -666,6 +666,42 @@ importers:
         specifier: ^0.31.10
         version: 0.31.10
 
+  packages/cli:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.5
+
+  packages/connectors:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.5
+
+  packages/ledger:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.5
+
+  packages/policy:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.5
+
+  packages/proxy:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.5
+
+  packages/registry:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.5
+
   scripts:
     devDependencies:
       '@types/node':

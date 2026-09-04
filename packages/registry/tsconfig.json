@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // noEmit, not the emitDeclarationOnly of lib/*. This package re-exports a
+    // file outside its own directory, so emitting would raise its emit root
+    // above the package. Decision 6b keeps that harmless by never emitting.
+    // The same setting is used across packages/ for consistency.
+    "noEmit": true,
+    // Relative imports carry an explicit .ts extension so Node's type
+    // stripping can resolve them without a build step.
+    "allowImportingTsExtensions": true,
+    // Decision 6a: reject at typecheck time the syntax Node cannot strip,
+    // rather than letting node --test fail at load.
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

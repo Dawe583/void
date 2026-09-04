@@ -1,0 +1,17 @@
+VOID
+Copyright 2026 the VOID authors
+
+This product includes software developed as the open core of VOID, the
+reversibility layer for AI agents. It is licensed under the Apache License,
+Version 2.0. The full text is in packages/LICENSE.
+
+The reversibility registry shipped in @void/registry carries its own caveat,
+reproduced here because it travels with the data wherever the data goes:
+
+  Draft classifications, reviewed against public vendor documentation and not
+  certified by any vendor. Verify preconditions against your own account
+  configuration before relying on a class.
+
+No vendor named in the registry has reviewed or endorsed its classification of
+their API. Vendor and product names are used only to identify the calls being
+described.
