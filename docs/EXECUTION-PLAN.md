@@ -137,6 +137,8 @@ WP-00 context pack and scaffold
                     +-- WP-08 probes and blast radius   (needs 06, 07)
                     +-- WP-09 CLI                        (needs 06)
                           |
+                          +-- WP-09b terminal interface (needs 09, 08)
+                          |
                           +-- WP-10 control plane API   (needs 09)
                                 |
                                 +-- WP-11 control plane UI
@@ -742,6 +744,144 @@ bash scripts/fresh-install.sh     # "first hold in 4m12s" or better
 
 ---
 
+### WP-09b: the terminal interface
+
+**Goal.** The surface a developer actually looks at all day. Two shapes: a
+compact line per intercepted call that composes with whatever else is printing
+into the same terminal, and a full screen dashboard for a second terminal. Plus
+the modal that owns the terminal for the seconds a hold is pending.
+
+This package exists because the decision surface cannot be a dashboard. A hold
+lasts ninety seconds and nobody has a browser tab open for it. The terminal
+where the agent is already running is where the human is, and the site's whole
+visual language is a terminal to begin with, so this is the product's native
+look rather than a fallback for it.
+
+**Needs.** WP-09 for the command surface, WP-05 for holds, WP-08 for a blast
+radius worth printing. Runs before WP-10, so the web control plane is built
+after the terminal one and not instead of it.
+
+**Shape.** One workflow, four phases, 14 agents.
+
+| Phase | Pattern | Agents |
+| --- | --- | --- |
+| Design | 2 render model proposals, 1 palette extractor, 1 judge | 4 |
+| Implement | pipeline over 5 modules in worktrees, 1 merger | 6 |
+| Verify | 1 pty capture runner, 1 degradation runner | 2 |
+| Break | 2 skeptics on the two ways a TUI ruins a shell | 2 |
+
+#### The decision the design phase has to settle
+
+`void run` wraps the agent, so the agent's stdout and VOID's output share one
+terminal. A full screen interface would fight it, destroy the scrollback the
+developer needs, and break the moment the output is piped. So the two designers
+argue the split rather than the framework:
+
+- Designer A, **inline**: one line per call, append only, no cursor movement
+  except while a hold is pending. Composes with everything, survives a pipe,
+  keeps scrollback intact. Argue for what fits in one line at 80 columns and
+  what has to be dropped.
+- Designer B, **full screen**: `void watch` in a second terminal, alternate
+  screen buffer, live feed plus budget gauges plus the ledger head plus pending
+  holds. Argue for the layout at 80, 120 and 200 columns and what reflows.
+
+The judge freezes one `Renderer` interface that both shapes implement, so the
+call formatting is written once and rendered twice.
+
+The insight the judge should be handed, because it decides the modal design: a
+blocking hold means the agent is stopped waiting for its tool result, so nothing
+else is writing to the terminal for exactly as long as the hold lasts. That is
+the one window where VOID can safely take raw mode, draw a countdown in place
+and read a single keypress, without racing the agent's output.
+
+**Agents.**
+
+- Designer A and B as above, returning the interface as code plus a rendered
+  sample at three widths.
+- Palette extractor: the site defines `--ok`, `--info`, `--warn` and `--bad` for
+  R0 to R3, plus paper, ink and rule tones. Map each to a truecolor value, a
+  256 colour approximation and a 16 colour fallback, and check the contrast of
+  each against both a black and a white terminal background, because a terminal
+  theme is not something the product controls. Return a table with the measured
+  ratios. Anything below 4.5 to 1 on either background gets adjusted or gets a
+  non colour marker, because R3 must never be distinguishable by hue alone.
+- Judge: picks, freezes `packages/cli/src/tui/README.md`, and writes the rule
+  that every state must be legible with colour disabled entirely.
+- Builders, one per module in its own worktree:
+  - `tui/caps.ts`: capability detection. Is stdout a TTY, what is `TERM`, is
+    `NO_COLOR` or `FORCE_COLOR` set, how many columns, does the terminal
+    support truecolor. Every other module reads its answer and never sniffs for
+    itself.
+  - `tui/theme.ts`: the palette from the extractor, three colour depths, and the
+    monochrome markers that carry class when colour is off.
+  - `tui/inline.ts`: the one line per call renderer. Truncates a long tool id
+    from the left, because `aws.s3.object.delete` loses its meaning if you keep
+    the front and drop the end.
+  - `tui/modal.ts`: the hold prompt. Raw mode, in place countdown, one keypress
+    to approve or cancel, and a restore that runs from every exit path.
+  - `tui/watch.ts`: the full screen dashboard. Alternate screen buffer, redraw
+    on `SIGWINCH`, quit on q, and a diffing writer that only repaints the cells
+    that changed so a wide terminal does not flicker.
+- Merger: assembles, typechecks, and adds no features.
+- Pty capture runner: drives the CLI under a real pseudo terminal using
+  `script -q -c`, which needs no native module, at 80, 120 and 200 columns.
+  Captures the raw byte stream for each width and returns it. A rendering that
+  wraps or overruns at any width fails the package.
+- Degradation runner: the same session four more ways, with `stdout` piped to a
+  file, with `NO_COLOR=1`, with `TERM=dumb`, and with `CI=1`. Each must produce
+  plain readable text, no escape sequences in the piped file, and the same
+  information. A log file full of ANSI is the usual failure here.
+- Skeptic 1, **the broken shell**: kill the process with `SIGINT`, `SIGTERM` and
+  `SIGHUP` while a hold modal holds raw mode, and after each one check that
+  `stty -a` reports `echo` and `icanon` restored. A TUI that dies in raw mode
+  leaves the developer with a shell that does not echo what they type, and they
+  will blame VOID for it correctly.
+- Skeptic 2, **the racing writer**: have the wrapped agent print continuously
+  while a hold is pending, resize the terminal in the middle of the countdown,
+  and open a hold while another is already pending. Return what the terminal
+  actually looked like.
+
+**Produces.** `packages/cli/src/tui/`, `void watch`, and holds that can be
+resolved with one keypress where the agent is already running.
+
+**Exit.**
+
+```
+pnpm --filter @void/cli test
+node scripts/tui-capture.mjs --cols 80 --cols 120 --cols 200
+# no line exceeds the width, no wrap, R0 to R3 distinguishable in the capture
+
+node scripts/tui-degrade.mjs
+# piped, NO_COLOR, TERM=dumb and CI: plain text, zero escape sequences piped
+
+node scripts/tui-raw-mode-safety.mjs
+# SIGINT, SIGTERM and SIGHUP during a hold: stty reports echo and icanon after each
+
+node scripts/moment.mjs --tui
+# the WP-05 moment again, resolved with a keypress instead of a second terminal
+```
+
+**Budget.** About 1.2M tokens.
+
+**Traps.**
+
+Leaving the terminal in raw mode is the failure that makes people uninstall a
+tool. The restore has to be attached to `exit`, to every fatal signal, and to an
+uncaught exception, not just to the happy path. Skeptic 1 exists only for this.
+
+Writing escape sequences into a piped stream is the second. `caps.ts` answers it
+once and everything else obeys, because the moment two modules each decide for
+themselves whether colour is on, they will disagree.
+
+The third is subtler: a countdown that repaints every second in inline mode is
+correct only while nothing else prints. The blocking hold guarantees that for
+the wrapped agent, but not for a second VOID instance or a background job in the
+same shell. Inline mode therefore repaints only the line it wrote last, and
+gives up and prints a fresh line the moment it cannot prove it still owns the
+bottom of the screen.
+
+---
+
 ### WP-10: control plane, API
 
 **Goal.** The HTTP surface the dashboard and future integrations use: a live
@@ -789,7 +929,13 @@ approvals with blast radius and plan, ledger with verification, replay with a
 preview. Built on the site's own design system so it looks like the same
 product.
 
-**Needs.** WP-10.
+This is the third surface, not the first. WP-09b already covers the decision
+surface, because a hold lasting ninety seconds is resolved where the human
+already is rather than in a tab they would have to keep open. What a dashboard
+adds is the things a terminal genuinely cannot draw: a causal graph, a replay
+scrubber, and a view over more history than fits on a screen.
+
+**Needs.** WP-10, and WP-09b before it so the terminal surface is not skipped.
 
 **Shape.** One workflow, three phases, 13 agents.
 
@@ -995,19 +1141,20 @@ npm view @void/cli version        # 0.1.0
 | WP-07 S3 connector | 1 | 9 | 1.0M |
 | WP-08 probes | 1 | 12 | 1.4M |
 | WP-09 CLI | 1 | 10 | 1.1M |
+| WP-09b terminal interface | 1 | 14 | 1.2M |
 | WP-10 control plane API | 1 | 11 | 1.3M |
 | WP-11 control plane UI | 1 | 13 | 1.5M |
 | WP-12 taint graph | 2 | 20 | 2.4M |
 | WP-13 attestation | 1 | 9 | 1.0M |
 | WP-14 SDK wrap | 1 | 11 | 1.3M |
 | WP-15 hardening and release | 1 | 14 | 1.8M |
-| **Total** | **18** | **~690** | **~29M** |
+| **Total** | **19** | **703** | **~31M** |
 
-Without WP-04b, which is optional and batchable, the build is about 21M
-tokens across 17 workflows and roughly 190 agents.
+Without WP-04b, which is optional and batchable, the build is about 23M
+tokens across 18 workflows and roughly 200 agents.
 
 At the rates in `BUILD-PLAN.md` section 3 for the top tier model, with heavy
-caching of the context pack, 21M tokens is in the region of $300 to $800 of
+caching of the context pack, 23M tokens is in the region of $300 to $800 of
 model spend for the whole build. Inside this Claude Code session the cost is
 carried by the plan rather than metered per token, and the figure is here so
 the two ways of running it can be compared.

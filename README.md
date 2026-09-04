@@ -6,11 +6,6 @@ VOID sits between an agent and the tools it can write to. For each call it works
 out a reversibility class from the state of the target, applies a policy, and
 appends a signed record. Later it can replay the inverses.
 
-> **This repository is private and contains confidential business material.**
-> `docs/GO-TO-MARKET.md` holds pricing, financial projections and acquirer
-> analysis. Remove it before making this repository public. The open core plan
-> requires that eventually, so this is a real gate, not a formality.
-
 The marketing site that describes VOID lives in
 [Dawe583/void-empty](https://github.com/Dawe583/void-empty) under MIT. This
 repository is the product, under Apache 2.0.
@@ -74,7 +69,7 @@ pinned `rootDir`.
 | `docs/DECISIONS.md` | every foundational choice, what was rejected, and when to revisit |
 | `docs/BUILD-PLAN.md` | what to build and in which order |
 | `docs/EXECUTION-PLAN.md` | that build cut into work packages |
-| `docs/GO-TO-MARKET.md` | confidential, see the warning above |
+| `docs/GO-TO-MARKET.md` | positioning, pricing and the business case, not for a public repository |
 
 ## Licence
 
