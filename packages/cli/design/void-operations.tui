@@ -1,0 +1,152 @@
+{
+  "version": "1",
+  "meta": {
+    "name": "VOID Operations 120x40",
+    "theme": "gruvbox",
+    "savedAt": "2026-09-06T00:00:00.000Z"
+  },
+  "tree": {
+    "id": "void-screen",
+    "type": "Screen",
+    "name": "VOID Operations 120x40",
+    "props": { "width": 120, "height": 40, "theme": "gruvbox" },
+    "layout": { "type": "flexbox", "direction": "column", "padding": 1, "gap": 0 },
+    "style": { "color": "#f0eade", "backgroundColor": "#12100a", "border": false },
+    "events": {},
+    "children": [
+      {
+        "id": "header",
+        "type": "Text",
+        "name": "Session header",
+        "props": { "content": "V O I D                                             stdio | claude-code | 11m | ENFORCE", "wrap": false, "align": "left", "width": 118 },
+        "layout": { "type": "none" },
+        "style": { "color": "#f0eade", "bold": true },
+        "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false
+      },
+      {
+        "id": "pipeline",
+        "type": "Text",
+        "name": "Accountable write path",
+        "props": { "content": "intent ################ classify ################ decide ################ seal", "wrap": false, "align": "left", "width": 118 },
+        "layout": { "type": "none" },
+        "style": { "color": "#8f8672" },
+        "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false
+      },
+      {
+        "id": "main-grid",
+        "type": "Grid",
+        "name": "Activity and decision",
+        "props": { "width": 118, "height": 22 },
+        "layout": { "type": "flexbox", "direction": "row", "gap": 1 },
+        "style": { "color": "#f0eade" },
+        "events": {},
+        "children": [
+          {
+            "id": "activity",
+            "type": "Box",
+            "name": "Write path",
+            "props": { "width": 70, "height": 22, "title": "WRITE PATH" },
+            "layout": { "type": "flexbox", "direction": "column", "padding": 1, "gap": 0 },
+            "style": { "color": "#f0eade", "border": true, "borderStyle": "single", "borderColor": "#514b3e" },
+            "events": {},
+            "children": [
+              {
+                "id": "activity-tabs", "type": "Tabs", "name": "Activity filters",
+                "props": { "tabs": [{ "label": "all", "status": true, "hotkey": "1" }, { "label": "R0", "status": false, "hotkey": "2" }, { "label": "R1", "status": false, "hotkey": "3" }, { "label": "R2", "status": false, "hotkey": "4" }, { "label": "R3", "status": false, "hotkey": "5" }], "activeTab": 0, "width": 68 },
+                "layout": { "type": "flexbox", "direction": "row" }, "style": { "color": "#8f8672" },
+                "events": { "onChange": "setRiskFilter" }, "children": [], "locked": false, "hidden": false, "collapsed": false
+              },
+              {
+                "id": "activity-table", "type": "Table", "name": "Intercepted calls",
+                "props": {
+                  "columns": ["time", "class", "decision", "tool", "radius"],
+                  "rows": [
+                    ["14:07:45", "[3] R3", "[x] deny", "postgres.table.drop", "41883"],
+                    ["14:07:40", "[2] R2", "[!] hold", "stripe.refund.create", "1"],
+                    ["14:07:36", "[1] R1", "[+] allow", "aws.s3.object.delete", "3"],
+                    ["14:07:31", "[0] R0", "[+] allow", "postgres.row.update", "1"]
+                  ],
+                  "width": 68
+                },
+                "layout": { "type": "none" },
+                "style": { "color": "#f0eade", "border": false },
+                "events": { "onSelect": "selectCall" }, "children": [], "locked": false, "hidden": false, "collapsed": false
+              }
+            ],
+            "locked": false, "hidden": false, "collapsed": false
+          },
+          {
+            "id": "decision",
+            "type": "Box",
+            "name": "Decision record",
+            "props": { "width": 47, "height": 22, "title": "DECISION RECORD" },
+            "layout": { "type": "flexbox", "direction": "column", "padding": 1, "gap": 0 },
+            "style": { "color": "#f0eade", "border": true, "borderStyle": "single", "borderColor": "#514b3e" },
+            "events": {},
+            "children": [
+              {
+                "id": "decision-stage", "type": "Text", "name": "Pipeline position",
+                "props": { "content": "# intent -> # classify -> # decide -> . seal", "wrap": false, "align": "left", "width": 45 },
+                "layout": { "type": "none" }, "style": { "color": "#f47a88", "bold": true },
+                "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false
+              },
+              {
+                "id": "decision-detail", "type": "Text", "name": "Selected call details",
+                "props": { "content": "\ncall          call_af31\ntool          postgres.table.drop\nagent         claude-code / payments-dev\nclass         [3] R3 / irreversible\npolicy        deny-destructive-ddl\nblast radius  41883 measured\ninverse       none\ncompensation  none\nledger        sha256:fe10...991c", "wrap": false, "align": "left", "width": 45 },
+                "layout": { "type": "none" }, "style": { "color": "#f0eade" },
+                "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false
+              }
+            ],
+            "locked": false, "hidden": false, "collapsed": false
+          }
+        ],
+        "locked": false, "hidden": false, "collapsed": false
+      },
+      {
+        "id": "signals-grid", "type": "Grid", "name": "Operational signals",
+        "props": { "width": 118, "height": 9 },
+        "layout": { "type": "grid", "columns": 3, "rows": 1, "columnGap": 1, "rowGap": 0 },
+        "style": { "color": "#f0eade" }, "events": {},
+        "children": [
+          {
+            "id": "risk-summary", "type": "Box", "name": "Risk mix",
+            "props": { "width": 38, "height": 9, "title": "RISK MIX" },
+            "layout": { "type": "flexbox", "direction": "column", "padding": 1, "gap": 0 },
+            "style": { "color": "#f0eade", "border": true, "borderStyle": "single", "borderColor": "#514b3e" },
+            "events": {}, "children": [
+              { "id": "risk-text", "type": "Text", "name": "Risk values", "props": { "content": "[0] R0  ########....  31\n[1] R1  #####.......  18\n[2] R2  ##..........   7\n[3] R3  #...........   3", "wrap": false, "align": "left", "width": 36 }, "layout": { "type": "none" }, "style": { "color": "#f0eade" }, "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false }
+            ], "locked": false, "hidden": false, "collapsed": false
+          },
+          {
+            "id": "health", "type": "Box", "name": "Health",
+            "props": { "width": 38, "height": 9, "title": "HEALTH" },
+            "layout": { "type": "flexbox", "direction": "column", "padding": 1, "gap": 0 },
+            "style": { "color": "#f0eade", "border": true, "borderStyle": "single", "borderColor": "#514b3e" },
+            "events": {}, "children": [
+              { "id": "health-text", "type": "Text", "name": "Service health", "props": { "content": "[+] proxy healthy\n[+] upstream healthy\n[+] ledger verified\n[+] connector ready\nlatency 18ms", "wrap": false, "align": "left", "width": 36 }, "layout": { "type": "none" }, "style": { "color": "#5cc094" }, "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false }
+            ], "locked": false, "hidden": false, "collapsed": false
+          },
+          {
+            "id": "ledger", "type": "Box", "name": "Ledger head",
+            "props": { "width": 38, "height": 9, "title": "LEDGER" },
+            "layout": { "type": "flexbox", "direction": "column", "padding": 1, "gap": 0 },
+            "style": { "color": "#f0eade", "border": true, "borderStyle": "single", "borderColor": "#514b3e" },
+            "events": {}, "children": [
+              { "id": "ledger-text", "type": "Text", "name": "Ledger values", "props": { "content": "entries     12482\nverified    12482 / 12482\nhead        sha256:9c82...47fa\nkey         dev-ed25519:a41c9d70\ncheckpoint  14s ago", "wrap": false, "align": "left", "width": 36 }, "layout": { "type": "none" }, "style": { "color": "#8aa4ff" }, "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false }
+            ], "locked": false, "hidden": false, "collapsed": false
+          }
+        ],
+        "locked": false, "hidden": false, "collapsed": false
+      },
+      {
+        "id": "footer", "type": "Text", "name": "Keyboard help",
+        "props": { "content": "LIVE | j/k move  enter detail  f filter  p pause  r replay  v verify  ? help  q quit", "wrap": false, "align": "left", "width": 118 },
+        "layout": { "type": "none" }, "style": { "color": "#8f8672" },
+        "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false
+      }
+    ],
+    "locked": false,
+    "hidden": false,
+    "collapsed": false
+  }
+}

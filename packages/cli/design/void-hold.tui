@@ -1,0 +1,55 @@
+{
+  "version": "1",
+  "meta": {
+    "name": "VOID Human Decision 76x18",
+    "theme": "gruvbox",
+    "savedAt": "2026-09-06T00:00:00.000Z"
+  },
+  "tree": {
+    "id": "hold-screen",
+    "type": "Screen",
+    "name": "VOID Human Decision 76x18",
+    "props": { "width": 76, "height": 18, "theme": "gruvbox" },
+    "layout": { "type": "flexbox", "direction": "column", "padding": 1, "gap": 0 },
+    "style": { "color": "#f0eade", "backgroundColor": "#12100a", "border": false },
+    "events": {},
+    "children": [
+      {
+        "id": "hold-modal", "type": "Modal", "name": "Blocking hold",
+        "props": { "title": "VOID / HUMAN DECISION", "width": 74, "height": 16 },
+        "layout": { "type": "flexbox", "direction": "column", "padding": 1, "gap": 0 },
+        "style": { "color": "#f0eade", "backgroundColor": "#12100a", "border": true, "borderStyle": "double", "borderColor": "#f47a88" },
+        "events": { "onKeyPress": "resolveHold" },
+        "children": [
+          {
+            "id": "hold-title", "type": "Text", "name": "Risk and call",
+            "props": { "content": "[2] R2   stripe.refund.create", "wrap": false, "align": "left", "width": 70 },
+            "layout": { "type": "none" }, "style": { "color": "#dcbc63", "bold": true },
+            "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false
+          },
+          {
+            "id": "hold-detail", "type": "Text", "name": "Decision context",
+            "props": { "content": "--------------------------------------------------------------\nagent          claude-code\nworkspace      payments-dev\npolicy         hold-money-movement\nblast radius   1 target, measured\ninverse        none\ncompensation   cancel while pending\nreason         money movement has no guaranteed inverse", "wrap": false, "align": "left", "width": 70 },
+            "layout": { "type": "none" }, "style": { "color": "#f0eade" },
+            "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false
+          },
+          {
+            "id": "countdown", "type": "ProgressBar", "name": "Hold countdown",
+            "props": { "value": 12, "max": 90, "width": 60, "label": "HOLDING 078s" },
+            "layout": { "type": "none" },
+            "style": { "color": "#dcbc63", "border": true, "borderStyle": "single", "borderColor": "#514b3e" },
+            "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false
+          },
+          {
+            "id": "hold-actions", "type": "Text", "name": "Hold actions",
+            "props": { "content": "[a] approve once     [c] cancel     [d] details", "wrap": false, "align": "left", "width": 70 },
+            "layout": { "type": "none" }, "style": { "color": "#f0eade", "bold": true },
+            "events": {}, "children": [], "locked": false, "hidden": false, "collapsed": false
+          }
+        ],
+        "locked": false, "hidden": false, "collapsed": false
+      }
+    ],
+    "locked": false, "hidden": false, "collapsed": false
+  }
+}

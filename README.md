@@ -18,14 +18,14 @@ runs. Nothing intercepts a tool call yet.
 
 ## The packages
 
-| package | responsible for |
-| --- | --- |
-| `@void/registry` | the reversibility data and the case evaluator |
-| `@void/ledger` | hash chain, signing, verification |
-| `@void/proxy` | the MCP proxy |
-| `@void/policy` | match rules, decisions, approval channels |
-| `@void/connectors` | per tool surface snapshot and inverse |
-| `@void/cli` | the `void` command |
+| package            | responsible for                               |
+| ------------------ | --------------------------------------------- |
+| `@void/registry`   | the reversibility data and the case evaluator |
+| `@void/ledger`     | hash chain, signing, verification             |
+| `@void/proxy`      | the MCP proxy                                 |
+| `@void/policy`     | match rules, decisions, approval channels     |
+| `@void/connectors` | per tool surface snapshot and inverse         |
+| `@void/cli`        | the `void` command                            |
 
 Each package README states what it is responsible for and what it must never
 import. Read it before adding to one.
@@ -46,6 +46,20 @@ test framework dependency at all. `pnpm test` goes through
 `node --test` exits 0 when it finds no test files, which would make the first
 exit criterion of every work package dishonest.
 
+## Preview the terminal interface
+
+The terminal interface is under construction (WP-09b). The render model already
+exists and a preview renders it from illustrative fixtures, no proxy required:
+
+```sh
+pnpm tui:preview 80 40
+pnpm tui:preview 120 40 --hold
+pnpm tui:preview 200 48 --modal
+```
+
+The preview prints its data as an illustrative fixture. Nothing in it came from
+a live session.
+
 ## The registry is mirrored into the site, and the mirror is checked
 
 `packages/registry/src/registry.ts` is the canonical copy. The site repository
@@ -62,14 +76,14 @@ pinned `rootDir`.
 
 ## Documents
 
-| file | what |
-| --- | --- |
-| `docs/CONTEXT.md` | what VOID is and the vocabulary, read this first |
-| `docs/STANDARDS.md` | the rules code here follows |
-| `docs/DECISIONS.md` | every foundational choice, what was rejected, and when to revisit |
-| `docs/BUILD-PLAN.md` | what to build and in which order |
-| `docs/EXECUTION-PLAN.md` | that build cut into work packages |
-| `docs/GO-TO-MARKET.md` | positioning, pricing and the business case, not for a public repository |
+| file                     | what                                                                    |
+| ------------------------ | ----------------------------------------------------------------------- |
+| `docs/CONTEXT.md`        | what VOID is and the vocabulary, read this first                        |
+| `docs/STANDARDS.md`      | the rules code here follows                                             |
+| `docs/DECISIONS.md`      | every foundational choice, what was rejected, and when to revisit       |
+| `docs/BUILD-PLAN.md`     | what to build and in which order                                        |
+| `docs/EXECUTION-PLAN.md` | that build cut into work packages                                       |
+| `docs/GO-TO-MARKET.md`   | positioning, pricing and the business case, not for a public repository |
 
 ## Licence
 

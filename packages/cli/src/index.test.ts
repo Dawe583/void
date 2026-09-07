@@ -6,7 +6,11 @@ import { parseInvocation } from "./index.ts";
 describe("@void/cli", () => {
   test("parses a command and keeps the rest of argv intact", () => {
     const parsed = parseInvocation(["ledger", "verify", "--workspace", "demo"]);
-    assert.deepEqual(parsed, { ok: true, command: "ledger", args: ["verify", "--workspace", "demo"] });
+    assert.deepEqual(parsed, {
+      ok: true,
+      command: "ledger",
+      args: ["verify", "--workspace", "demo"],
+    });
   });
 
   test("an unknown command is refused and the refusal names the alternatives", () => {
@@ -14,7 +18,10 @@ describe("@void/cli", () => {
     // again. Naming what was expected is the cheapest version of that rule.
     const parsed = parseInvocation(["verfiy"]);
     assert.equal(parsed.ok, false);
-    assert.match(parsed.ok ? "" : parsed.reason, /unknown command "verfiy".*run, ledger, replay, attest/);
+    assert.match(
+      parsed.ok ? "" : parsed.reason,
+      /unknown command "verfiy".*run, watch, approvals, ledger, replay, policy, export, attest/,
+    );
   });
 
   test("no arguments is a usage line, not a crash", () => {

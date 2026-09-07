@@ -9,7 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "node --test"
+    "test": "node --test",
+    "tui:preview": "node src/tui/preview.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:"

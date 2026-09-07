@@ -10,7 +10,9 @@ inverse (`void replay`), and exporting an attestation (`void attest`). It is the
 surface that has to work with no database, no account and no network, because the
 free tier is a local ledger in a file.
 
-WP-09 lands the commands. Nothing here is implemented yet.
+WP-09 lands the command handlers. Only the invocation parser and the WP-09b
+terminal render model (`src/tui/`) exist today; no command is runnable yet, and
+`void watch` currently resolves in the parser only.
 
 ## Must never import
 
@@ -33,6 +35,8 @@ key as valid, development key, never as plain valid.
 
 - `COMMANDS`, `Command`
 - `ParsedInvocation`, `parseInvocation(argv)`
+- TUI render model, capability detection, inline, watch and hold renderers from
+  `src/tui/`. See `src/tui/README.md` for the visual and degradation contracts.
 
 `parseInvocation` takes argv as a parameter; the process boundary stays in the
 bin entry point, which does not exist yet.

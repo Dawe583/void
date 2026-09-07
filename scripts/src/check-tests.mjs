@@ -30,11 +30,28 @@ for (const name of readdirSync(packagesDir).sort()) {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   if (!manifest.scripts?.test) continue;
 
-  const run = spawnSync("node", ["--test"], { cwd: dir, encoding: "utf8" });
+  // TAP, not the runtime's default reporter: the default switched from
+  // machine readable lines to a human spec format in Node 23, which broke the
+  // counts this script parses. Asking for TAP keeps the output a contract on
+  // every engine version the workspace may run on.
+  const run = spawnSync("node", ["--test", "--test-reporter=tap"], {
+    cwd: dir,
+    encoding: "utf8",
+  });
   const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
-  const read = (key) => Number.parseInt(output.match(new RegExp(`^# ${key} (\\d+)$`, "m"))?.[1] ?? "-1", 10);
+  const read = (key) =>
+    Number.parseInt(
+      output.match(new RegExp(`^# ${key} (\\d+)$`, "m"))?.[1] ?? "-1",
+      10,
+    );
 
-  results.push({ name, pass: read("pass"), fail: read("fail"), code: run.status ?? 1, output });
+  results.push({
+    name,
+    pass: read("pass"),
+    fail: read("fail"),
+    code: run.status ?? 1,
+    output,
+  });
 }
 
 let failed = false;
@@ -46,10 +63,19 @@ for (const r of results) {
   if (r.fail > 0) reasons.push(`${r.fail} failing`);
   if (r.pass <= 0) reasons.push("ran no tests");
 
-  console.log(`  ${r.name.padEnd(width)}  ${String(r.pass).padStart(3)} pass  ${String(r.fail).padStart(3)} fail  ${reasons.length ? "FAIL: " + reasons.join(", ") : "ok"}`);
+  console.log(
+    `  ${r.name.padEnd(width)}  ${String(r.pass).padStart(3)} pass  ${String(r.fail).padStart(3)} fail  ${reasons.length ? "FAIL: " + reasons.join(", ") : "ok"}`,
+  );
   if (reasons.length) {
     failed = true;
-    console.log(r.output.split("\n").filter((l) => l.startsWith("not ok") || l.includes("Error")).slice(0, 8).map((l) => `      ${l}`).join("\n"));
+    console.log(
+      r.output
+        .split("\n")
+        .filter((l) => l.startsWith("not ok") || l.includes("Error"))
+        .slice(0, 8)
+        .map((l) => `      ${l}`)
+        .join("\n"),
+    );
   }
 }
 

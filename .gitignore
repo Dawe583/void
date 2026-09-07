@@ -51,6 +51,10 @@ Thumbs.db
 # Scratch output from the api function emit check
 .tsc-api-emit
 
+# graphify knowledge graph output: regenerable, contains the forbidden dash
+# characters in generated prose, and never ships
+graphify-out/
+
 # A violating emit under api/ writes .js next to its TypeScript source here.
 # api/tsconfig.json deliberately does not set noEmitOnError, so keep the stray
 # output out of git rather than committing it. Scoped to src/ on purpose: a

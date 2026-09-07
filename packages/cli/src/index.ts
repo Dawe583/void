@@ -1,13 +1,24 @@
 /**
  * The void command.
  *
- * Nothing is implemented yet. WP-09 lands the commands themselves. What is here
- * is the command surface, kept in one place so that an unknown command is a
- * refusal with the list rather than a silent no op, which is the shape the
- * whole product uses for anything it does not recognise.
+ * The command handlers are WP-09 and do not exist yet. What is here is the
+ * command surface, kept in one place so that an unknown command is a refusal
+ * with the list rather than a silent no op, which is the shape the whole
+ * product uses for anything it does not recognise, and the WP-09b terminal
+ * render model under src/tui/, which is data in and glyphs out and owns no
+ * domain behaviour of its own.
  */
 
-export const COMMANDS = ["run", "ledger", "replay", "attest"] as const;
+export const COMMANDS = [
+  "run",
+  "watch",
+  "approvals",
+  "ledger",
+  "replay",
+  "policy",
+  "export",
+  "attest",
+] as const;
 
 export type Command = (typeof COMMANDS)[number];
 
@@ -25,7 +36,12 @@ export function parseInvocation(argv: readonly string[]): ParsedInvocation {
     return { ok: false, reason: `usage: void <${COMMANDS.join("|")}>` };
   }
   if (!(COMMANDS as readonly string[]).includes(name)) {
-    return { ok: false, reason: `unknown command ${JSON.stringify(name)}, expected one of ${COMMANDS.join(", ")}` };
+    return {
+      ok: false,
+      reason: `unknown command ${JSON.stringify(name)}, expected one of ${COMMANDS.join(", ")}`,
+    };
   }
   return { ok: true, command: name as Command, args };
 }
+
+export * from "./tui/index.ts";
