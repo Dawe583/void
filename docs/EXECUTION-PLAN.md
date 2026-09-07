@@ -28,16 +28,16 @@ deterministic control flow. The sizing rule applied throughout:
 
 Each package lists:
 
-| Field | Meaning |
-| --- | --- |
-| Goal | The one sentence the package exists for |
-| Needs | Packages that must be complete first, and anything required from you |
-| Shape | Phases, agent counts and the orchestration pattern per phase |
-| Agents | What each agent is told to do, in one line |
-| Produces | Files and artifacts that exist afterwards |
-| Exit | Commands that must pass |
-| Budget | Rough token spend for the whole package |
-| Traps | What has gone wrong before in work like this |
+| Field    | Meaning                                                              |
+| -------- | -------------------------------------------------------------------- |
+| Goal     | The one sentence the package exists for                              |
+| Needs    | Packages that must be complete first, and anything required from you |
+| Shape    | Phases, agent counts and the orchestration pattern per phase         |
+| Agents   | What each agent is told to do, in one line                           |
+| Produces | Files and artifacts that exist afterwards                            |
+| Exit     | Commands that must pass                                              |
+| Budget   | Rough token spend for the whole package                              |
+| Traps    | What has gone wrong before in work like this                         |
 
 Token figures are for planning. They assume roughly 60k to 150k tokens per
 agent depending on how much it reads, and they are deliberately rounded up.
@@ -167,11 +167,11 @@ in, and write the four files every later agent will read first.
 
 **Shape.** One workflow, three phases, 9 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Understand | 4 parallel readers, one per subsystem, structured map | 4 |
-| Decide | judge panel: 3 independent decision logs, 1 synthesis | 4 |
-| Scaffold | 1 builder in a worktree, then 1 verifier | 2 (sequential) |
+| Phase      | Pattern                                               | Agents         |
+| ---------- | ----------------------------------------------------- | -------------- |
+| Understand | 4 parallel readers, one per subsystem, structured map | 4              |
+| Decide     | judge panel: 3 independent decision logs, 1 synthesis | 4              |
+| Scaffold   | 1 builder in a worktree, then 1 verifier              | 2 (sequential) |
 
 **Agents.**
 
@@ -231,12 +231,12 @@ scout step confirms the version and pins it.
 
 **Shape.** One workflow, four phases, 14 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Spec | 2 readers of the MCP specification, structured message inventory | 2 |
-| Design | 3 independent interface designs, 1 judge and synthesis | 4 |
-| Implement | pipeline over 4 modules, each builder in a worktree, then 1 merger | 5 |
-| Verify | 1 integration runner, 2 lens reviewers | 3 |
+| Phase     | Pattern                                                            | Agents |
+| --------- | ------------------------------------------------------------------ | ------ |
+| Spec      | 2 readers of the MCP specification, structured message inventory   | 2      |
+| Design    | 3 independent interface designs, 1 judge and synthesis             | 4      |
+| Implement | pipeline over 4 modules, each builder in a worktree, then 1 merger | 5      |
+| Verify    | 1 integration runner, 2 lens reviewers                             | 3      |
 
 **Agents.**
 
@@ -296,11 +296,11 @@ agents when they are missing.
 
 **Shape.** One workflow, three phases, 11 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Implement | pipeline over 4 modules in worktrees, 1 merger | 5 |
-| Verify | 3 scenario runners, one per behaviour | 3 |
-| Break | 3 adversarial reviewers with distinct lenses | 3 |
+| Phase     | Pattern                                        | Agents |
+| --------- | ---------------------------------------------- | ------ |
+| Implement | pipeline over 4 modules in worktrees, 1 merger | 5      |
+| Verify    | 3 scenario runners, one per behaviour          | 3      |
+| Break     | 3 adversarial reviewers with distinct lenses   | 3      |
 
 **Agents.**
 
@@ -345,11 +345,11 @@ failures.
 
 **Shape.** One workflow, three phases, 9 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Implement | pipeline over 3 modules in worktrees, 1 merger | 4 |
-| Verify | 1 runner for the three commands | 1 |
-| Break | 4 forgers, each trying a different attack | 4 |
+| Phase     | Pattern                                        | Agents |
+| --------- | ---------------------------------------------- | ------ |
+| Implement | pipeline over 3 modules in worktrees, 1 merger | 4      |
+| Verify    | 1 runner for the three commands                | 1      |
+| Break     | 4 forgers, each trying a different attack      | 4      |
 
 **Agents.**
 
@@ -392,11 +392,11 @@ case out.
 
 **Shape.** One workflow, three phases, 10 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Design | 2 independent designs of the precondition language, 1 judge | 3 |
-| Implement | pipeline over 3 modules in worktrees, 1 merger | 4 |
-| Break | 3 skeptics feeding adversarial inputs | 3 |
+| Phase     | Pattern                                                     | Agents |
+| --------- | ----------------------------------------------------------- | ------ |
+| Design    | 2 independent designs of the precondition language, 1 judge | 3      |
+| Implement | pipeline over 3 modules in worktrees, 1 merger              | 4      |
+| Break     | 3 skeptics feeding adversarial inputs                       | 3      |
 
 **Agents.**
 
@@ -447,11 +447,11 @@ the one package that exceeds the 15 agent guideline: about 160 entries times
 three agents is roughly 500 agents, run 10 at a time. You opt in to that size
 explicitly when you start it, or split it by vendor group into four runs.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Inventory | 5 parallel listers, one per vendor group, dedup barrier | 5 |
+| Phase               | Pattern                                                          | Agents      |
+| ------------------- | ---------------------------------------------------------------- | ----------- |
+| Inventory           | 5 parallel listers, one per vendor group, dedup barrier          | 5           |
 | Generate and verify | pipeline per candidate: 1 writer, 2 refuters against vendor docs | 3 per entry |
-| Merge | 1 agent writes the entries, 1 verifier runs schema and stats | 2 |
+| Merge               | 1 agent writes the entries, 1 verifier runs schema and stats     | 2           |
 
 **Agents.**
 
@@ -497,12 +497,12 @@ enough for the exit criterion.
 
 **Shape.** One workflow, four phases, 14 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Design | 2 rule format proposals, 1 judge | 3 |
-| Implement | pipeline over 5 modules in worktrees, 1 merger | 6 |
-| Verify | 1 end to end runner for the moment | 1 |
-| Break | 4 skeptics | 4 |
+| Phase     | Pattern                                        | Agents |
+| --------- | ---------------------------------------------- | ------ |
+| Design    | 2 rule format proposals, 1 judge               | 3      |
+| Implement | pipeline over 5 modules in worktrees, 1 merger | 6      |
+| Verify    | 1 end to end runner for the moment             | 1      |
+| Break     | 4 skeptics                                     | 4      |
 
 **Agents.**
 
@@ -558,12 +558,12 @@ keeps customer data in the customer's bucket.
 
 **Shape.** One workflow, four phases, 13 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Design | 1 designer for the connector interface, 1 for the snapshot store, 1 judge | 3 |
-| Implement | pipeline over 4 modules in worktrees, 1 merger | 5 |
-| Verify | 1 runner that uses psql, not assertions | 1 |
-| Break | 4 skeptics | 4 |
+| Phase     | Pattern                                                                   | Agents |
+| --------- | ------------------------------------------------------------------------- | ------ |
+| Design    | 1 designer for the connector interface, 1 for the snapshot store, 1 judge | 3      |
+| Implement | pipeline over 4 modules in worktrees, 1 merger                            | 5      |
+| Verify    | 1 runner that uses psql, not assertions                                   | 1      |
+| Break     | 4 skeptics                                                                | 4      |
 
 **Agents.**
 
@@ -619,11 +619,11 @@ a spend cap that you create. The scout step establishes which.
 
 **Shape.** One workflow, three phases, 9 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Implement | pipeline over 3 modules in worktrees, 1 merger | 4 |
-| Verify | 2 runners, versioning on and off | 2 |
-| Break | 3 skeptics | 3 |
+| Phase     | Pattern                                        | Agents |
+| --------- | ---------------------------------------------- | ------ |
+| Implement | pipeline over 3 modules in worktrees, 1 merger | 4      |
+| Verify    | 2 runners, versioning on and off               | 2      |
+| Break     | 3 skeptics                                     | 3      |
 
 **Agents.**
 
@@ -664,11 +664,11 @@ and put a real number in every hold notification.
 
 **Shape.** One workflow, three phases, 12 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Design | 2 designs of the probe cache and staleness policy, 1 judge | 3 |
-| Implement | pipeline over 4 modules in worktrees, 1 merger | 5 |
-| Verify and break | 1 accuracy runner, 3 skeptics | 4 |
+| Phase            | Pattern                                                    | Agents |
+| ---------------- | ---------------------------------------------------------- | ------ |
+| Design           | 2 designs of the probe cache and staleness policy, 1 judge | 3      |
+| Implement        | pipeline over 4 modules in worktrees, 1 merger             | 5      |
+| Verify and break | 1 accuracy runner, 3 skeptics                              | 4      |
 
 **Agents.**
 
@@ -715,11 +715,11 @@ product gets debugged for the next year, so it is built before any dashboard.
 
 **Shape.** One workflow, three phases, 10 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Design | 1 designer for command surface and output conventions | 1 |
-| Implement | pipeline over 6 commands in worktrees, 1 merger | 7 |
-| Verify | 2 runners: a scripted session, and a fresh install on a clean checkout | 2 |
+| Phase     | Pattern                                                                | Agents |
+| --------- | ---------------------------------------------------------------------- | ------ |
+| Design    | 1 designer for command surface and output conventions                  | 1      |
+| Implement | pipeline over 6 commands in worktrees, 1 merger                        | 7      |
+| Verify    | 2 runners: a scripted session, and a fresh install on a clean checkout | 2      |
 
 **Agents.**
 
@@ -763,12 +763,12 @@ after the terminal one and not instead of it.
 
 **Shape.** One workflow, four phases, 14 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Design | 2 render model proposals, 1 palette extractor, 1 judge | 4 |
-| Implement | pipeline over 5 modules in worktrees, 1 merger | 6 |
-| Verify | 1 pty capture runner, 1 degradation runner | 2 |
-| Break | 2 skeptics on the two ways a TUI ruins a shell | 2 |
+| Phase     | Pattern                                                | Agents |
+| --------- | ------------------------------------------------------ | ------ |
+| Design    | 2 render model proposals, 1 palette extractor, 1 judge | 4      |
+| Implement | pipeline over 5 modules in worktrees, 1 merger         | 6      |
+| Verify    | 1 pty capture runner, 1 degradation runner             | 2      |
+| Break     | 2 skeptics on the two ways a TUI ruins a shell         | 2      |
 
 #### The decision the design phase has to settle
 
@@ -891,11 +891,11 @@ feed, approvals, ledger browsing with verification status, replay preview.
 
 **Shape.** One workflow, three phases, 11 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Design | 1 designer for the OpenAPI contract, extending `lib/api-spec` | 1 |
-| Implement | pipeline over 5 route groups in worktrees, 1 merger | 6 |
-| Break | 4 skeptics | 4 |
+| Phase     | Pattern                                                       | Agents |
+| --------- | ------------------------------------------------------------- | ------ |
+| Design    | 1 designer for the OpenAPI contract, extending `lib/api-spec` | 1      |
+| Implement | pipeline over 5 route groups in worktrees, 1 merger           | 6      |
+| Break     | 4 skeptics                                                    | 4      |
 
 **Agents.**
 
@@ -939,12 +939,12 @@ scrubber, and a view over more history than fits on a screen.
 
 **Shape.** One workflow, three phases, 13 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Design | 1 information architecture agent, reading Reader D's map from WP-00 | 1 |
-| Implement | pipeline over 4 pages in worktrees, 1 merger | 5 |
-| Verify and break | 1 browser runner, 3 review lenses | 4 |
-| Polish | 3 agents fixing the review findings, in worktrees | 3 |
+| Phase            | Pattern                                                             | Agents |
+| ---------------- | ------------------------------------------------------------------- | ------ |
+| Design           | 1 information architecture agent, reading Reader D's map from WP-00 | 1      |
+| Implement        | pipeline over 4 pages in worktrees, 1 merger                        | 5      |
+| Verify and break | 1 browser runner, 3 review lenses                                   | 4      |
+| Polish           | 3 agents fixing the review findings, in worktrees                   | 3      |
 
 **Agents.**
 
@@ -1019,11 +1019,11 @@ the product it verifies is not evidence.
 
 **Shape.** One workflow, three phases, 9 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Implement | pipeline over 3 modules in worktrees, 1 merger | 4 |
-| Verify | 1 runner on a clean machine image | 1 |
-| Break | 4 forgers | 4 |
+| Phase     | Pattern                                        | Agents |
+| --------- | ---------------------------------------------- | ------ |
+| Implement | pipeline over 3 modules in worktrees, 1 merger | 4      |
+| Verify    | 1 runner on a clean machine image              | 1      |
+| Break     | 4 forgers                                      | 4      |
 
 **Agents.**
 
@@ -1059,11 +1059,11 @@ that do not use MCP.
 
 **Shape.** One workflow, three phases, 11 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Understand | 3 readers, one per framework's tool shape | 3 |
-| Implement | pipeline over 3 adapters plus the core wrap in worktrees, 1 merger | 5 |
-| Verify | 3 runners, one per framework, each running the moment scenario | 3 |
+| Phase      | Pattern                                                            | Agents |
+| ---------- | ------------------------------------------------------------------ | ------ |
+| Understand | 3 readers, one per framework's tool shape                          | 3      |
+| Implement  | pipeline over 3 adapters plus the core wrap in worktrees, 1 merger | 5      |
+| Verify     | 3 runners, one per framework, each running the moment scenario     | 3      |
 
 **Agents.**
 
@@ -1092,12 +1092,12 @@ node scripts/moment.mjs --shape sdk --framework vercel|openai|langgraph
 
 **Shape.** One workflow, four phases, 14 agents.
 
-| Phase | Pattern | Agents |
-| --- | --- | --- |
-| Security review | 5 lenses over the whole codebase, structured findings | 5 |
-| Fix | pipeline over confirmed findings in worktrees, 1 merger | up to 4 |
-| Docs | 3 writers: quickstart, policy reference, connector authoring guide | 3 |
-| Release | 1 packager, 1 fresh install runner | 2 |
+| Phase           | Pattern                                                            | Agents  |
+| --------------- | ------------------------------------------------------------------ | ------- |
+| Security review | 5 lenses over the whole codebase, structured findings              | 5       |
+| Fix             | pipeline over confirmed findings in worktrees, 1 merger            | up to 4 |
+| Docs            | 3 writers: quickstart, policy reference, connector authoring guide | 3       |
+| Release         | 1 packager, 1 fresh install runner                                 | 2       |
 
 **Agents.**
 
@@ -1128,27 +1128,27 @@ npm view @void/cli version        # 0.1.0
 
 ## 5. Totals
 
-| Package | Workflows | Agents | Tokens |
-| --- | --- | --- | --- |
-| WP-00 scaffold | 1 | 9 | 0.7M |
-| WP-01 proxy stdio | 1 | 14 | 1.5M |
-| WP-02 proxy HTTP | 1 | 11 | 1.2M |
-| WP-03 ledger | 1 | 9 | 0.9M |
-| WP-04a registry runtime | 1 | 10 | 1.1M |
-| WP-04b registry expansion | 1 | ~500 | 8.0M |
-| WP-05 policy and hold | 1 | 14 | 1.6M |
-| WP-06 Postgres connector | 1 | 13 | 1.6M |
-| WP-07 S3 connector | 1 | 9 | 1.0M |
-| WP-08 probes | 1 | 12 | 1.4M |
-| WP-09 CLI | 1 | 10 | 1.1M |
-| WP-09b terminal interface | 1 | 14 | 1.2M |
-| WP-10 control plane API | 1 | 11 | 1.3M |
-| WP-11 control plane UI | 1 | 13 | 1.5M |
-| WP-12 taint graph | 2 | 20 | 2.4M |
-| WP-13 attestation | 1 | 9 | 1.0M |
-| WP-14 SDK wrap | 1 | 11 | 1.3M |
-| WP-15 hardening and release | 1 | 14 | 1.8M |
-| **Total** | **19** | **703** | **~31M** |
+| Package                     | Workflows | Agents  | Tokens   |
+| --------------------------- | --------- | ------- | -------- |
+| WP-00 scaffold              | 1         | 9       | 0.7M     |
+| WP-01 proxy stdio           | 1         | 14      | 1.5M     |
+| WP-02 proxy HTTP            | 1         | 11      | 1.2M     |
+| WP-03 ledger                | 1         | 9       | 0.9M     |
+| WP-04a registry runtime     | 1         | 10      | 1.1M     |
+| WP-04b registry expansion   | 1         | ~500    | 8.0M     |
+| WP-05 policy and hold       | 1         | 14      | 1.6M     |
+| WP-06 Postgres connector    | 1         | 13      | 1.6M     |
+| WP-07 S3 connector          | 1         | 9       | 1.0M     |
+| WP-08 probes                | 1         | 12      | 1.4M     |
+| WP-09 CLI                   | 1         | 10      | 1.1M     |
+| WP-09b terminal interface   | 1         | 14      | 1.2M     |
+| WP-10 control plane API     | 1         | 11      | 1.3M     |
+| WP-11 control plane UI      | 1         | 13      | 1.5M     |
+| WP-12 taint graph           | 2         | 20      | 2.4M     |
+| WP-13 attestation           | 1         | 9       | 1.0M     |
+| WP-14 SDK wrap              | 1         | 11      | 1.3M     |
+| WP-15 hardening and release | 1         | 14      | 1.8M     |
+| **Total**                   | **19**    | **703** | **~31M** |
 
 Without WP-04b, which is optional and batchable, the build is about 23M
 tokens across 18 workflows and roughly 200 agents.
@@ -1168,17 +1168,94 @@ onward are verified against real systems that take real time to set up.
 
 ## 6. What I need from you, and when
 
-| Before | What | Why |
-| --- | --- | --- |
-| WP-00 | The sentence "run WP-00" | Explicit opt in per workflow |
-| WP-04a | Fifteen minutes to skim the prose to structure migration | The one merge that needs human eyes |
-| WP-05 | Optional: a Slack incoming webhook URL for a test channel | The Slack approval channel; CLI is enough without it |
-| WP-07 | If MinIO does not run here: a disposable AWS account with a spend cap | Real S3 verification |
-| WP-15 | An npm organisation name, and a GitHub Actions secret for publishing | Release |
-| Any | A Stripe test mode key, only when a Stripe connector is scheduled | Not in this plan's first pass |
+| Before | What                                                                  | Why                                                  |
+| ------ | --------------------------------------------------------------------- | ---------------------------------------------------- |
+| WP-00  | The sentence "run WP-00"                                              | Explicit opt in per workflow                         |
+| WP-04a | Fifteen minutes to skim the prose to structure migration              | The one merge that needs human eyes                  |
+| WP-05  | Optional: a Slack incoming webhook URL for a test channel             | The Slack approval channel; CLI is enough without it |
+| WP-07  | If MinIO does not run here: a disposable AWS account with a spend cap | Real S3 verification                                 |
+| WP-15  | An npm organisation name, and a GitHub Actions secret for publishing  | Release                                              |
+| Any    | A Stripe test mode key, only when a Stripe connector is scheduled     | Not in this plan's first pass                        |
 
 Nothing in this plan needs a production credential of any kind, and nothing
 should be given one.
+
+---
+
+## 7. The Agent Workbench workstream, AW
+
+The WP sequence above builds VOID's core: registry, ledger, proxy, policy,
+connectors, CLI, TUI, control plane. The AW workstream extends that core into
+a developer workbench where the operator can also run agent sessions against
+model providers through their own API keys, without VOID becoming a competing
+agent framework. The core principle is unchanged and is the test for every AW
+feature: does this make the agent write path safer, more observable, more
+reversible, or more useful to operate? If not, it does not ship.
+
+Dependencies, stated explicitly so nothing is skipped:
+
+- AW-00 needs WP-09b (TUI render model exists, landed).
+- AW-01 needs AW-00 (provider contracts frozen first).
+- AW-02 needs AW-00 (runtime contracts frozen first). Independent of AW-01.
+- AW-03 needs AW-01, AW-02 and WP-05 (a hold worth approving).
+- AW-04 needs WP-10's route patterns and AW-01/AW-02 domain.
+- AW-05 needs AW-04.
+- AW-06 needs AW-05.
+- AW-07 needs AW-05.
+
+The user's stated goal for this workstream: a TUI workbench where the
+operator works with agents the way they work in a terminal agent today,
+talking to model providers through an OpenRouter compatible token router
+with the operator's own API key, with VOID's accountability, classification,
+holds and ledger around every tool call the agent makes.
+
+### AW-00: architecture and design-system alignment
+
+Goal: freeze the shared domain events, the provider and runtime contracts,
+the secret storage boundary, and the workbench information architecture,
+before any provider or runtime code exists.
+
+Exit: contracts compile as types with no implementation; one example event
+travels through core types and the TUI render model without semantic change;
+docs/DECISIONS.md records the provider and runtime contract decisions.
+
+### AW-01: provider registry and secure configuration
+
+Goal: provider definitions, model discovery, capability metadata, secure key
+storage abstraction (OS keychain, never a config file), validation and
+redaction. The first concrete target is an OpenRouter compatible endpoint
+with the operator's key, because that is what the operator already uses.
+
+Exit: valid and invalid configuration paths tested; secrets absent from
+logs, events and renders; one hosted path validated end to end against a
+disposable account; no provider shows connected before validation succeeds.
+
+### AW-02: agent runtime adapters
+
+Goal: run and observe local agent runtimes through a stable session
+interface. Initial adapters: a generic shell/PTY runtime, plus the runtime
+shapes the operator actually uses.
+
+Exit: a disposable project session runs through each adapter; cancellation
+interrupts the correct process; no shell injection through path, arguments
+or environment; cleanup verified after normal and abnormal termination.
+
+### AW-03: TUI workbench integration
+
+Goal: connect the provider and runtime domain to the WP-09b TUI without
+breaking shell composability: session view, model indicator, tool call and
+class, pending approvals resolving real holds, ledger head.
+
+Exit: inline mode works piped; watch shows live session state; approval
+resolves the actual pending hold; captures pass at 80, 120 and 200 columns;
+all raw mode and degradation tests still pass.
+
+### AW-04 through AW-07
+
+AW-04 control plane API and event stream, AW-05 GUI workbench, AW-06 desktop
+shell, AW-07 multi agent orchestration and review loop. Each is specified in
+detail in docs/GLM-5.3-MASTER-PROMPT.md and starts only when its dependency
+above is complete.
 
 ---
 
