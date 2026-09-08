@@ -11,7 +11,20 @@ window.VOID_CHATS = (function () {
     return [];
   }
   function save(all) {
-    try { localStorage.setItem(LS, JSON.stringify(all)); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(LS, JSON.stringify(all)); }
+    catch (e) {
+      try {
+        var lite = all.map(function (c) {
+          var msgs = c.msgs.map(function (m) {
+            if (m.images) { m.images = []; m.attMeta = (m.attMeta || []).concat([{ name: "images stripped, over browser quota", size: 0, kind: "note" }]); }
+            return m;
+          });
+          c.msgs = msgs;
+          return c;
+        });
+        localStorage.setItem(LS, JSON.stringify(lite));
+      } catch (e2) { /* storage full, history stays in memory */ }
+    }
   }
   function uid() { return "c" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
 
@@ -48,6 +61,26 @@ window.VOID_VIEWS.chat = function (root) {
   var chat = (openId && window.VOID_CHATS.get(openId)) || null;
   var aborter = null;
   var queued = [];
+  var pendingAtt = [];
+  var curMsg = -1;
+
+  var EXT = { python: "py", py: "py", javascript: "js", js: "js", jsx: "jsx", typescript: "ts", ts: "ts", tsx: "tsx", html: "html", css: "css", json: "json", markdown: "md", md: "md", bash: "sh", sh: "sh", shell: "sh", zsh: "sh", sql: "sql", yaml: "yml", yml: "yml", toml: "toml", xml: "xml", java: "java", c: "c", h: "h", cpp: "cpp", rust: "rs", rs: "rs", go: "go", ruby: "rb", rb: "rb", php: "php", swift: "swift", kotlin: "kt", kt: "kt", r: "r", csv: "csv", tsv: "tsv", text: "txt", plain: "txt", plaintext: "txt", code: "txt", diff: "diff", dockerfile: "dockerfile", ini: "ini", swiftui: "swift" };
+
+  function extFor(lang) {
+    var e = EXT[(lang || "").toLowerCase()];
+    return e || "txt";
+  }
+
+  function downloadFile(name, text, type) {
+    var blob = new Blob([text], { type: type || "text/plain" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
 
   function esc(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -65,17 +98,163 @@ window.VOID_VIEWS.chat = function (root) {
     h = h.split(/\n{2,}|\n/).map(function (ln) { return ln.trim() ? "<p>" + ln + "</p>" : ""; }).join("");
     h = h.replace(/\u0000(\d+)\u0000/g, function (m, i) {
       var b = blocks[parseInt(i, 10)];
-      return "<div class='codeblock'><div class='codehead'><span>" + esc(b.lang) + "</span><button class='btn-pearl btn-small' data-copycode='" + i + "'>Copy</button></div><pre>" + esc(b.code) + "</pre></div>";
+      return "<div class='codeblock'><div class='codehead'><span>" + esc(b.lang) + "</span><span><button class='btn-pearl btn-small' data-copycode='" + i + "'>Copy</button> <button class='btn-pearl btn-small' data-dlcode='" + curMsg + ":" + i + "'>Download</button></span></div><pre>" + esc(b.code) + "</pre></div>";
     });
     return h;
   }
   window.VOID_COPYBLOCKS = [];
 
   function costLine(model, msgs, reply) {
-    var inp = msgs.reduce(function (n, m) { return n + API.estimateTokens(m.content); }, 0);
+    var inp = msgs.reduce(function (n, m) {
+      var t = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+      var imgs = m.images ? m.images.length * 1500 * 4 : 0;
+      return n + API.estimateTokens(t) + Math.round(imgs / 4);
+    }, 0);
     var out = API.estimateTokens(reply);
     var cost = API.estimateCost(model, inp, out);
     return "~" + (inp + out) + " tokens" + (cost !== null ? ", $" + cost.toFixed(4) : "");
+  }
+
+  var MAX_FILES = 20;
+  var MAX_IMAGE = 5 * 1024 * 1024;
+  var MAX_FILE = 30 * 1024 * 1024;
+  var MAX_TEXT_INLINE = 200 * 1024;
+  var IMG_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+  function fmtSize(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return Math.round(n / 1024) + " KB";
+    return (n / 1048576).toFixed(1) + " MB";
+  }
+
+  function attChips(m) {
+    if (!m.attMeta || !m.attMeta.length) return "";
+    return "<div class='att-row'>" + m.attMeta.map(function (a) {
+      return "<span class='att-chip'>" + esc(a.name) + " " + fmtSize(a.size) + "</span>";
+    }).join("") + "</div>";
+  }
+
+  function downscaleImage(file) {
+    return createImageBitmap(file).then(function (bmp) {
+      var max = 1568;
+      var scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+      var cv = document.createElement("canvas");
+      cv.width = Math.round(bmp.width * scale);
+      cv.height = Math.round(bmp.height * scale);
+      cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+      return new Promise(function (res, rej) {
+        cv.toBlob(function (b) { b ? res(b) : rej(new Error("encode")); }, "image/jpeg", 0.85);
+      });
+    }).then(function (blob) {
+      return new Promise(function (res, rej) {
+        var r = new FileReader();
+        r.onload = function () { res(r.result); };
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+    });
+  }
+
+  function pdfText(buf) {
+    if (typeof pdfjsLib === "undefined") return Promise.reject(new Error("PDF engine offline"));
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    return pdfjsLib.getDocument({ data: buf }).promise.then(function (pdf) {
+      if (pdf.numPages > 1000) throw new Error("PDF over 1000 pages");
+      var pages = Math.min(pdf.numPages, 100);
+      var jobs = [];
+      for (var i = 1; i <= pages; i++) {
+        jobs.push(pdf.getPage(i).then(function (pg) {
+          return pg.getTextContent().then(function (tc) {
+            return tc.items.map(function (it) { return it.str; }).join(" ");
+          });
+        }));
+      }
+      return Promise.all(jobs).then(function (texts) {
+        return { pages: pdf.numPages, text: texts.join("\n\n") };
+      });
+    });
+  }
+
+  function docxText(buf) {
+    if (typeof mammoth === "undefined") return Promise.reject(new Error("DOCX engine offline"));
+    return mammoth.extractRawText({ arrayBuffer: buf }).then(function (r) { return r.value; });
+  }
+
+  function processFile(file) {
+    if (file.size > MAX_FILE) {
+      if (window.VOID_TOAST) window.VOID_TOAST(file.name + " over 30 MB, skipped.");
+      return Promise.resolve(null);
+    }
+    if (IMG_TYPES.includes(file.type)) {
+      if (file.size > MAX_IMAGE) {
+        if (window.VOID_TOAST) window.VOID_TOAST(file.name + " over 5 MB, skipped.");
+        return Promise.resolve(null);
+      }
+      return downscaleImage(file).then(function (url) {
+        return { kind: "image", name: file.name, size: file.size, dataUrl: url };
+      }).catch(function () {
+        if (window.VOID_TOAST) window.VOID_TOAST(file.name + " could not be read.");
+        return null;
+      });
+    }
+    var lower = file.name.toLowerCase();
+    if (lower.endsWith(".pdf")) {
+      return file.arrayBuffer().then(pdfText).then(function (r) {
+        var note = r.pages > 100 ? " (first 100 of " + r.pages + " pages)" : "";
+        return { kind: "text", name: file.name, size: file.size, text: "File " + file.name + note + ":\n" + r.text };
+      }).catch(function (e) {
+        if (window.VOID_TOAST) window.VOID_TOAST(file.name + ": " + e.message + ".");
+        return null;
+      });
+    }
+    if (lower.endsWith(".docx")) {
+      return file.arrayBuffer().then(docxText).then(function (t) {
+        return { kind: "text", name: file.name, size: file.size, text: "File " + file.name + ":\n" + t };
+      }).catch(function (e) {
+        if (window.VOID_TOAST) window.VOID_TOAST(file.name + ": " + e.message + ".");
+        return null;
+      });
+    }
+    if (file.size > MAX_TEXT_INLINE) {
+      var input = wrap.querySelector("#ch-in");
+      if (input) input.value += "\n[" + file.name + ", " + fmtSize(file.size) + ": too large to inline, reference only]\n";
+      if (window.VOID_TOAST) window.VOID_TOAST(file.name + " inserted as reference (too large).");
+      return Promise.resolve(null);
+    }
+    return file.text().then(function (t) {
+      if (t.includes("\u0000")) {
+        var input = wrap.querySelector("#ch-in");
+        if (input) input.value += "\n[" + file.name + ", " + fmtSize(file.size) + ": binary, reference only]\n";
+        if (window.VOID_TOAST) window.VOID_TOAST(file.name + " inserted as reference (binary).");
+        return null;
+      }
+      return { kind: "text", name: file.name, size: file.size, text: "File " + file.name + ":\n```\n" + t.slice(0, MAX_TEXT_INLINE) + "\n```" };
+    }).catch(function () {
+      if (window.VOID_TOAST) window.VOID_TOAST(file.name + " could not be read.");
+      return null;
+    });
+  }
+
+  function paintChips() {
+    var box = wrap.querySelector("#ch-chips");
+    if (!box) return;
+    box.innerHTML = pendingAtt.map(function (a, i) {
+      return "<span class='att-chip'>" + esc(a.name) + " " + fmtSize(a.size) + " <button data-rm='" + i + "' aria-label='Remove'>x</button></span>";
+    }).join("");
+    box.querySelectorAll("button[data-rm]").forEach(function (b) {
+      b.onclick = function () { pendingAtt.splice(parseInt(b.getAttribute("data-rm"), 10), 1); paintChips(); };
+    });
+  }
+
+  function addFiles(files) {
+    var room = MAX_FILES - chat.msgs.reduce(function (n, m) { return n + ((m.attMeta || []).length); }, 0) - pendingAtt.length;
+    var list = Array.prototype.slice.call(files, 0, Math.max(0, room));
+    if (files.length > list.length && window.VOID_TOAST) window.VOID_TOAST("Max 20 files per chat.");
+    var jobs = list.map(processFile);
+    Promise.all(jobs).then(function (res) {
+      res.forEach(function (a) { if (a) pendingAtt.push(a); });
+      paintChips();
+    });
   }
 
   function paint() {
@@ -99,7 +278,10 @@ window.VOID_VIEWS.chat = function (root) {
       "<button class='btn-pearl btn-small' id='ch-del'>Delete</button></div>" +
       "<div id='ch-offline' class='offline-banner' hidden>Offline. Messages queue and send on reconnect.</div>" +
       "<div class='chat-msgs' id='ch-msgs'></div>" +
-      "<div class='composer'><textarea id='ch-in' rows='2' placeholder='Message, Enter sends' aria-label='Message'></textarea>" +
+      "<div id='ch-chips' class='att-row'></div>" +
+      "<div class='composer' id='ch-drop'><button class='btn-pearl btn-small' id='ch-attach' aria-label='Attach files'>+</button>" +
+      "<input id='ch-file' type='file' multiple hidden accept='image/jpeg,image/png,image/gif,image/webp,.pdf,.docx,.txt,.md,.markdown,.csv,.json,.html,.xml,.yml,.yaml,.toml,.ini,.js,.ts,.jsx,.tsx,.py,.rb,.php,.java,.c,.h,.cpp,.rs,.go,.swift,.kt,.sql,.sh,.css,.r'>" +
+      "<textarea id='ch-in' rows='2' placeholder='Message, Enter sends. Drop files or paste images.' aria-label='Message'></textarea>" +
       "<button class='btn-primary btn-small' id='ch-send'>Send</button>" +
       "<button class='btn-ghost btn-small' id='ch-stop' hidden>Stop</button></div>";
     wrap.innerHTML = html;
@@ -107,6 +289,7 @@ window.VOID_VIEWS.chat = function (root) {
     root.appendChild(wrap);
     paintMsgs();
     wire();
+    paintChips();
     paintSidebar();
     updateOffline();
   }
@@ -136,11 +319,18 @@ window.VOID_VIEWS.chat = function (root) {
       return;
     }
     box.innerHTML = chat.msgs.map(function (m, i) {
-      var body = m.role === "user" ? "<p>" + esc(m.content).replace(/\n/g, "<br>") + "</p>" : md(m.content);
+      var body;
+      if (m.role === "user") {
+        body = "<p>" + esc(m.content || "").replace(/\n/g, "<br>") + "</p>" + attChips(m);
+      } else {
+        curMsg = i;
+        body = md(m.content);
+      }
       var foot = m.role === "assistant" && m.meta ? "<div class='muted small'>" + esc(m.meta) + "</div>" : "";
       var ops = m.role === "user"
         ? "<button class='btn-pearl btn-small' data-op='edit' data-i='" + i + "'>Edit</button>"
-        : "<button class='btn-pearl btn-small' data-op='copy' data-i='" + i + "'>Copy</button>" +
+        : "<button class='btn-pearl btn-small' data-op='copy' data-i='" + i + "'>Copy</button> " +
+          "<button class='btn-pearl btn-small' data-op='save' data-i='" + i + "'>Save file</button>" +
           (i === chat.msgs.length - 1 ? " <button class='btn-pearl btn-small' data-op='retry'>Retry</button>" : "");
       return "<div class='msg " + m.role + "'><div class='msg-role muted small'>" + m.role + (m.model ? " " + esc(m.model) : "") + "</div>" +
         "<div class='msg-body' data-i='" + i + "'>" + body + "</div>" + foot +
@@ -151,14 +341,26 @@ window.VOID_VIEWS.chat = function (root) {
       var i = parseInt(b.getAttribute("data-i"), 10);
       var op = b.getAttribute("data-op");
       if (op === "copy") b.onclick = function () { copyText(chat.msgs[i].content, "Message copied."); };
+      if (op === "save") b.onclick = function () {
+        downloadFile("reply-" + i + ".md", chat.msgs[i].content, "text/markdown");
+        if (window.VOID_TOAST) window.VOID_TOAST("Reply saved as file.");
+      };
       if (op === "retry") b.onclick = retry;
       if (op === "edit") b.onclick = function () { editMsg(i); };
     });
     box.querySelectorAll("button[data-copycode]").forEach(function (b) {
       b.onclick = function () {
-        var idx = parseInt(b.getAttribute("data-copycode"), 10);
         var pre = b.parentElement.nextElementSibling;
         copyText(pre ? pre.textContent : "", "Code copied.");
+      };
+    });
+    box.querySelectorAll("button[data-dlcode]").forEach(function (b) {
+      b.onclick = function () {
+        var parts = b.getAttribute("data-dlcode").split(":");
+        var pre = b.parentElement.nextElementSibling;
+        var lang = (b.parentElement.querySelector("span") || {}).textContent || "txt";
+        downloadFile("snippet-" + parts[0] + "-" + parts[1] + "." + extFor(lang), pre ? pre.textContent : "", "text/plain");
+        if (window.VOID_TOAST) window.VOID_TOAST("File generated, check downloads.");
       };
     });
   }
@@ -183,6 +385,20 @@ window.VOID_VIEWS.chat = function (root) {
     var input = wrap.querySelector("#ch-in");
     wrap.querySelector("#ch-send").onclick = send;
     wrap.querySelector("#ch-stop").onclick = stop;
+    wrap.querySelector("#ch-attach").onclick = function () { wrap.querySelector("#ch-file").click(); };
+    wrap.querySelector("#ch-file").onchange = function (e) { addFiles(e.target.files); e.target.value = ""; };
+    var dz = wrap.querySelector("#ch-drop");
+    dz.addEventListener("dragover", function (e) { e.preventDefault(); dz.classList.add("drag"); });
+    dz.addEventListener("dragleave", function () { dz.classList.remove("drag"); });
+    dz.addEventListener("drop", function (e) {
+      e.preventDefault();
+      dz.classList.remove("drag");
+      if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+    });
+    input.addEventListener("paste", function (e) {
+      var files = (e.clipboardData && e.clipboardData.files) || [];
+      if (files.length) { e.preventDefault(); addFiles(files); }
+    });
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
     });
@@ -221,7 +437,9 @@ window.VOID_VIEWS.chat = function (root) {
 
   function toMarkdown() {
     return "# " + chat.title + "\n\n" + chat.msgs.map(function (m) {
-      return (m.role === "user" ? "## You" : "## Assistant" + (m.model ? " (" + m.model + ")" : "")) + "\n\n" + m.content + "\n";
+      var atts = (m.attMeta || []).map(function (a) { return a.name; }).join(", ");
+      return (m.role === "user" ? "## You" : "## Assistant" + (m.model ? " (" + m.model + ")" : "")) + "\n\n" +
+        (atts ? "_Attachments: " + atts + "_\n\n" : "") + m.content + "\n";
     }).join("\n");
   }
 
@@ -232,10 +450,19 @@ window.VOID_VIEWS.chat = function (root) {
     paint();
   }
 
+  function toAPIContent(m) {
+    if (m.images && m.images.length) {
+      var parts = [{ type: "text", text: m.content || "Describe these images." }];
+      m.images.forEach(function (url) { parts.push({ type: "image_url", image_url: { url: url } }); });
+      return parts;
+    }
+    return m.content;
+  }
+
   function send() {
     var input = wrap.querySelector("#ch-in");
     var text = input.value.trim();
-    if (!text || aborter) return;
+    if ((!text && pendingAtt.length === 0) || aborter) return;
     if (!API.hasKey()) {
       if (window.VOID_TOAST) window.VOID_TOAST("Set a provider key first.");
       location.hash = "#/providers";
@@ -248,17 +475,25 @@ window.VOID_VIEWS.chat = function (root) {
       updateOffline();
       return;
     }
-    chat.msgs.push({ role: "user", content: text });
-    if (chat.msgs.length === 1) chat.title = text.slice(0, 40);
+    var texts = [];
+    if (text) texts.push(text);
+    pendingAtt.forEach(function (a) { if (a.kind === "text") texts.push(a.text); });
+    var images = pendingAtt.filter(function (a) { return a.kind === "image"; }).map(function (a) { return a.dataUrl; });
+    var meta = pendingAtt.map(function (a) { return { name: a.name, size: a.size, kind: a.kind }; });
+    var full = texts.join("\n\n");
+    chat.msgs.push({ role: "user", content: full, images: images, attMeta: meta });
+    if (chat.msgs.length === 1) chat.title = (text || meta[0].name).slice(0, 40);
     input.value = "";
+    pendingAtt = [];
     window.VOID_CHATS.update(chat);
     paintMsgs();
+    paintChips();
     runAssistant();
   }
 
   function runAssistant() {
     var history = chat.msgs.filter(function (m) { return m.role === "user" || m.role === "assistant"; })
-      .map(function (m) { return { role: m.role, content: m.content }; });
+      .map(function (m) { return m.role === "assistant" ? { role: m.role, content: m.content } : { role: m.role, content: toAPIContent(m) }; });
     var acc = "";
     var box = wrap.querySelector("#ch-msgs");
     var streamEl = document.createElement("div");

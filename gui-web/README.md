@@ -45,9 +45,20 @@ gui-web/
 ## Chat is real, governance is mock
 
 Chat calls your configured provider for real (key in Providers,
-stored in this browser only). Everything else (holds, ledger,
+stored in this browser only). Attachments work like Claude:
+images (JPEG, PNG, GIF, WebP, downscaled), PDF and DOCX (text
+extracted locally), any text or code file inlined, anything else
+inserted as a filename reference. Max 20 files per chat, 30 MB
+per file, 5 MB per image. Everything else (holds, ledger,
 replay, audit) is an interactive local simulation of the VOID
 write path, clearly labeled mock.
+
+## File generation
+
+Every code block has Copy and Download (extension follows the
+language: py, js, ts, html, css, json, md, sh, sql and more).
+Every assistant reply has Save file (markdown). Whole chats
+export to markdown or JSON.
 
 ## Shortcuts
 
