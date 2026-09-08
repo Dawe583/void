@@ -34,10 +34,18 @@ export interface KeyProvider {
  * enforced first by the type system, then by Postgres grants, then by triggers,
  * then by the chain and the per entry signature. Only the last layer survives
  * an attacker who owns the database.
+ *
+ * The caller appends a body: the payload it wants on the record, carrying at
+ * least a workspace string. The store adds the chain metadata, so what read
+ * yields is the stored entry, the body plus seq, prev_hash, hash, key_id, alg
+ * and signature. WP-03 sharpened the two type parameters accordingly: Body
+ * is what the caller brings, StoredEntry is what the file holds, and the
+ * verifier recomputes rather than trusts the stored metadata, which is the
+ * difference between a check and a decoration.
  */
-export interface LedgerStore<Entry, Receipt> {
-  append(entry: Entry): Promise<Receipt>;
-  read(workspace: string): AsyncIterable<Entry>;
+export interface LedgerStore<Body, StoredEntry, Receipt> {
+  append(body: Body): Promise<Receipt>;
+  read(workspace: string): AsyncIterable<StoredEntry>;
   head(workspace: string): Promise<Receipt | null>;
   verify(workspace: string): Promise<{ ok: boolean; checked: number; reason?: string }>;
 }
@@ -55,7 +63,7 @@ const ENTRY_HASH = /^[0-9a-f]{64}$/;
  * hash itself.
  *
  * The full 64 character digest, never the truncated display form. The prior art
- * in api/_core.ts persisted 8 hex characters, which is birthday collidable in
+ * in the split out site persisted 8 hex characters, which is birthday collidable in
  * roughly 65 thousand attempts and impossible to verify independently.
  */
 export function signingPreimage(alg: Alg, keyId: string, entryHash: string): Uint8Array {
@@ -67,3 +75,7 @@ export function signingPreimage(alg: Alg, keyId: string, entryHash: string): Uin
   }
   return new TextEncoder().encode(`${LEDGER_PREIMAGE_VERSION}|${alg}|${keyId}|${entryHash}`);
 }
+
+export * from "./canonical.ts";
+export * from "./sign.ts";
+export * from "./store.ts";

@@ -91,16 +91,16 @@ the session is a stdio Postgres session, and message types that session never
 emits (`resources/*`, `prompts/*`, `list_changed`, reconnect) are still
 forwarded and are proven by unit test rather than by transcript.
 
-| Rejected | Why not |
-| --- | --- |
-| Stripe or another payments surface first | Needs an account, keys and an internet reachable webhook before line one, so it costs money and standing surface before the first user. Nearly every call in it is R2 or R3, so the product only ever says no and never says undone. A development mistake touches someone's real money. |
-| Both transports in phase 1, as BUILD-PLAN writes it | Doubles the code under review in the riskiest week and adds an inbound listener, session state, Origin checks and an auth surface in front of a database. Deferred to WP-02 with localhost binding, Origin validation and a required bearer token as its own exit criteria. |
-| SDK wrap or a framework plugin first | Binds VOID to one framework's agent loop, which BUILD-PLAN section 8 names as the mistake that turns a framework agnostic layer into a competitor to the framework. It also defers the transport work rather than saving it. It is the natural second deployment shape, at WP-14. |
-| Filesystem or shell MCP server as the first surface | Fastest to intercept and impossible to compensate honestly. A file delete has no keyed before image you can restore without copying the payload, which collides with the rule that VOID stores references and digests, never payloads. It produces a hold demo with no path to a replay demo. |
-| A general purpose HTTP egress proxy classifying any outbound API call | No tool identity, no arguments, no target state, so classification degrades to URL matching. 74 of the 89 registry entries change class with configuration, so URL matching is wrong most of the time. |
-| A gateway across several MCP servers at once | Every classification bug is then spread across surfaces with different auth, snapshot formats and failure modes. A plausible but wrong interceptor is worse than none. |
+| Rejected                                                                    | Why not                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stripe or another payments surface first                                    | Needs an account, keys and an internet reachable webhook before line one, so it costs money and standing surface before the first user. Nearly every call in it is R2 or R3, so the product only ever says no and never says undone. A development mistake touches someone's real money.                              |
+| Both transports in phase 1, as BUILD-PLAN writes it                         | Doubles the code under review in the riskiest week and adds an inbound listener, session state, Origin checks and an auth surface in front of a database. Deferred to WP-02 with localhost binding, Origin validation and a required bearer token as its own exit criteria.                                           |
+| SDK wrap or a framework plugin first                                        | Binds VOID to one framework's agent loop, which BUILD-PLAN section 8 names as the mistake that turns a framework agnostic layer into a competitor to the framework. It also defers the transport work rather than saving it. It is the natural second deployment shape, at WP-14.                                     |
+| Filesystem or shell MCP server as the first surface                         | Fastest to intercept and impossible to compensate honestly. A file delete has no keyed before image you can restore without copying the payload, which collides with the rule that VOID stores references and digests, never payloads. It produces a hold demo with no path to a replay demo.                         |
+| A general purpose HTTP egress proxy classifying any outbound API call       | No tool identity, no arguments, no target state, so classification degrades to URL matching. 74 of the 89 registry entries change class with configuration, so URL matching is wrong most of the time.                                                                                                                |
+| A gateway across several MCP servers at once                                | Every classification bug is then spread across surfaces with different auth, snapshot formats and failure modes. A plausible but wrong interceptor is worse than none.                                                                                                                                                |
 | VOID holding its own read only credentials per connector, to enable probing | BUILD-PLAN section 7.1 names this as the mistake that turns a proxy into an agent platform. It gives VOID standing access to customer systems, which is a much larger security review and a much longer sale. Declared facts ship first, probing through the upstream server's own read tools is the phase 6 upgrade. |
-| A production database for the first end to end run | Prohibited by BUILD-PLAN section 3 and by EXECUTION-PLAN section 2. The first run of an unproven interceptor is the least safe moment there has ever been to break that rule. |
+| A production database for the first end to end run                          | Prohibited by BUILD-PLAN section 3 and by EXECUTION-PLAN section 2. The first run of an unproven interceptor is the least safe moment there has ever been to break that rule.                                                                                                                                         |
 
 **Revisit when.** The phase 4 moment runs end to end (an agent attempts a real
 R3 Postgres write, a human cancels it, the write never happens, the agent
@@ -119,20 +119,20 @@ happens when there is no database.
 tier**. The interface is `append`, `read`, `head` and `verify`, and nothing
 else: no `update`, no `delete`.
 
-*Dev tier, the default:* an append only JSONL file per workspace at
+_Dev tier, the default:_ an append only JSONL file per workspace at
 `VOID_LEDGER_DIR` (default `~/.void/ledger/<workspace>.jsonl`), directory mode
 0700, file mode 0600, opened `O_APPEND`, one JSON object per line, `fsync`
 before the append is acknowledged. The signing public key and the latest signed
 checkpoint are written beside it so the store is self contained for the
 standalone verifier. No `DATABASE_URL` is read and none is needed.
 
-*Hosted tier:* Postgres, in a dedicated schema named `ledger`, **never** in
+_Hosted tier:_ Postgres, in a dedicated schema named `ledger`, **never** in
 `public`. The DDL is raw SQL, applied forward only by `packages/ledger`'s own
 migrator, with each migration file's sha256 recorded in a `ledger.migrations`
 table. `drizzle-kit` never touches the `ledger` schema and may at most declare
 the table for typed reads.
 
-*Append only is four layers, in ascending order of what they actually protect:*
+_Append only is four layers, in ascending order of what they actually protect:_
 
 1. **The type system.** `packages/ledger` exports `append` and `read` and no
    mutation, per BUILD-PLAN line 167, so a caller cannot form the intent.
@@ -147,12 +147,12 @@ the table for typed reads.
 4. **The chain and the per entry signature.** The only layer that survives an
    attacker who owns the database.
 
-*The append is one serialised transaction per workspace:* begin,
+_The append is one serialised transaction per workspace:_ begin,
 `pg_advisory_xact_lock` on the workspace, read the head, compute, insert,
 commit, with the unique constraint as the backstop and a single re-read and
 retry on a unique violation.
 
-*With no `DATABASE_URL`:* resolve `VOID_LEDGER_URL`, then `DATABASE_URL`, then
+_With no `DATABASE_URL`:_ resolve `VOID_LEDGER_URL`, then `DATABASE_URL`, then
 the local JSONL store if its directory is writable, and log which store was
 chosen exactly once at startup. If none can be opened durably, `append` throws,
 and because the proxy fails closed the intercepted call is denied with an MCP
@@ -190,7 +190,7 @@ is a sequential append and a whole file read, which is what a file is best at,
 and JSONL is greppable, diffable and directly consumable by the standalone
 verifier. The cheap tier is not the untrustworthy tier: because the chain and
 the signature carry the guarantee, a JSONL ledger is exactly as tamper evident
-as a Postgres one. It is not tamper *proof*, and the docs must say so in those
+as a Postgres one. It is not tamper _proof_, and the docs must say so in those
 words.
 
 Fail closed is the one place we refuse this repository's existing habit.
@@ -238,18 +238,18 @@ and always will be. Raw SQL DDL means this repository now has **two** migration
 mechanisms, which must be written into `replit.md` and `README.md` in the same
 commit or the next agent will not know the second one exists.
 
-| Rejected | Why not |
-| --- | --- |
-| Postgres required in every tier | Kills the free Dev tier that GO-TO-MARKET sells as a local ledger, forces every contributor and trial user to provision a database, and makes the trivial WP-00 test depend on infrastructure. Adoption of a safety layer is itself a safety outcome. |
-| The ledger table in the `public` schema next to `waitlist_requests` | Verified destroyed by this repository's own documented migration command, with a success message and no error. A ledger that a routine developer command deletes is not a ledger. |
-| Declaring the ledger in Drizzle and pushing it with `drizzle-kit` | `drizzle-kit` 0.31 cannot express a trigger, a grant or an owner, so it would reconcile the columns while silently leaving a mutable table wearing the name ledger. `push` is a live reconciler with no history, no reviewable artifact and no rollback, including `DROP`. |
-| Triggers alone, without the ownership and grant split | A trigger is owned by the table owner and the table owner can drop it, so triggers alone are a speed bump for whoever holds the connection string. Verified: with the split, the application role cannot drop or disable them. |
-| Memory fallback matching `api/_store.ts` | Correct for a marketing waitlist, catastrophic for an audit record: the append path stops being durable while every response still returns a receipt. Consistency with a policy that trades durability for uptime is not a virtue in the one component whose entire value is durability. |
-| SQLite or libsql for the dev tier | Either a native dependency added under the 1440 minute `minimumReleaseAge` gate, or `node:sqlite`, which is still experimental on Node 22. For an append only log that is only ever scanned forward, a file with one JSON object per line gives the same durability with zero install and a diff a human can read. |
-| Object storage (S3, R2) as the ledger sink | No append semantics, so every entry is a PUT with per request cost and network latency inside the write path, and the free tier stops being free and offline. |
-| A managed ledger service (QLDB, a hosted transparency log) | Monthly cost, vendor lock, and it moves the root of trust to a third party at the exact moment the product's claim is that verification is offline and needs no trust in us. |
-| Filesystem immutability (`chattr +a`, WORM) for the dev tier | Not portable, needs privileges a developer will not grant to try a tool, and it would imply a guarantee the free tier cannot make. |
-| Reusing the `waitlist_requests` chain shape | A chain by convention only: `prev_hash` and `hash` are nullable non-unique text, nothing stops an `UPDATE`, the digest is truncated to 32 bits, and the read of the head is outside the insert's transaction. |
+| Rejected                                                            | Why not                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Postgres required in every tier                                     | Kills the free Dev tier that GO-TO-MARKET sells as a local ledger, forces every contributor and trial user to provision a database, and makes the trivial WP-00 test depend on infrastructure. Adoption of a safety layer is itself a safety outcome.                                                              |
+| The ledger table in the `public` schema next to `waitlist_requests` | Verified destroyed by this repository's own documented migration command, with a success message and no error. A ledger that a routine developer command deletes is not a ledger.                                                                                                                                  |
+| Declaring the ledger in Drizzle and pushing it with `drizzle-kit`   | `drizzle-kit` 0.31 cannot express a trigger, a grant or an owner, so it would reconcile the columns while silently leaving a mutable table wearing the name ledger. `push` is a live reconciler with no history, no reviewable artifact and no rollback, including `DROP`.                                         |
+| Triggers alone, without the ownership and grant split               | A trigger is owned by the table owner and the table owner can drop it, so triggers alone are a speed bump for whoever holds the connection string. Verified: with the split, the application role cannot drop or disable them.                                                                                     |
+| Memory fallback matching `api/_store.ts`                            | Correct for a marketing waitlist, catastrophic for an audit record: the append path stops being durable while every response still returns a receipt. Consistency with a policy that trades durability for uptime is not a virtue in the one component whose entire value is durability.                           |
+| SQLite or libsql for the dev tier                                   | Either a native dependency added under the 1440 minute `minimumReleaseAge` gate, or `node:sqlite`, which is still experimental on Node 22. For an append only log that is only ever scanned forward, a file with one JSON object per line gives the same durability with zero install and a diff a human can read. |
+| Object storage (S3, R2) as the ledger sink                          | No append semantics, so every entry is a PUT with per request cost and network latency inside the write path, and the free tier stops being free and offline.                                                                                                                                                      |
+| A managed ledger service (QLDB, a hosted transparency log)          | Monthly cost, vendor lock, and it moves the root of trust to a third party at the exact moment the product's claim is that verification is offline and needs no trust in us.                                                                                                                                       |
+| Filesystem immutability (`chattr +a`, WORM) for the dev tier        | Not portable, needs privileges a developer will not grant to try a tool, and it would imply a guarantee the free tier cannot make.                                                                                                                                                                                 |
+| Reusing the `waitlist_requests` chain shape                         | A chain by convention only: `prev_hash` and `hash` are nullable non-unique text, nothing stops an `UPDATE`, the digest is truncated to 32 bits, and the read of the head is outside the insert's transaction.                                                                                                      |
 
 **Revisit when.** A single workspace needs more than one concurrent proxy
 process, **or** a customer asks for a ledger browser over more than roughly a
@@ -369,23 +369,39 @@ generated public key to the workspace and a validity window. Build that only if
 the latency actually hurts, because it adds a second thing for a reviewer to
 check.
 
-| Rejected | Why not |
-| --- | --- |
-| HMAC with a shared secret | Verification requires the secret, so anyone who can verify can forge. That makes "verifiable by someone who does not trust you" false and the attestation export in phase 9 worthless. |
-| Signing only the chain head, as BUILD-PLAN phase 2 literally says | A partial or period export cannot then be verified without the whole chain, per entry attribution to a key is lost after a rotation, and it contradicts the per entry `signature` field already published on `/docs/ledger`. Signing is tens of microseconds, so there is nothing to save. |
-| JOSE, JWS, COSE or a detached signature envelope | Standards weight and a dependency with a long history of algorithm confusion vulnerabilities, for one algorithm, one key and 64 bytes. It also buys a spec to implement in a verifier that is supposed to be small enough to read. |
-| libsodium, tweetnacl, noble-ed25519 | A new dependency behind the 1440 minute release age gate for a primitive the platform already implements, and a supply chain surface in the one component whose job is to be trustworthy. |
-| A `KeyProvider` with `getPrivateKey`, `exportKey` or a synchronous `sign` | Exported key material eventually reaches a log or a crash dump, and a synchronous signature makes a KMS implementation impossible without rewriting every caller. |
-| Hardcoding ed25519 with no `alg` field | Blocks AWS KMS, the most common enterprise ask, and turns a later algorithm addition into a format break for every entry already written. |
-| Requiring `VOID_SIGNING_KEY`, with no auto generated development key | Safer, and it puts a setup step in front of the demo and in front of every contributor's first test run. The `dev-` prefix plus a distinct verifier verdict recovers the safety at a fraction of the friction. |
-| Sigstore or a public transparency log | An external service and an availability dependency in the write path, disproportionate at one user. Worth revisiting as a paid attestation feature. |
-| X.509 and a small PKI | Certificate lifecycle management for a solo operator, to solve a key distribution problem that one public key file next to the ledger already solves. |
-| One key shared between development and production, or a key with no id | Rotation becomes unverifiable after the first rotation, and a development key that can sign production entries makes every entry's provenance a guess. |
+| Rejected                                                                  | Why not                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| HMAC with a shared secret                                                 | Verification requires the secret, so anyone who can verify can forge. That makes "verifiable by someone who does not trust you" false and the attestation export in phase 9 worthless.                                                                                                     |
+| Signing only the chain head, as BUILD-PLAN phase 2 literally says         | A partial or period export cannot then be verified without the whole chain, per entry attribution to a key is lost after a rotation, and it contradicts the per entry `signature` field already published on `/docs/ledger`. Signing is tens of microseconds, so there is nothing to save. |
+| JOSE, JWS, COSE or a detached signature envelope                          | Standards weight and a dependency with a long history of algorithm confusion vulnerabilities, for one algorithm, one key and 64 bytes. It also buys a spec to implement in a verifier that is supposed to be small enough to read.                                                         |
+| libsodium, tweetnacl, noble-ed25519                                       | A new dependency behind the 1440 minute release age gate for a primitive the platform already implements, and a supply chain surface in the one component whose job is to be trustworthy.                                                                                                  |
+| A `KeyProvider` with `getPrivateKey`, `exportKey` or a synchronous `sign` | Exported key material eventually reaches a log or a crash dump, and a synchronous signature makes a KMS implementation impossible without rewriting every caller.                                                                                                                          |
+| Hardcoding ed25519 with no `alg` field                                    | Blocks AWS KMS, the most common enterprise ask, and turns a later algorithm addition into a format break for every entry already written.                                                                                                                                                  |
+| Requiring `VOID_SIGNING_KEY`, with no auto generated development key      | Safer, and it puts a setup step in front of the demo and in front of every contributor's first test run. The `dev-` prefix plus a distinct verifier verdict recovers the safety at a fraction of the friction.                                                                             |
+| Sigstore or a public transparency log                                     | An external service and an availability dependency in the write path, disproportionate at one user. Worth revisiting as a paid attestation feature.                                                                                                                                        |
+| X.509 and a small PKI                                                     | Certificate lifecycle management for a solo operator, to solve a key distribution problem that one public key file next to the ledger already solves.                                                                                                                                      |
+| One key shared between development and production, or a key with no id    | Rotation becomes unverifiable after the first rotation, and a development key that can sign production entries makes every entry's provenance a guess.                                                                                                                                     |
 
 **Revisit when.** The first customer asks for bring your own KMS (an Enterprise
 tier feature in GO-TO-MARKET section 4), **or** a measured KMS signing latency
 exceeds the hold budget in the write path, **or** an auditor asks for an
 algorithm this interface does not carry.
+
+**WP-03 implementation notes, recorded because they sharpened the frozen
+contracts.** `LedgerStore` grew its second type parameter into two: `Body`
+is what the caller brings, `StoredEntry` is what the file holds, because the
+append takes a payload and read yields the payload plus chain metadata, and
+conflating the two let a type error through where the caller's body was
+silently expected to carry seq and prev_hash. The dev key file is written
+O_CREAT|O_EXCL after an adversarial review reproduced a pre placed symlink
+capturing the private key through the write, and a concurrent first start
+adopting a different key per process via last write wins; the loser of the
+O_EXCL race now reads back the winner's key. A line with an unsupported
+algorithm tag is a named finding at that entry, never a thrown TypeError,
+because a verifier that crashes on line one of a hostile file stops checking
+exactly where the hostility starts. The canonicaliser refuses payloads nested
+deeper than a thousand levels with a named error rather than a RangeError
+stack dump.
 
 ---
 
@@ -494,18 +510,18 @@ of stateful rule and need a counter store and a decision that is a function of
 history, not a sixth match key. Anything cross tool, such as hold any write that
 follows a read of table X, is the taint graph in WP-12, not the policy engine.
 
-| Rejected | Why not |
-| --- | --- |
-| A small purpose built expression language | A parser, precedence, a type checker, error messages a non-programmer can act on, and a sandbox, sitting inside the component that holds credentials. You then cannot statically tell what a rule will do, which is the exact property needed in a component that gates writes. BUILD-PLAN section 8 names it explicitly. |
-| An embedded evaluator (CEL, JSONLogic) | A dependency plus an evaluation surface to reason about in the write path, buying expressiveness nobody has asked for, and turning a rule file into something you debug rather than read. Kept as the shape of a possible optional `expr` field in v2. |
-| OPA and Rego | Genuinely the right answer at enterprise scale and wildly disproportionate here: a Go binary or a large wasm blob, plus a second language for the operator, for four rule kinds and three decisions. Keep as a documented enterprise escape hatch. |
-| Cedar | Models authorisation of a principal on a resource, not classification of a call against the state of its target, so the core concept has to be bent to fit, and it adds a wasm dependency for the privilege. |
-| Policy as TypeScript, an exported `decide` function | Maximum expressiveness, zero auditability. A compliance reader cannot diff it, changing policy becomes a code deploy, the operator's policy runs with the proxy's privileges, and shared policies become a supply chain problem. The one option a security reviewer would refuse outright. |
-| JSON instead of YAML, to avoid the dependency | No comments, and a policy that cannot be annotated is a policy that does not get reviewed. JSON input is accepted anyway. |
-| Regular expressions in match fields in v1 | ReDoS in the write path with no dependency free mitigation, and a regex is precisely where an accidentally over broad allow rule hides from review. A single trailing wildcard covers the real cases and is readable at a glance. |
-| Match keys for everything the registry knows, added up front | Every key is a compatibility promise forever. Five keys that are all used beats twenty where six are, and the load time rejection of unknown keys makes adding the rest later free. |
-| Implicit allow when no rule matches | Inverts the product. The failure mode of an incomplete policy file becomes an unprotected write path, invisibly and permanently. |
-| Implicit deny when no rule matches in a valid file | The more obviously safe answer, and it makes an incomplete policy file indistinguishable from a deliberate refusal, teaches the operator nothing, and blocks work over a gap rather than surfacing it. Deny is kept for the genuinely broken cases: missing, unreadable, invalid or unknown version. |
+| Rejected                                                     | Why not                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A small purpose built expression language                    | A parser, precedence, a type checker, error messages a non-programmer can act on, and a sandbox, sitting inside the component that holds credentials. You then cannot statically tell what a rule will do, which is the exact property needed in a component that gates writes. BUILD-PLAN section 8 names it explicitly. |
+| An embedded evaluator (CEL, JSONLogic)                       | A dependency plus an evaluation surface to reason about in the write path, buying expressiveness nobody has asked for, and turning a rule file into something you debug rather than read. Kept as the shape of a possible optional `expr` field in v2.                                                                    |
+| OPA and Rego                                                 | Genuinely the right answer at enterprise scale and wildly disproportionate here: a Go binary or a large wasm blob, plus a second language for the operator, for four rule kinds and three decisions. Keep as a documented enterprise escape hatch.                                                                        |
+| Cedar                                                        | Models authorisation of a principal on a resource, not classification of a call against the state of its target, so the core concept has to be bent to fit, and it adds a wasm dependency for the privilege.                                                                                                              |
+| Policy as TypeScript, an exported `decide` function          | Maximum expressiveness, zero auditability. A compliance reader cannot diff it, changing policy becomes a code deploy, the operator's policy runs with the proxy's privileges, and shared policies become a supply chain problem. The one option a security reviewer would refuse outright.                                |
+| JSON instead of YAML, to avoid the dependency                | No comments, and a policy that cannot be annotated is a policy that does not get reviewed. JSON input is accepted anyway.                                                                                                                                                                                                 |
+| Regular expressions in match fields in v1                    | ReDoS in the write path with no dependency free mitigation, and a regex is precisely where an accidentally over broad allow rule hides from review. A single trailing wildcard covers the real cases and is readable at a glance.                                                                                         |
+| Match keys for everything the registry knows, added up front | Every key is a compatibility promise forever. Five keys that are all used beats twenty where six are, and the load time rejection of unknown keys makes adding the rest later free.                                                                                                                                       |
+| Implicit allow when no rule matches                          | Inverts the product. The failure mode of an incomplete policy file becomes an unprotected write path, invisibly and permanently.                                                                                                                                                                                          |
+| Implicit deny when no rule matches in a valid file           | The more obviously safe answer, and it makes an incomplete policy file indistinguishable from a deliberate refusal, teaches the operator nothing, and blocks work over a gap rather than surfacing it. Deny is kept for the genuinely broken cases: missing, unreadable, invalid or unknown version.                      |
 
 **Revisit when.** A user states, in writing, a condition the five keys cannot
 express and explains what they needed it for. That is the event BUILD-PLAN
@@ -523,7 +539,7 @@ is kept credible.
 **Choice.** Confirm GO-TO-MARKET section 3: **Apache 2.0** open core, with the
 hard rule that **a feature never moves from open to paid**. Four amendments.
 
-*Open, Apache 2.0:* `packages/registry` (data, evaluator, schema),
+_Open, Apache 2.0:_ `packages/registry` (data, evaluator, schema),
 `packages/ledger` (chain, canonicaliser, signing, both stores, verification),
 `packages/proxy` (both transports when they exist), `packages/policy` (rules,
 decide, hold, the approval **channel interface** and the CLI channel),
@@ -531,13 +547,13 @@ decide, hold, the approval **channel interface** and the CLI channel),
 the standalone verifier as its own separately installable package with **zero
 dependency on any other VOID package**.
 
-*Paid and closed:* `apps/control-plane`, the Slack and Teams channel
+_Paid and closed:_ `apps/control-plane`, the Slack and Teams channel
 implementations, SSO, multiple workspaces, irreversibility budgets, the taint
 graph, attestation exports with compliance frame mappings, premium connectors
 (Stripe, Salesforce, HubSpot, Gmail, Kubernetes), retention beyond seven days,
 SLA support, and the self hosted enterprise licence.
 
-*Amendment one, a line collision resolved before the file exists.* WP-05 builds
+_Amendment one, a line collision resolved before the file exists._ WP-05 builds
 `channels/slack.ts` inside `packages/policy`, which is open, while GO-TO-MARKET
 sells Slack approvals as paid. Two of the three deciders caught this
 independently. The channel interface and the CLI channel are **open** and live
@@ -546,19 +562,19 @@ is not complete for its purpose and would break the hard rule in its first week.
 The Slack and Teams implementations live in a separate paid package
 implementing that interface.
 
-*Amendment two, the verifier's independence is structural.* It ships as its own
+_Amendment two, the verifier's independence is structural._ It ships as its own
 installable package with no VOID dependencies, the ledger format is documented
 well enough that a second verifier can be written in another language, and the
 commitment that it never moves is written into its own README.
 
-*Amendment three, DCO sign off, not a CLA.* Apache 2.0 section 5 already
+_Amendment three, DCO sign off, not a CLA._ Apache 2.0 section 5 already
 licenses inbound contributions under the same terms. A CLA is the specific
 instrument that makes a future relicence possible, which is the move the hard
 rule promises never to make, so refusing to collect one is a credible commitment
 rather than a statement of intent. It is also friction placed exactly on the
 registry contribution flow that GO-TO-MARKET depends on.
 
-*Amendment four, a NOTICE requirement on the registry data* carrying
+_Amendment four, a NOTICE requirement on the registry data_ carrying
 `REGISTRY_DISCLAIMER` verbatim, so the "draft classifications, not vendor
 certified" label travels with the data wherever it is embedded. Once someone
 puts those classifications into their own policy engine, that label is the only
@@ -608,17 +624,17 @@ hooks commoditising the hold. And the free tier is genuinely sufficient for one
 developer protecting one system, so conversion depends entirely on the team
 features being good rather than on artificial limits.
 
-| Rejected | Why not |
-| --- | --- |
-| MIT, matching the current root `package.json` | No patent grant and no trademark clause, and no compensating benefit. For a component in a regulated buyer's write path, that omission turns a one afternoon legal review into a long one. |
-| AGPL for the proxy and the ledger | Puts a copyleft question in front of every security review of a component that must be read before it is installed, and deters the platform teams who should adopt it into reimplementing interception badly. It also defends the wrong asset: what a reseller would take is the control plane, which is paid and closed anyway. |
-| BSL or the Elastic License with a delayed conversion | Not open source, so distribution through the MCP registry and package channels weakens and the registry loses its contributors. It also invites precisely the licence change story the hard rule exists to prevent. |
-| SSPL | Not OSI approved, rejected by several distribution channels, and it undermines the "read the code before you put it in your write path" argument the open core exists to make. |
-| Closed core with an open SDK | Inverts the readability requirement: the parts that must be auditable, the interceptor and the ledger, would be the closed parts. |
-| Fully open with no paid line | No revenue path, and the organisational features (hosted approvals, SSO, retention, exports) are the ones with real running cost, so giving them away means paying to serve users who cannot pay back. |
-| A CLA, to keep future licensing options open | Keeping that option open is the thing the hard rule promises not to do. Declining a CLA is what makes the promise cost something and therefore mean something. |
-| Two repositories from the start | The cleanest long term boundary and a direct tax now. One repository with a root Apache 2.0 `LICENSE`, a per-directory `LICENSE` under `apps/control-plane`, and SPDX headers where the line actually runs gives the same clarity. Splitting is a day whenever it becomes necessary, which is when a paying customer's legal team asks. |
-| Opening the taint graph, budgets and attestation mappings now | They are organisational features and belong on the paid side from day one. Moving them across later would be the exact licence change the model forbids, so the line has to hold before there is pressure on it. |
+| Rejected                                                      | Why not                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MIT, matching the current root `package.json`                 | No patent grant and no trademark clause, and no compensating benefit. For a component in a regulated buyer's write path, that omission turns a one afternoon legal review into a long one.                                                                                                                                              |
+| AGPL for the proxy and the ledger                             | Puts a copyleft question in front of every security review of a component that must be read before it is installed, and deters the platform teams who should adopt it into reimplementing interception badly. It also defends the wrong asset: what a reseller would take is the control plane, which is paid and closed anyway.        |
+| BSL or the Elastic License with a delayed conversion          | Not open source, so distribution through the MCP registry and package channels weakens and the registry loses its contributors. It also invites precisely the licence change story the hard rule exists to prevent.                                                                                                                     |
+| SSPL                                                          | Not OSI approved, rejected by several distribution channels, and it undermines the "read the code before you put it in your write path" argument the open core exists to make.                                                                                                                                                          |
+| Closed core with an open SDK                                  | Inverts the readability requirement: the parts that must be auditable, the interceptor and the ledger, would be the closed parts.                                                                                                                                                                                                       |
+| Fully open with no paid line                                  | No revenue path, and the organisational features (hosted approvals, SSO, retention, exports) are the ones with real running cost, so giving them away means paying to serve users who cannot pay back.                                                                                                                                  |
+| A CLA, to keep future licensing options open                  | Keeping that option open is the thing the hard rule promises not to do. Declining a CLA is what makes the promise cost something and therefore mean something.                                                                                                                                                                          |
+| Two repositories from the start                               | The cleanest long term boundary and a direct tax now. One repository with a root Apache 2.0 `LICENSE`, a per-directory `LICENSE` under `apps/control-plane`, and SPDX headers where the line actually runs gives the same clarity. Splitting is a day whenever it becomes necessary, which is when a paying customer's legal team asks. |
+| Opening the taint graph, budgets and attestation mappings now | They are organisational features and belong on the paid side from day one. Moving them across later would be the exact licence change the model forbids, so the line has to hold before there is pressure on it.                                                                                                                        |
 
 **Revisit when.** A cloud provider ships a hosted VOID, **or** a customer's
 procurement rejects Apache 2.0 for a reason that is not the patent grant. The
@@ -693,15 +709,15 @@ an import rename, not a rewrite.
 `package.json` `engines` says `22.x`, and the installed runtime is 22.22.2. Pick
 one and correct the other two.
 
-| Rejected | Why not |
-| --- | --- |
-| vitest | The better runner by a wide margin, and it is a large new dependency tree entering under a 1440 minute release age gate, in the repository of a security product, for tests that will hold credentials and drive a live database, plus a second config file and a second module resolver next to `tsc`, `esbuild` and `vite`. The ergonomics do not pay for the supply chain surface at WP-00, and the decision is cheap to reverse later. |
-| `tsx` plus `node:test` | Adds a runtime transform dependency to do what the runtime now does natively and verifiably. It was the right answer before Node 22.18 and is not any more, and it would only buy `enum`, which STANDARDS bans anyway. |
-| Jest | Heaviest of the three, needs `ts-jest` or a babel transform, and has the most fragile ESM story in a workspace that is ESM by default everywhere except `api/`. |
-| uvu, tape or another micro runner | Still a dependency, with less maintenance behind it than the Node core runner, and no discovery or coverage story that `node --test` does not already have. |
-| Compiling with `tsc` before every test run | A build step in front of every test invocation, stack traces pointing at generated code, and an emit directory to keep out of git, with no benefit over stripping types in process. |
-| Passing `--experimental-strip-types` explicitly | Unnecessary on the pinned engine, and it makes the test command fail hard on any future runtime that removes the flag. |
-| No test harness until a later package | WP-00's exit criterion is a passing test command, and WP-03's verification (1000 entries, tamper, drop, and four forger attacks) runs through this harness. The ledger cannot be signed off without it. |
+| Rejected                                        | Why not                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| vitest                                          | The better runner by a wide margin, and it is a large new dependency tree entering under a 1440 minute release age gate, in the repository of a security product, for tests that will hold credentials and drive a live database, plus a second config file and a second module resolver next to `tsc`, `esbuild` and `vite`. The ergonomics do not pay for the supply chain surface at WP-00, and the decision is cheap to reverse later. |
+| `tsx` plus `node:test`                          | Adds a runtime transform dependency to do what the runtime now does natively and verifiably. It was the right answer before Node 22.18 and is not any more, and it would only buy `enum`, which STANDARDS bans anyway.                                                                                                                                                                                                                     |
+| Jest                                            | Heaviest of the three, needs `ts-jest` or a babel transform, and has the most fragile ESM story in a workspace that is ESM by default everywhere except `api/`.                                                                                                                                                                                                                                                                            |
+| uvu, tape or another micro runner               | Still a dependency, with less maintenance behind it than the Node core runner, and no discovery or coverage story that `node --test` does not already have.                                                                                                                                                                                                                                                                                |
+| Compiling with `tsc` before every test run      | A build step in front of every test invocation, stack traces pointing at generated code, and an emit directory to keep out of git, with no benefit over stripping types in process.                                                                                                                                                                                                                                                        |
+| Passing `--experimental-strip-types` explicitly | Unnecessary on the pinned engine, and it makes the test command fail hard on any future runtime that removes the flag.                                                                                                                                                                                                                                                                                                                     |
+| No test harness until a later package           | WP-00's exit criterion is a passing test command, and WP-03's verification (1000 entries, tamper, drop, and four forger attacks) runs through this harness. The ledger cannot be signed off without it.                                                                                                                                                                                                                                    |
 
 **Revisit when.** WP-11, when the control plane UI needs component and browser
 testing. The answer there is more likely Playwright than a unit test framework,
@@ -838,17 +854,17 @@ not apply inside `node_modules`. Then, and only then:
 backwards and is deliberate. It is stated in `docs/CONTEXT.md` so nobody treats
 it as an oversight.
 
-| Rejected | Why not |
-| --- | --- |
-| Move the source and leave a **relative** re-export in `api/_registry.ts` (Reader B's recommendation, and EXECUTION-PLAN's literal builder line) | Proven fatal and proven silent. `tsc` exits 0 with zero diagnostics while every function moves from `<out>/registry.js` to `<out>/api/registry.js`, so Vercel cannot resolve any route. Typecheck, lint and `build:web` all pass through it. This is the exact regression that broke this repository's deploy before. |
-| Move the source now and reach it through the bare specifier `@void/registry` | The correct long term answer and proven safe on the emit half. Rejected only for sequencing: it costs a root dependency, dual CJS and ESM output, `main`/`types` correct for three resolvers, build ordering in `build:web`, and a preview deploy to validate a trace behaviour that cannot be tested locally, all inside the scaffolding package, to buy nothing until WP-04a. Right form, wrong time. |
-| Add a `paths` mapping to `api/tsconfig.json` so a bare specifier resolves without a real package | `paths` affects typechecking only. The emitted CommonJS still `require()`s the literal specifier at runtime, so it resolves during the build and fails at function invocation. That is the worst failure mode, because it looks green. |
-| Copy the registry into `packages/registry` and keep both | Two sources of truth for the classification data. `replit.md` states the reason the registry is one module: the page, the endpoint and the intercept time classification must not be able to disagree about what a class means. A classifier that disagrees with the published registry is the single worst bug this product can have. |
-| Generate a JSON artifact into `api/` from a package source | A build step in front of the Vercel function build and a generated file in git that can be stale, for no safety gain, and a second way for the site and the runtime to disagree. |
-| Leave the registry in `api/` permanently and never create the package | The CLI and the proxy will import it at runtime, type stripping does not apply inside `node_modules`, and decision 5 makes it a published open source package. It has to become a real package eventually. |
-| Do not create `packages/registry` until WP-04a | The package boundary and its README are part of the context pack that WP-04a's agents read first. Creating the shell now costs nothing, forces the contract to be written down, and leaves the risky physical move as a separate, independently reviewable commit. |
-| Move `_registry_http.ts` as well | Its only consumers are `api/registry.ts` and the Express route, and the browser deliberately never imports it so URL parsing and `MAX_LIMIT` stay out of the site bundle. Moving it adds risk and buys nothing. |
-| Keep WP-00's stated trap check (`tsc -p api/tsconfig.json --outDir /tmp/emit`) as the gate | Insufficient and demonstrably so: the broken variant exits 0. The gate must assert the shape of the emit, not the exit code. |
+| Rejected                                                                                                                                        | Why not                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Move the source and leave a **relative** re-export in `api/_registry.ts` (Reader B's recommendation, and EXECUTION-PLAN's literal builder line) | Proven fatal and proven silent. `tsc` exits 0 with zero diagnostics while every function moves from `<out>/registry.js` to `<out>/api/registry.js`, so Vercel cannot resolve any route. Typecheck, lint and `build:web` all pass through it. This is the exact regression that broke this repository's deploy before.                                                                                   |
+| Move the source now and reach it through the bare specifier `@void/registry`                                                                    | The correct long term answer and proven safe on the emit half. Rejected only for sequencing: it costs a root dependency, dual CJS and ESM output, `main`/`types` correct for three resolvers, build ordering in `build:web`, and a preview deploy to validate a trace behaviour that cannot be tested locally, all inside the scaffolding package, to buy nothing until WP-04a. Right form, wrong time. |
+| Add a `paths` mapping to `api/tsconfig.json` so a bare specifier resolves without a real package                                                | `paths` affects typechecking only. The emitted CommonJS still `require()`s the literal specifier at runtime, so it resolves during the build and fails at function invocation. That is the worst failure mode, because it looks green.                                                                                                                                                                  |
+| Copy the registry into `packages/registry` and keep both                                                                                        | Two sources of truth for the classification data. `replit.md` states the reason the registry is one module: the page, the endpoint and the intercept time classification must not be able to disagree about what a class means. A classifier that disagrees with the published registry is the single worst bug this product can have.                                                                  |
+| Generate a JSON artifact into `api/` from a package source                                                                                      | A build step in front of the Vercel function build and a generated file in git that can be stale, for no safety gain, and a second way for the site and the runtime to disagree.                                                                                                                                                                                                                        |
+| Leave the registry in `api/` permanently and never create the package                                                                           | The CLI and the proxy will import it at runtime, type stripping does not apply inside `node_modules`, and decision 5 makes it a published open source package. It has to become a real package eventually.                                                                                                                                                                                              |
+| Do not create `packages/registry` until WP-04a                                                                                                  | The package boundary and its README are part of the context pack that WP-04a's agents read first. Creating the shell now costs nothing, forces the contract to be written down, and leaves the risky physical move as a separate, independently reviewable commit.                                                                                                                                      |
+| Move `_registry_http.ts` as well                                                                                                                | Its only consumers are `api/registry.ts` and the Express route, and the browser deliberately never imports it so URL parsing and `MAX_LIMIT` stay out of the site bundle. Moving it adds risk and buys nothing.                                                                                                                                                                                         |
+| Keep WP-00's stated trap check (`tsc -p api/tsconfig.json --outDir /tmp/emit`) as the gate                                                      | Insufficient and demonstrably so: the broken variant exits 0. The gate must assert the shape of the emit, not the exit code.                                                                                                                                                                                                                                                                            |
 
 **Revisit when.** WP-04a lands the case evaluator, **or** anything outside this
 repository needs to `import` the registry by package name. Either event triggers
@@ -859,20 +875,20 @@ a preview deploy.
 
 ## Where these decisions are proven, and where they are not
 
-| Claim | Status |
-| --- | --- |
-| `api/` emit is flat, 22 files, no `api/` subdirectory | Verified at WP-00, `npx tsc -p api/tsconfig.json --outDir /tmp/emit`, exit 0 |
-| A relative import out of `api/` silently re-parents every function | Verified by Reader A in an isolated copy with real `node_modules` |
-| A bare specifier leaves the flat layout untouched | Verified by Reader A, including through a pnpm style symlink to TypeScript source |
-| `"rootDir": "."` is a no op today and raises TS6059 on a violation | Verified by Reader A |
-| Vercel resolves a root `workspace:*` link and traces the built CJS main | **Unproven.** Needs a preview deploy. This is why 6b defers the move |
-| `push-force` drops an undeclared ledger table in `public`, triggers and all | Verified by Reader C against live PostgreSQL 16.13 |
-| A dedicated `ledger` schema is invisible to `drizzle-kit push` | Verified by Reader C, same server, `No changes detected` |
-| The grant and ownership split refuses `UPDATE`, `DROP TRIGGER` and `DISABLE TRIGGER` to the app role | Verified by Reader C |
-| The append only triggers refuse UPDATE, DELETE and TRUNCATE | Verified by Reader C, error `ledger_entries is append only: UPDATE denied on seq 1` |
-| `sealHash`'s replacer allowlist erases nested fields from the preimage | Verified in node |
-| `node --test` runs `.test.ts` on Node 22.22.2 with no flag and no warning | Verified at WP-00 |
-| `enum` is rejected with `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` | Verified at WP-00 |
-| A failing assertion exits 1 | Verified at WP-00 |
-| `node:crypto` signs and verifies ed25519 with no dependency | Verified by two deciders on Node 22.22.2 |
-| PostgreSQL 16.13 starts here with `pg_ctlcluster 16 main start` | Verified by Reader C, no install needed |
+| Claim                                                                                                | Status                                                                              |
+| ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `api/` emit is flat, 22 files, no `api/` subdirectory                                                | Verified at WP-00, `npx tsc -p api/tsconfig.json --outDir /tmp/emit`, exit 0        |
+| A relative import out of `api/` silently re-parents every function                                   | Verified by Reader A in an isolated copy with real `node_modules`                   |
+| A bare specifier leaves the flat layout untouched                                                    | Verified by Reader A, including through a pnpm style symlink to TypeScript source   |
+| `"rootDir": "."` is a no op today and raises TS6059 on a violation                                   | Verified by Reader A                                                                |
+| Vercel resolves a root `workspace:*` link and traces the built CJS main                              | **Unproven.** Needs a preview deploy. This is why 6b defers the move                |
+| `push-force` drops an undeclared ledger table in `public`, triggers and all                          | Verified by Reader C against live PostgreSQL 16.13                                  |
+| A dedicated `ledger` schema is invisible to `drizzle-kit push`                                       | Verified by Reader C, same server, `No changes detected`                            |
+| The grant and ownership split refuses `UPDATE`, `DROP TRIGGER` and `DISABLE TRIGGER` to the app role | Verified by Reader C                                                                |
+| The append only triggers refuse UPDATE, DELETE and TRUNCATE                                          | Verified by Reader C, error `ledger_entries is append only: UPDATE denied on seq 1` |
+| `sealHash`'s replacer allowlist erases nested fields from the preimage                               | Verified in node                                                                    |
+| `node --test` runs `.test.ts` on Node 22.22.2 with no flag and no warning                            | Verified at WP-00                                                                   |
+| `enum` is rejected with `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`                                          | Verified at WP-00                                                                   |
+| A failing assertion exits 1                                                                          | Verified at WP-00                                                                   |
+| `node:crypto` signs and verifies ed25519 with no dependency                                          | Verified by two deciders on Node 22.22.2                                            |
+| PostgreSQL 16.13 starts here with `pg_ctlcluster 16 main start`                                      | Verified by Reader C, no install needed                                             |
