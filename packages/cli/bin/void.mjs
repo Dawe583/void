@@ -4,7 +4,7 @@
  * command not wired yet fails loudly rather than pretending to succeed.
  */
 import { readFileSync } from "node:fs";
-import { runClassifyCommand, runFeedCommand, parseInvocation } from "../src/index.ts";
+import { runClassifyCommand, runFeedCommand, runReplayCommand, parseInvocation } from "../src/index.ts";
 
 const parsed = parseInvocation(process.argv.slice(2));
 if (!parsed.ok) {
@@ -26,6 +26,12 @@ try {
       stderr: (line) => console.error(line),
     });
     if (!parsed.args.includes("--follow") || code !== 0) process.exit(code);
+  } else if (parsed.command === "replay") {
+    const code = await runReplayCommand(parsed.args, {
+      stdout: (line) => console.log(line),
+      stderr: (line) => console.error(line),
+    });
+    process.exit(code);
   } else if (parsed.command === "approvals") {
     console.log("no holds live: the proxy is not running");
     process.exit(0);

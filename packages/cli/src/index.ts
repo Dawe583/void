@@ -49,3 +49,4 @@ export function parseInvocation(argv: readonly string[]): ParsedInvocation {
 export * from "./tui/index.ts";
 export * from "./classify.ts";
 export * from "./feed.ts";
+export * from "./replay.ts";
