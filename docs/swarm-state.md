@@ -3,7 +3,7 @@
 One line per track, updated by the track owner. Read before you start and after every land.
 Parent sweeps this file into commit messages.
 
-## Wave 1 (CLOSED, all committed)
+## Wave 1 (CLOSED, committed)
 
 | track | owner | status | commit |
 | ----- | ----- | ------ | ------ |
@@ -13,22 +13,51 @@ Parent sweeps this file into commit messages.
 | void replay cli | replay-cli | done | 6e36fb25 |
 | blast radius probes | probes | done | b1c28f5e |
 
-Workspace: 240 tests green (registry 28, ledger 23, policy 39, proxy 44, connectors 49, cli 57).
+## Wave 2 (CLOSED, committed)
 
-## Wave 2 (ACTIVE)
+| track | owner | status | commit |
+| ----- | ----- | ------ | ------ |
+| measured blast radius in forwarder | proxy-probes | done | e84e6657 |
+| connector registry + manifest | connector-registry | done | f9790f24 |
+| approvals end to end | approvals-wiring | done | c327656e |
+| control-plane API | api-server | done | eb776cf9 |
+| connector e2e round trip | e2e-connectors | done | 371c4d2c |
+
+Workspace: 299 checks green (registry 28, ledger 23, policy 44, proxy 52, connectors 57, cli 57, control-plane 11, scripts e2e 14+5+6+2).
+
+## Wave 3 (ACTIVE)
 
 | track | owner | status | depends on |
 | ----- | ----- | ------ | ---------- |
-| measured blast radius in forwarder | proxy-probes | landed: probe provider in forward/tools.ts, proxy blast dispatcher, 52 proxy tests green | probes/registry exports |
-| connector registry + manifest | connector-registry | landed registry.ts, manifest.ts and tests; connectors typecheck, connectors tests, cli tests green | wave 1 exports |
-| approvals end to end | approvals-wiring | done: ApprovalBroker and proxy pump landed, policy/proxy typecheck and tests green | hold.ts + channels |
-| control-plane API | api-server | landed apps/control-plane/api server, tests, package scripts; ApprovalBroker is injectable with 503 fallback | ledger feed + approvals decision shape |
-| connector e2e round trip | e2e-connectors | landed scripts/src/e2e-connectors.mjs and scripts/src/e2e-connectors.test.mjs; scenario, own test, and connectors typecheck pass | connector-registry manifest.ts |
+| streamable HTTP transport | http-transport | landed http.ts and http-requests.ts with 8 new tests, proxy typecheck and node --test pass | stdio.ts events, rpc.ts |
+| taint graph capture | taint-a | landed graph.ts and capture.ts; shape published below; ledger package typecheck and tests pass | ledger entries, feed.ts |
+| taint query + void taint | taint-b | implementing query and CLI against injectable taint graph shape | taint-a graph shapes |
+| attestation + standalone verifier | attestation | in progress: extracting verifyChain, adding attest docs and CLI verify | store.ts, feed.ts chain core |
+| registry expansion batch 2 | registry-batch | landed: registry now has 163 entries, 74 new in batch 2, 74 new fact rows, registry typecheck and 28 tests pass | frozen fact vocabulary |
+
+
+### WP-12 taint shapes
+
+Published by taint-a for taint-b.
+
+```ts
+type TaintGraph = { nodes: Map<string, TaintNode>; edges: readonly TaintEdge[] };
+type TaintNode = { digest: string; seq: number; tool: string; klass: string; decision: string; at: string };
+type TaintEdge = { from: string; to: string; kind: "resource" | "data"; via: string };
+```
+
+`exportTaint(graph)` returns a JSON string with pinned shape:
+
+```json
+{"version":"void.taint.v1","honesty":{"dataEdges":"Data edges require outputDigest on the producing ledger entry. Entries without outputDigest produce resource edges only."},"nodes":[{"digest":"...","seq":1,"tool":"...","klass":"...","decision":"...","at":"..."}],"edges":[{"from":"...","to":"...","kind":"resource","via":"tool:bucket=b:key=k"}]}
+```
+
+`verifyTaint(json)` validates that shape and returns `TaintGraph`. `taintFromLedger(dir, workspace)` verifies the JSONL chain through `readLedgerFeed`, then builds the graph. Data edges are emitted only when a producing entry carries `outputDigest` and a later input contains that digest.
 
 ## Rules
 
 1. Update your row (status + one sentence) before you end each work session.
 2. Message a sibling directly when you land a file they depend on.
-3. The contract in packages/connectors/README.md is frozen: if you must change a shape,
-   message the parent AND every sibling in this table, and update the README in your commit.
+3. The contracts in packages/connectors/README.md and packages/proxy/docs/interface.md are frozen.
 4. Never edit another track's files. The paths are yours alone.
+5. taint-a publishes TaintGraph + exportTaint JSON shape on the blackboard; taint-b builds against the published shape.
