@@ -35,6 +35,15 @@ export interface PendingHold {
   readonly approver: string | null;
 }
 
+export type ResolvedState = "approved" | "denied" | "expired";
+
+export interface ResolvedHold {
+  readonly hold: PendingHold;
+  readonly state: ResolvedState;
+  readonly resolvedAt: number;
+  readonly by: string | null;
+}
+
 export interface ServiceHealth {
   readonly proxy: "healthy" | "degraded" | "offline";
   readonly upstream: "healthy" | "degraded" | "offline";
@@ -66,6 +75,7 @@ export interface DashboardState {
   readonly ledger: LedgerSummary;
   readonly calls: readonly InterceptedCall[];
   readonly holds: readonly PendingHold[];
+  readonly resolvedHolds?: readonly ResolvedHold[];
   readonly selectedCallId: string | null;
   readonly paused: boolean;
   readonly filter: ReversibilityClass | "all";

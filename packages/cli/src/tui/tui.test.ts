@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
 
+import { approvalsView, type HeldCall } from "./approvals.ts";
 import { detectCapabilities } from "./caps.ts";
 import { previewHold, previewState } from "./fixtures.ts";
 import { renderInlineCall } from "./inline.ts";
@@ -271,6 +272,48 @@ describe("watch dashboard", () => {
     assert.doesNotMatch(modal, /\u001b/);
   });
 
+  test("a resolved approval replaces the pending hold banner", () => {
+    const frame = renderWatchFrame(
+      {
+        ...previewState,
+        holds: [],
+        resolvedHolds: [
+          {
+            hold: previewHold,
+            state: "approved",
+            resolvedAt: Date.now(),
+            by: "cli",
+          },
+        ],
+      },
+      capabilities(120, 48),
+    );
+    assert.match(frame, /HOLD RESOLVED/);
+    assert.match(frame, /approved by cli/);
+    assert.doesNotMatch(frame, /ACTION REQUIRED/);
+  });
+
+  test("a resolved denial is visible without colour", () => {
+    const frame = renderWatchFrame(
+      {
+        ...previewState,
+        holds: [],
+        resolvedHolds: [
+          {
+            hold: previewHold,
+            state: "denied",
+            resolvedAt: Date.now(),
+            by: "operator",
+          },
+        ],
+      },
+      capabilities(80, 48),
+    );
+    assert.match(frame, /HOLD RESOLVED/);
+    assert.match(frame, /denied by operator/);
+    for (const line of frame.split("\n")) assert.ok(visibleLength(line) <= 80);
+  });
+
   test("ANSI styling remains width safe", () => {
     const frame = renderWatchFrame(previewState, capabilities(120, 40, true));
     for (const line of frame.split("\n")) assert.ok(visibleLength(line) <= 120);
@@ -285,6 +328,59 @@ describe("watch dashboard", () => {
       visibleLength(renderInlineCall(previewState.calls[0]!, terminal)),
       80,
     );
+  });
+});
+
+
+
+
+describe("approvals view", () => {
+  const held = (over: Partial<HeldCall> = {}): HeldCall => ({
+    id: "h0001",
+    tool: "stripe.refund.create",
+    klass: "r2",
+    blastRadius: 1,
+    ruleIndex: 4,
+    rationale: "money movement needs human approval",
+    args: {},
+    heldAt: 1_000,
+    expiresAt: 91_000,
+    notify: ["cli"],
+    ...over,
+  });
+
+  test("lists held calls with a countdown and y/n legend", () => {
+    const lines = approvalsView([held()], 31_000);
+    const view = lines.join("\n");
+    assert.match(view, /VOID APPROVALS/);
+    assert.match(view, /01:00/);
+    assert.match(view, /stripe\.refund\.create/);
+    assert.match(view, /1 target/);
+    assert.match(view, /rule 4/);
+    assert.match(view, /\[y\] approve selected/);
+    assert.match(view, /\[n\] deny selected/);
+  });
+
+  test("caps expired holds at zero instead of printing negative time", () => {
+    const view = approvalsView([held()], 120_000).join("\n");
+    assert.match(view, /00:00/);
+    assert.doesNotMatch(view, /-/);
+  });
+
+  test("keeps external text printable", () => {
+    const lines = approvalsView(
+      [held({ tool: "evil\u001b[2J", rationale: "fine\u0007" })],
+      1_000,
+    );
+    const view = lines.join("\n");
+    assert.doesNotMatch(view, /\u001b|\u0007/);
+    assert.match(view, /evil\?\[2J/);
+  });
+
+  test("empty approvals view still names the quit key", () => {
+    const view = approvalsView([], 1_000).join("\n");
+    assert.match(view, /No held calls/);
+    assert.match(view, /\[q\] quit/);
   });
 });
 

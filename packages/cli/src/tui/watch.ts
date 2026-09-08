@@ -14,6 +14,7 @@ import type {
   DashboardState,
   InterceptedCall,
   PendingHold,
+  ResolvedHold,
   TerminalCapabilities,
 } from "./types.ts";
 
@@ -190,6 +191,35 @@ function holdBanner(
   );
 }
 
+
+function resolvedHoldBanner(
+  resolved: ResolvedHold,
+  capabilities: TerminalCapabilities,
+  width: number,
+): string[] {
+  const tone =
+    resolved.state === "approved"
+      ? "r0"
+      : resolved.state === "denied"
+        ? "r3"
+        : "r2";
+  const by = resolved.by === null ? "system" : sanitizeText(resolved.by);
+  return box(
+    paint("HOLD RESOLVED", tone, capabilities, true),
+    [
+      fit(
+        `${classLabel(resolved.hold.call.class, capabilities)} ${sanitizeText(resolved.hold.call.tool)}`,
+        width - 4,
+      ),
+      fit(
+        `${resolved.state} by ${by} | ${sanitizeText(resolved.hold.call.reason)}`,
+        width - 4,
+      ),
+    ],
+    width,
+  );
+}
+
 function footer(
   state: DashboardState,
   capabilities: TerminalCapabilities,
@@ -212,8 +242,11 @@ export function renderWatchFrame(
   const width = capabilities.columns;
   const lines: string[] = [...header(state, capabilities, now)];
   const pending = state.holds[0];
+  const resolved = state.resolvedHolds?.at(-1);
   if (pending !== undefined)
     lines.push(...holdBanner(pending, capabilities, now, width));
+  else if (resolved !== undefined)
+    lines.push(...resolvedHoldBanner(resolved, capabilities, width));
 
   const selected =
     state.calls.find((call) => call.id === state.selectedCallId) ??
