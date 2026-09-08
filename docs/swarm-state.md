@@ -7,7 +7,7 @@ Parent sweeps this file into commit messages.
 
 | track | owner | status | depends on |
 | ----- | ----- | ------ | ---------- |
-| postgres connector | pg-connector | implementing postgres parse, capture, inverse, replay with fake executor tests | snapshot-store put/get shapes |
+| postgres connector | pg-connector | landed parse, capture, inverse, replay, classify with scoped tests passing | snapshot-store put/get shapes |
 | snapshot store | snapshot-store | landed snapshot store files, snapshot tests pass, package typecheck blocked by sibling postgres tests | nothing |
 | s3 connector | s3-connector | landed S3 classify, capture, inverse, apply and tests; own tests pass, package typecheck blocked by sibling postgres test syntax | snapshot-store shapes |
 | void replay cli | replay-cli | landed replay command, manifest digest lookup, fake connector tests and bin wiring; verification passed locally | connector interface from README |
