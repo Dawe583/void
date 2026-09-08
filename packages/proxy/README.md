@@ -13,6 +13,14 @@ to the ledger, and holds or denies.
 Phase 1 is **stdio only**. Streamable HTTP is WP-02, and it arrives with its own
 exit criteria: localhost binding, Origin validation, a required bearer token.
 
+## The frozen interface
+
+`docs/interface.md` is the design the builders code from: the module list, the
+message flows, the id and progress-token translation tables, and the exported
+signatures. `docs/message-inventory.md` is the message surface it was designed
+against, every fact cited into the SDK. Builders do not consult the spec from
+memory.
+
 ## Posture
 
 Fail closed. An unknown tool, an unclassified call, a ledger append failure, a
