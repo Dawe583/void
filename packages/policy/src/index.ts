@@ -40,3 +40,7 @@ export const UNCLASSIFIED_CLASS = "r3";
 export function isMatchKey(name: string): name is MatchKey {
   return (MATCH_KEYS as readonly string[]).includes(name);
 }
+
+export * from "./rules.ts";
+export * from "./decide.ts";
+export * from "./hold.ts";

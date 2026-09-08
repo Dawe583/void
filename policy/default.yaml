@@ -1,0 +1,30 @@
+# The default policy, WP-05. A starter the operator edits, not a
+# recommendation: the classes only mean something against the blast
+# radii and workspaces of a real target. Specific tool rules sit above
+# the class rules, because first match wins and a named deny that sits
+# below a class rule can never fire.
+version: 1
+rules:
+  - match:
+      tool: postgres.table.drop
+    decision: deny
+    rationale: schema drops never recover from a rollback
+  - match:
+      class: r0
+    decision: allow
+    rationale: fully reversible calls go through, the ledger keeps the inverse
+  - match:
+      class: r1
+      blast_radius: { lt: 100 }
+    decision: allow
+    rationale: a cheap inverse on fewer than a hundred things is below the line
+  - match:
+      class: [r2, r3]
+    decision: hold
+    seconds: 120
+    notify: [cli, slack]
+    rationale: the damage is visible or permanent, so a human looks first
+  - match: {}
+    decision: hold
+    seconds: 300
+    rationale: nothing matched, so the call waits for a person
