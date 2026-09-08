@@ -65,7 +65,7 @@ export function holdErrorMessage(
       : "was denied by a human";
   const message =
     `The call to ${call.tool} (${call.klass}, blast radius ${call.blastRadius ?? "unknown"}) ` +
-    `${verb}. Rule ${call.ruleIndex} ${decision === "hold" ? "held" : decision}ed it` +
+    `${verb}. Rule ${call.ruleIndex} ${decision === "hold" ? "held" : "denied"} it` +
     (call.rationale === undefined ? "." : `: ${call.rationale}.`) +
     (outcome.kind === "released" && outcome.release.kind === "denied" && !expiry
       ? ` Do not retry the same call; it was rejected by ${outcome.release.by}.`
