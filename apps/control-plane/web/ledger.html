@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VOID Ledger</title>
+<style>
+
+:root {
+  color-scheme: light;
+  --action: #0066cc;
+  --focus: #0071e3;
+  --ink: #1d1d1f;
+  --canvas: #ffffff;
+  --parchment: #f5f5f7;
+  --pearl: #fafafc;
+  --tile: #272729;
+  --tile-alt: #2a2a2c;
+  --tile-deep: #252527;
+  --hairline: #e0e0e0;
+  --divider: #f0f0f0;
+  --muted: #6e6e73;
+  --r0: #34c759;
+  --r1: #ff9500;
+  --r2: #ff3b30;
+  --r3: #af52de;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+}
+a { color: var(--action); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+button, select { font: inherit; }
+button { min-height: 44px; cursor: pointer; transition: transform 120ms ease; }
+button:active { transform: scale(0.95); }
+.global-nav {
+  height: 44px;
+  background: #000000;
+  color: #f5f5f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.global-nav .inner, .sub-nav .inner, main, footer .inner { width: min(100%, 1440px); margin: 0 auto; padding: 0 32px; }
+.global-nav .inner, .sub-nav .inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.global-nav a { color: #f5f5f7; }
+.nav-links { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; }
+.sub-nav {
+  min-height: 52px;
+  background: rgba(245, 245, 247, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--divider);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.brand { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
+.primary {
+  background: var(--action);
+  color: #ffffff;
+  border: 0;
+  border-radius: 9999px;
+  padding: 11px 22px;
+  font-size: 17px;
+}
+.secondary {
+  background: transparent;
+  color: var(--action);
+  border: 1px solid var(--action);
+  border-radius: 9999px;
+  padding: 11px 22px;
+  font-size: 17px;
+}
+.hero { padding: 80px 32px; text-align: center; max-width: 980px; margin: 0 auto; }
+.eyebrow { margin: 0 0 12px; font-size: 21px; line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; color: var(--muted); }
+h1 { margin: 0; font-size: 56px; line-height: 1.07; font-weight: 600; letter-spacing: -0.28px; }
+.lead { margin: 24px auto 0; max-width: 780px; font-size: 28px; line-height: 1.22; font-weight: 400; letter-spacing: -0.01em; color: var(--muted); }
+.section { padding: 80px 32px; }
+.section.parchment { background: var(--parchment); }
+.section.dark { background: var(--tile); color: #ffffff; }
+.section.dark .muted, .section.dark p { color: #d2d2d7; }
+.section-inner { width: min(100%, 1440px); margin: 0 auto; }
+.text-inner { width: min(100%, 980px); margin: 0 auto; }
+h2 { margin: 0 0 24px; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.01em; }
+h3 { margin: 0; font-size: 21px; line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 17px; }
+.card {
+  background: #ffffff;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  padding: 24px;
+}
+.dark-card { background: var(--tile-alt); color: #ffffff; border-color: #3a3a3c; }
+.card p { margin-top: 12px; color: var(--muted); }
+.dark-card p { color: #d2d2d7; }
+.strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px; margin-top: 32px; }
+.status-item { background: var(--pearl); border: 3px solid var(--divider); border-radius: 11px; padding: 17px; }
+.status-item strong { display: block; font-weight: 600; }
+.pill, .chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 14px;
+  line-height: 1.2;
+  letter-spacing: -0.224px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chip { color: #ffffff; }
+.r0 { background: var(--r0); }
+.r1 { background: var(--r1); color: #1d1d1f; }
+.r2 { background: var(--r2); }
+.r3 { background: var(--r3); }
+.allow { background: #eaf8ef; color: #166534; }
+.hold { background: #fff4e5; color: #8a4b00; }
+.deny { background: #ffecec; color: #9f1d20; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--hairline); border-radius: 18px; background: #ffffff; }
+table { width: 100%; border-collapse: collapse; min-width: 860px; }
+th, td { text-align: left; padding: 17px; border-bottom: 1px solid var(--divider); vertical-align: top; }
+th { font-size: 14px; font-weight: 600; letter-spacing: -0.224px; color: var(--muted); background: var(--pearl); }
+tr:last-child td { border-bottom: 0; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 0 0 24px; }
+.filter { display: grid; gap: 8px; }
+label { font-size: 14px; color: var(--muted); }
+select { min-height: 44px; border: 1px solid var(--hairline); border-radius: 8px; padding: 8px 12px; background: #ffffff; color: var(--ink); }
+.pending { position: relative; background: #fffaf2; }
+.pending td:first-child:before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--r1);
+  margin-right: 8px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+.inbox { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px; }
+.rule { margin-top: 17px; padding: 17px; background: var(--pearl); border: 3px solid var(--divider); border-radius: 11px; color: var(--muted); }
+.empty { margin-top: 32px; text-align: center; background: var(--pearl); border: 3px solid var(--divider); border-radius: 11px; padding: 32px; }
+.digest { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; letter-spacing: 0; }
+.verify-line { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 24px; }
+footer { background: var(--parchment); padding: 64px 0; color: #7a7a7a; font-size: 12px; letter-spacing: 0; }
+@media (max-width: 1068px) { h1 { font-size: 40px; } .grid, .inbox { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 734px) { .global-nav .inner, .sub-nav .inner, main, footer .inner { padding-left: 17px; padding-right: 17px; } .hero, .section { padding: 48px 17px; } h1 { font-size: 34px; } h2 { font-size: 34px; } .lead { font-size: 21px; } .grid, .strip, .inbox { grid-template-columns: 1fr; } .nav-links { gap: 12px; } }
+@media (max-width: 419px) { h1 { font-size: 28px; } }
+
+</style>
+</head>
+<body>
+<div class="global-nav"><div class="inner"><a href="index.html" aria-label="VOID home">VOID</a><nav class="nav-links" aria-label="Primary"><a href="feed.html">Feed</a><a href="approvals.html">Approvals</a><a href="ledger.html">Ledger</a></nav></div></div>
+<div class="sub-nav"><div class="inner"><a class="brand" href="index.html">Control Plane</a><a class="primary" href="approvals.html">Review holds</a></div></div>
+<main>
+<section class="hero"><p class="eyebrow">Ledger browser</p><h1>A signed chain for every decision.</h1><p class="lead">Each ledger entry includes the previous digest, so any deletion, reorder, or edit breaks verification.</p></section>
+<section class="section parchment"><div class="section-inner"><div class="verify-line"><strong id="verify-status">Verify status: not checked</strong><button class="primary" type="button" id="verify-button">Verify chain</button></div><div class="table-wrap"><table><thead><tr><th>Seq</th><th>At</th><th>Tool</th><th>Digest</th><th>Prev digest</th><th>Decision</th></tr></thead><tbody><tr><td>1201</td><td>2026-09-08T09:40:01Z</td><td>aws.ec2.instance.stop</td><td class="digest">9f3a1c7d2b90...</td><td class="digest">000000000000...</td><td><span class="pill allow">allow</span></td></tr>
+<tr><td>1202</td><td>2026-09-08T09:40:14Z</td><td>slack.chat.post_message</td><td class="digest">4d91a802ce43...</td><td class="digest">9f3a1c7d2b90...</td><td><span class="pill allow">allow</span></td></tr>
+<tr><td>1203</td><td>2026-09-08T09:40:33Z</td><td>cloudflare.dns_record.update</td><td class="digest">e20b8f91ab77...</td><td class="digest">4d91a802ce43...</td><td><span class="pill allow">allow</span></td></tr>
+<tr><td>1204</td><td>2026-09-08T09:41:02Z</td><td>aws.s3.object.delete</td><td class="digest">b7c4420aa18e...</td><td class="digest">e20b8f91ab77...</td><td><span class="pill hold">hold</span></td></tr>
+<tr><td>1205</td><td>2026-09-08T09:41:08Z</td><td>postgres.row.delete</td><td class="digest">a8fd1026c0b1...</td><td class="digest">b7c4420aa18e...</td><td><span class="pill hold">hold</span></td></tr>
+<tr><td>1206</td><td>2026-09-08T09:41:13Z</td><td>stripe.payment_intent.create</td><td class="digest">f32bca908e10...</td><td class="digest">a8fd1026c0b1...</td><td><span class="pill hold">hold</span></td></tr>
+<tr><td>1207</td><td>2026-09-08T09:41:29Z</td><td>gmail.message.send</td><td class="digest">67abef190c22...</td><td class="digest">f32bca908e10...</td><td><span class="pill deny">deny</span></td></tr>
+<tr><td>1208</td><td>2026-09-08T09:41:37Z</td><td>github.pull_request.merge</td><td class="digest">ca0e91381db4...</td><td class="digest">67abef190c22...</td><td><span class="pill hold">hold</span></td></tr>
+<tr><td>1209</td><td>2026-09-08T09:42:03Z</td><td>github.repository.delete</td><td class="digest">084fc77d9a50...</td><td class="digest">ca0e91381db4...</td><td><span class="pill deny">deny</span></td></tr>
+<tr><td>1210</td><td>2026-09-08T09:42:27Z</td><td>notion.block.update</td><td class="digest">7ee91b0ac334...</td><td class="digest">084fc77d9a50...</td><td><span class="pill allow">allow</span></td></tr></tbody></table></div></div></section>
+</main>
+<footer><div class="inner">VOID control plane preview. Static HTML, no external assets, and no framework runtime.</div></footer>
+<script>
+document.getElementById("verify-button").addEventListener("click", function () {
+  document.getElementById("verify-status").textContent = "Verify status: verified, 10 records linked";
+});
+</script>
+</body>
+</html>
