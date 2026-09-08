@@ -1,86 +1,113 @@
 # VOID
 
-VOID is a process that sits between an AI agent and the tools it can write to. For each tool call, it classifies how reversible the call is, applies policy, and records a signed entry in an append only ledger. Later, VOID can replay true inverses for calls that have them.
+VOID is an accountability and reversibility layer for AI agents.
 
-## Vocabulary
+It sits between an MCP capable agent and the tools the agent can write to. For each write, VOID classifies how reversible the call is, applies a policy, and appends a signed hash chained ledger entry. Later, operators can inspect the feed, verify the chain, attest a slice, trace taint, and replay true inverses when a connector has captured enough state.
 
-- R0: fully reversible, with a direct inverse.
-- R1: reversible with a trace or before image.
-- R2: mitigable only, with compensation but no true inverse.
-- R3: irreversible, so policy must hold or deny by default.
+## What VOID protects
 
-## Packages
+VOID does not make an agent safe by trusting the model. It protects the write path.
 
-| package | owns | tests |
-| ------- | ---- | ----- |
-| `@void/registry` | Reversibility data, preconditions, case evaluation, and facts conversion. | 28 |
-| `@void/ledger` | Canonical JSON, hash chain, signing, append only stores, and verification. | 19 |
-| `@void/proxy` | MCP session plumbing, stdio transport, request relay, notification relay, and tool call forwarding. | 36 |
-| `@void/policy` | YAML rules, decisions, blocking holds, and CLI channel rendering. | 39 |
-| `@void/connectors` | Connector ids, connector lookup, and duplicate id checks. | 3 |
-| `@void/cli` | `void` invocation parsing, classify command support, and the terminal render model. | 47 |
+1. Intercept the tool call.
+2. Classify the call as R0, R1, R2, or R3 from registry cases and target facts.
+3. Apply policy.
+4. Allow, deny, or hold.
+5. Record the decision in the ledger before the write proceeds in fail-closed posture.
+6. Use connector snapshots and manifests for replay where a true inverse exists.
 
-## Quickstart
+## Reversibility classes
 
-Install dependencies, if the root owner has not already done this:
+| Class | Meaning | Usual posture |
+| ----- | ------- | ------------- |
+| R0 | Fully reversible with a direct inverse. | Allow with ledger. |
+| R1 | Reversible with a trace or before image. | Allow for small blast radius, hold for large blast radius. |
+| R2 | Mitigable only. | Hold or deny. |
+| R3 | Irreversible. | Hold or deny. |
 
-```sh
-pnpm install
-```
+## Two operating postures
 
-Run the package tests:
+| Posture | Behavior |
+| ------- | -------- |
+| `fail-closed` | The default. Unknown tools, unclassified calls, invalid policy, ledger failure, and internal errors deny. Availability is traded for safety. |
+| `observe` | Forward calls and record decisions where possible. Non-allow verdicts are printed to stderr. Use this only for trials and shadow runs. |
 
-```sh
-cd packages/registry && node --test src/evaluate.test.ts src/facts.test.ts src/index.test.ts
-cd packages/ledger && node --test src/index.test.ts
-cd packages/proxy && node --test src/forward/forward.test.ts src/forward/tools.test.ts src/index.test.ts src/relay/notifications.test.ts src/relay/requests.test.ts src/session.test.ts src/transport/stdio.test.ts
-cd packages/policy && node --test src/channels/cli.test.ts src/channels/slack.test.ts src/hold.test.ts src/index.test.ts src/rules.test.ts src/skeptics.test.ts
-cd packages/connectors && node --test src/index.test.ts
-cd packages/cli && node --test src/classify.test.ts src/index.test.ts src/tui/tui.test.ts
-```
+## Five-minute local path
 
-Run the moment script:
+This repository already has dependencies installed in the current workspace. Release packaging is still private at version 0.0.0, so the public install command is not final yet. If dependencies are missing, the root owner runs the install step because this repo protects the lockfile.
+
+From the repository root, start with the simulated hold moment:
 
 ```sh
 node scripts/src/moment.mjs
 ```
 
-Run classify against the fixture transcript:
+You should see one denied Postgres delete, one approved Postgres delete, and the lines an agent would read after a hold resolves.
+
+Run a real proxy process against the fixture MCP server:
+
+```sh
+node packages/proxy/bin/void-proxy.mjs --upstream node --args fixtures/e2e-server.mjs --policy fixtures/e2e-policy.yaml --ledger-dir /tmp/void-ledger --workspace demo
+```
+
+That command waits on stdin because it is an MCP stdio server. Put an MCP client in front of it. With the fixture policy, `echo` is allowed and `orders_delete` is held.
+
+Classify a fixture transcript without running the proxy:
 
 ```sh
 node packages/cli/bin/void.mjs classify --transcript fixtures/session.jsonl --facts fixtures/facts.json
 ```
 
-Open the control plane GUI file:
+Run the final local product sweep. It creates a temp ledger, reaches a hold, reads the feed, verifies the chain, checks taint, writes an attestation, detects tamper, and exercises the HTTP upstream path when the current wave exposes it:
 
 ```sh
-open apps/control-plane/web/index.html
+node scripts/src/e2e-final.mjs all
 ```
 
-## Status
+For connector replay behavior, including drift refusal, run:
 
-- WP-00 done: context pack, package scaffold, and package README contracts exist.
-- WP-01 done in part: proxy stdio transport and core message relay code exist.
-- WP-02 pending: Streamable HTTP, progress, cancellation, and reconnect are not done.
-- WP-03 done: ledger canonical form, signing, append only store, and verification exist.
-- WP-04a done: registry runtime, evaluator, and declared facts conversion exist.
-- WP-04b done in part: the registry data has 89 entries, but expansion remains ongoing work.
-- WP-05 done: policy loader, matcher, decisions, blocking hold, and CLI channel exist.
-- WP-06 pending: the Postgres connector is not implemented.
-- WP-07 pending: the S3 connector is not implemented.
-- WP-08 pending: probes and blast radius computation are not implemented.
-- WP-09 done in part: invocation parsing and classify exist, while run, ledger verify, replay, and attest are still pending.
-- WP-09b done: terminal render model, capability detection, previews, and safety tests exist.
-- WP-10 pending: control plane API is not implemented.
-- WP-11 done in part: a static control plane GUI exists at `apps/control-plane/web/index.html`.
-- WP-12 pending: taint graph is not implemented.
-- WP-13 pending: attestation and standalone verifier are not implemented.
-- WP-14 pending: SDK wrap is not implemented.
-- WP-15 pending: hardening, docs, and release work remains open.
+```sh
+node scripts/src/e2e-connectors.mjs
+```
+
+## Operator commands
+
+The development binary is `node packages/cli/bin/void.mjs`. Packaged releases will expose the same handlers as `void`.
+
+| Need | Command surface | Current note |
+| ---- | --------------- | ------------ |
+| Live feed | `feed --ledger <ledger-file> [--json] [--follow]` | Verifies the chain before printing. |
+| Approval status | `approvals` | The current binary reports no live holds unless it is connected to a running proxy. SDK handles can resolve holds in process. |
+| Replay | `replay --ledger <ledger-file> --snapshot-dir <dir> --seq <n> [--dry-run]` | The command handler supports injected connectors. The packaged binary does not yet wire a connector registry by default. |
+| Taint | `taint --ledger <dir-or-file> --seq <n> [--depth <n>] [--json]` | Builds graph edges from the verified ledger. |
+| Verify | `verify --ledger <dir-or-file> [--attestation <path>]` | Recomputes body hashes, links, and signatures. |
+
+## Package map
+
+| Package | Owns |
+| ------- | ---- |
+| `@void/registry` | Registry data, preconditions, evaluation, and declared facts. It imports nothing. |
+| `@void/ledger` | Canonical JSON, entry hashes, JSONL store, signing, feed, taint, verification, and attestations. |
+| `@void/policy` | YAML policy loading, decisions, holds, approval broker, and approval channels. |
+| `@void/proxy` | MCP session plumbing, stdio and HTTP upstream transports, forwarding, interception, and approval pumping. |
+| `@void/connectors` | Connector registry, Postgres logic, S3 logic, probes, snapshots, and manifests. |
+| `@void/cli` | Development command handlers and terminal render models. |
+| `@void/sdk` | In-process client wrapper for app builders: VoidClient, holdHandle, typed errors. |
+
+## Honest limitations
+
+- Packages are still private at `0.0.0`. The public install and publish flow is not complete.
+- Development signing uses `devKeyProvider`, backed by `VOID_SIGNING_KEY` or a local ed25519 key under the user home directory. Production KMS is an interface, not wired here.
+- The default ledger store is local JSONL. It is tamper evident and fsynced, but it is a dev-tier single-writer store. There is no real Postgres ledger store wired by default.
+- Postgres and S3 connector logic exists, but no real customer Postgres or S3 account is wired by default. Local proof uses fixtures and fakes.
+- Approvals are not authenticated in this repo. The CLI and SDK paths are development surfaces, not a hosted identity system.
+- Blocking holds pause the tool call. Speculative execution and provisional receipts are not implemented.
+- The replay binary needs connector registry wiring before a packaged `void replay` can apply real inverses without injected connectors.
 
 ## More docs
 
 - `docs/CONTEXT.md`: authoritative product context and vocabulary.
-- `docs/DECISIONS.md`: the seven starting decisions.
+- `docs/DECISIONS.md`: decision log.
 - `docs/STANDARDS.md`: coding, test, safety, and repository rules.
+- `docs/OPERATIONS.md`: operator runbook.
+- `docs/SDK.md`: SDK release candidate surface.
 - `docs/TESTING.md`: package test commands and test rules.
