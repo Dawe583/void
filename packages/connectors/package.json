@@ -13,5 +13,8 @@
   },
   "devDependencies": {
     "@types/node": "catalog:"
+  },
+  "dependencies": {
+    "node-sql-parser": "^5.4.0"
   }
 }
