@@ -158,6 +158,11 @@ async function makeHarness(decision: Decision, posture: ProxyOptions["posture"] 
         upstreamCommand: ["fake"],
         policyPath,
         posture,
+        // Fail-closed tests exercise the real ledger path, so every harness
+        // gets its own directory: a shared one would let records from one
+        // test chain into another's expectations.
+        ledgerDir: await mkdtemp(join(tmpdir(), "void-bin-test-")),
+        workspace: "test",
         input: fromLines(lines),
         output(line) { outputMessages.push(JSON.parse(line) as unknown); },
         error(line) { errors.push(line); },

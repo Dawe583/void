@@ -12,7 +12,7 @@ function readFlag(name) {
 }
 
 function usage() {
-  return "usage: void-proxy --upstream cmd --policy path [--args a,b] [--facts path] [--posture fail-closed|observe]";
+  return "usage: void-proxy --upstream cmd --policy path [--args a,b] [--facts path] [--posture fail-closed|observe] [--ledger-dir dir] [--workspace name]";
 }
 
 async function main() {
@@ -21,6 +21,8 @@ async function main() {
   const rawArgs = readFlag("--args");
   const facts = readFlag("--facts");
   const posture = readFlag("--posture") ?? "fail-closed";
+  const ledgerDir = readFlag("--ledger-dir");
+  const workspace = readFlag("--workspace") ?? "default";
 
   if (upstream === undefined || policy === undefined) throw new Error(usage());
   if (posture !== "fail-closed" && posture !== "observe") throw new Error("--posture must be fail-closed or observe");
@@ -31,6 +33,8 @@ async function main() {
     policyPath: policy,
     factsPath: facts,
     posture,
+    ledgerDir,
+    workspace,
   });
 }
 

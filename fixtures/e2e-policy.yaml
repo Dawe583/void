@@ -1,0 +1,14 @@
+version: 1
+rules:
+  - match:
+      tool: echo
+    decision: allow
+  - match:
+      tool: orders_delete
+    decision: hold
+    seconds: 5
+    notify: [cli]
+    rationale: destructive fixture tool requires approval
+  - match: {}
+    decision: deny
+    rationale: only e2e fixture tools are allowed

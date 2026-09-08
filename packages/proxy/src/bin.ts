@@ -5,6 +5,10 @@ import { readFile } from "node:fs/promises";
 import { classifyTool, loadFacts, toEvaluationContext, validateFactsFile } from "../../registry/src/index.ts";
 import type { FactsFile, FactsReport } from "../../registry/src/index.ts";
 import { decide, HoldQueue, loadPolicy } from "../../policy/src/index.ts";
+import { devKeyProvider } from "../../ledger/src/sign.ts";
+import { jsonlStore } from "../../ledger/src/store.ts";
+import type { JsonlEntry, JsonlReceipt } from "../../ledger/src/store.ts";
+import type { LedgerStore } from "../../ledger/src/index.ts";
 import type { LoadedPolicy, PolicyCall, PolicyDecision } from "../../policy/src/index.ts";
 
 import { forwardPromptMessage } from "./forward/prompts.ts";
@@ -34,6 +38,9 @@ export type ProxyOptions = {
   readonly factsPath?: string;
   readonly posture: ProxyPosture;
   readonly onHold?: (queue: HoldQueue) => void;
+  /** Ledger directory for the dev tier store. Required for the fail-closed posture. */
+  readonly ledgerDir?: string;
+  readonly workspace?: string;
   readonly upstreamSpawn?: (events: UpstreamEvents) => UpstreamProcess;
   readonly input?: AsyncIterable<string>;
   readonly output?: (line: string) => void;
@@ -61,9 +68,20 @@ export async function runProxy(options: ProxyOptions): Promise<void> {
     writeError(`startup failed: ${errorMessage(error)}`);
     throw error;
   }
+  if (options.posture === "fail-closed" && options.ledgerDir === undefined) {
+    // The fail-closed posture promises every decided call leaves a ledger
+    // record. Without a ledger directory that promise cannot be kept, so the
+    // proxy refuses at startup instead of crashing on the first tools/call.
+    throw new Error("fail-closed posture requires a ledger directory");
+  }
   const session = new Session();
   const queue = new HoldQueue();
   options.onHold?.(queue);
+  // The dev tier ledger is a JSONL file store with a local ed25519 signer. In the
+  // fail-closed posture the store must open before the first call routes, because
+  // the posture promises that a call without a ledger record never forwards.
+  const ledgerStore: LedgerStore<unknown, JsonlEntry, JsonlReceipt> | undefined =
+    options.ledgerDir === undefined ? undefined : jsonlStore(await devKeyProvider(), { dir: options.ledgerDir });
   let resolveUpstreamClosed: () => void = () => {};
   const upstreamClosed = new Promise<void>((resolve) => { resolveUpstreamClosed = resolve; });
 
@@ -161,7 +179,7 @@ export async function runProxy(options: ProxyOptions): Promise<void> {
         }
 
         if (message.method === "tools/call") {
-          await handleToolCall(message, policy, facts, queue, forwardAfterTranslate, sendJson, writeError, normalizePosture(options.posture));
+          await handleToolCall(message, policy, facts, queue, forwardAfterTranslate, sendJson, writeError, normalizePosture(options.posture), ledgerStore, options.workspace ?? "default");
           return;
         }
 
@@ -239,6 +257,8 @@ async function handleToolCall(
   sendJson: (message: unknown) => void,
   writeError: (line: string) => void,
   posture: "fail-closed" | "observe",
+  ledgerStore: LedgerStore<unknown, JsonlEntry, JsonlReceipt> | undefined,
+  workspace: string,
 ): Promise<void> {
   const call = interceptedCall(request);
   let lastPolicyCall: PolicyCall | null = null;
@@ -254,7 +274,7 @@ async function handleToolCall(
     return decision;
   };
 
-  const verdict = interceptCall(call, {
+  const verdict = await interceptCall(call, {
     classify: () => classifyTool(call.tool, toEvaluationContext(facts, call.args)),
     policy: policyFn,
     hold: (seconds) => {
@@ -271,7 +291,17 @@ async function handleToolCall(
         notify: decision.notify,
       }, seconds);
     },
-    ledger: () => {},
+    ledger: async (entry) => {
+      // Fail-closed startup already refuses to run without a store. Reaching
+      // here without one can only be observe posture, which degrades to a
+      // loud stderr note per call rather than blocking the trial it exists
+      // for; silently recording nothing would be the dishonest middle.
+      if (ledgerStore === undefined) {
+        writeError(`observe: no ledger directory, record skipped for ${entry.tool}`);
+        return;
+      }
+      await ledgerStore.append({ ...entry, workspace });
+    },
   });
 
   if (verdict.kind === "allow") {

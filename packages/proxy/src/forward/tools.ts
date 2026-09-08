@@ -39,17 +39,22 @@ export type InterceptDeps = {
 const ERROR_CODE = -32003;
 const BLAST_KEYS = ["rows", "count", "limit", "n"] as const;
 
-export function interceptCall(call: InterceptedCall, deps: InterceptDeps): CallVerdict {
+export async function interceptCall(
+  call: InterceptedCall,
+  deps: InterceptDeps,
+): Promise<CallVerdict> {
   const now = deps.now ?? (() => new Date());
   const digest = digestArgs(call.args);
   try {
     const classification = deps.classify();
     const policyCall = buildPolicyCall(call, classification);
     const decision = deps.policy(policyCall);
-    writeLedger(deps, now, call.tool, policyCall.klass, decision.kind, digest);
+    // The decision record lands before the verdict, so a crash after the
+    // decision still leaves the ledger saying what was about to happen.
+    await writeLedger(deps, now, call.tool, policyCall.klass, decision.kind, digest);
 
     if (decision.kind === "allow") {
-      writeLedger(deps, now, call.tool, policyCall.klass, "allow:resolved", digest);
+      await writeLedger(deps, now, call.tool, policyCall.klass, "allow:resolved", digest);
       return { kind: "allow" };
     }
 
@@ -57,18 +62,18 @@ export function interceptCall(call: InterceptedCall, deps: InterceptDeps): CallV
       const error = decision.kind === "deny"
         ? denyError(call, policyCall, decision.ruleIndex, decision.rationale)
         : denyError(call, policyCall, -1, `policy returned ${decision.decision}`);
-      writeLedger(deps, now, call.tool, policyCall.klass, `${decision.kind}:resolved`, digest);
+      await writeLedger(deps, now, call.tool, policyCall.klass, `${decision.kind}:resolved`, digest);
       return { kind: "deny", error };
     }
 
     const heldCall = toHeldCall(call, policyCall, decision);
-    const promise = deps.hold(decision.seconds).then((resolution) => {
+    const promise = deps.hold(decision.seconds).then(async (resolution) => {
       if (resolution.outcome.kind === "released" && resolution.outcome.release.kind === "approved") {
-        writeLedger(deps, now, call.tool, policyCall.klass, "hold:approved", digest);
+        await writeLedger(deps, now, call.tool, policyCall.klass, "hold:approved", digest);
         return { jsonrpc: "2.0", id: 0, result: { approved: true } } satisfies JsonRpcResult;
       }
       const result = resolution.outcome.kind === "expired" ? "expired" : "denied";
-      writeLedger(deps, now, call.tool, policyCall.klass, `hold:${result}`, digest);
+      await writeLedger(deps, now, call.tool, policyCall.klass, `hold:${result}`, digest);
       return holdError(resolution.call, resolution.outcome, "hold");
     });
     void heldCall;

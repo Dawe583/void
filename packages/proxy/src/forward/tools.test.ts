@@ -15,9 +15,9 @@ function classified(klass: RegistryTone = "r1") {
 }
 
 describe("interceptCall", () => {
-  test("allows a classified call and records decision plus resolution", () => {
+  test("allows a classified call and records decision plus resolution", async () => {
     const ledger: unknown[] = [];
-    const verdict = interceptCall(call, {
+    const verdict = await interceptCall(call, {
       classify: () => classified("r0"),
       policy: (policyCall) => {
         assert.equal(policyCall.klass, "r0");
@@ -33,8 +33,8 @@ describe("interceptCall", () => {
     assert.deepEqual(ledger.map((entry) => (entry as { decision: string }).decision), ["allow", "allow:resolved"]);
   });
 
-  test("denies with a readable application error that names the call", () => {
-    const verdict = interceptCall(call, {
+  test("denies with a readable application error that names the call", async () => {
+    const verdict = await interceptCall(call, {
       classify: () => classified("r3"),
       policy: () => ({ kind: "deny", ruleIndex: 4, rationale: "production writes need review" }),
       hold: async () => { throw new Error("hold should not run"); },
@@ -59,7 +59,7 @@ describe("interceptCall", () => {
 
   test("maps approved holds to a placeholder result and records resolution", async () => {
     const ledger: unknown[] = [];
-    const verdict = interceptCall(call, {
+    const verdict = await interceptCall(call, {
       classify: () => classified("r2"),
       policy: () => ({ kind: "hold", ruleIndex: 2, seconds: 30, notify: ["cli"], rationale: "needs a human" }),
       hold: async (seconds) => ({
@@ -81,7 +81,7 @@ describe("interceptCall", () => {
       { kind: "released", release: { kind: "denied", by: "alice" } },
       { kind: "expired" },
     ] as const) {
-      const verdict = interceptCall(call, {
+      const verdict = await interceptCall(call, {
         classify: () => classified("r2"),
         policy: () => ({ kind: "hold", ruleIndex: 2, seconds: 30, notify: ["cli"], rationale: "needs a human" }),
         hold: async () => ({
@@ -99,9 +99,9 @@ describe("interceptCall", () => {
     }
   });
 
-  test("classifies an unknown tool as r3", () => {
+  test("classifies an unknown tool as r3", async () => {
     let seenClass = "";
-    const verdict = interceptCall(call, {
+    const verdict = await interceptCall(call, {
       classify: () => ({ outcome: "unknown-tool", entryId: call.tool }),
       policy: (policyCall) => {
         seenClass = policyCall.klass;
@@ -115,9 +115,9 @@ describe("interceptCall", () => {
     assert.equal(seenClass, "r3");
   });
 
-  test("records a digest instead of the argument payload", () => {
+  test("records a digest instead of the argument payload", async () => {
     const ledger: unknown[] = [];
-    interceptCall(call, {
+    await interceptCall(call, {
       classify: () => classified("r3"),
       policy: () => ({ kind: "deny", ruleIndex: 0, rationale: "no" }),
       hold: async () => { throw new Error("hold should not run"); },
