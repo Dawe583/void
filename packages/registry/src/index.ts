@@ -6,3 +6,4 @@
 export * from "./registry.ts";
 export * from "./precondition.ts";
 export * from "./evaluate.ts";
+export * from "./facts.ts";

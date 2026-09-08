@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://void.dev/schemas/registry-precondition.schema.json",
+  "title": "Registry case precondition",
+  "description": "The structured form of a registry case's `when` prose. The prose stays for display; this form is what evaluate() reads when present. The grammar is closed: every unknown key is a load error, because a typo must never quietly widen a guard.",
+  "type": "object",
+  "$defs": {
+    "fact": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "fact"
+        },
+        "fact": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Declared fact name, e.g. bucket.versioning"
+        },
+        "is": {
+          "type": "string",
+          "description": "Required value. Absent means any present non-empty value."
+        }
+      },
+      "required": [
+        "kind",
+        "fact"
+      ],
+      "additionalProperties": false
+    },
+    "not": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "not"
+        },
+        "of": {
+          "$ref": "#/$defs/precondition"
+        }
+      },
+      "required": [
+        "kind",
+        "of"
+      ],
+      "additionalProperties": false
+    },
+    "argument": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "argument"
+        },
+        "argument": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Argument name on the intercepted call, e.g. versionId"
+        },
+        "operator": {
+          "enum": [
+            "present",
+            "absent",
+            "equals"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "description": "Required when operator is equals."
+        }
+      },
+      "required": [
+        "kind",
+        "argument",
+        "operator"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "const": "equals"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ]
+    },
+    "all": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "all"
+        },
+        "of": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/precondition"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "kind",
+        "of"
+      ],
+      "additionalProperties": false
+    },
+    "any": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "any"
+        },
+        "of": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/precondition"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "kind",
+        "of"
+      ],
+      "additionalProperties": false
+    },
+    "precondition": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/fact"
+        },
+        {
+          "$ref": "#/$defs/not"
+        },
+        {
+          "$ref": "#/$defs/argument"
+        },
+        {
+          "$ref": "#/$defs/all"
+        },
+        {
+          "$ref": "#/$defs/any"
+        }
+      ]
+    }
+  },
+  "$ref": "#/$defs/precondition"
+}
