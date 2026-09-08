@@ -120,3 +120,7 @@ Each declared fact carries `verifiedAt` and `source`. A fact older than the
 configured window is stale: it still evaluates, because staleness is a
 warning to the operator, not a silent denial, and the report the loader
 returns carries the stale list so the CLI can show it.
+| `registry.tag.previously_used` | the pushed tag already pointed at a digest someone may have pulled | true / false |
+| `stripe.intent.captured` | the payment intent moved funds, not only held them | true / false |
+| `stripe.charge.settled` | the charge settled, so a refund moves real money back | true / false |
+| `stripe.refund.pending` | the refund has not been submitted to the payment method yet | true / false |

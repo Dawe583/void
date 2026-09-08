@@ -87,7 +87,7 @@ const awsEntries: RegistryEntry[] = [
     summary: "Delete an object by key.",
     tags: ["storage", "delete"],
     cases: [
-      { when: "bucket versioning is Enabled and MFA delete is off", tone: "r0", inverse: "s3:DeleteObject on the delete marker", window: "until a lifecycle rule expires noncurrent versions", note: "the delete only writes a marker, the object is still there underneath", if: { kind: "all", of: [{ kind: "fact", fact: "bucket.versioning", is: "Enabled" }, { kind: "fact", fact: "bucket.mfa_delete", is: "off" }] } },
+      { when: "bucket versioning is Enabled and MFA delete is off", tone: "r0", inverse: "s3:DeleteObject on the delete marker", window: "until a lifecycle rule expires noncurrent versions", note: "the delete only writes a marker, the object is still there underneath", if: { kind: "all", of: [{ kind: "fact", fact: "bucket.versioning", is: "Enabled" }, { kind: "fact", fact: "bucket.mfa_delete", is: "off" }, { kind: "argument", argument: "versionId", operator: "absent" }] } },
       { when: "a versionId was passed explicitly", tone: "r3", inverse: null, window: "none", note: "deleting a specific version is a permanent destruction, not a marker", if: { kind: "argument", argument: "versionId", operator: "present" } },
       { when: "always", tone: "r3", inverse: null, window: "none", note: "without versioning the bytes are unrecoverable outside a backup" , if: { kind: "always" } },
     ],
@@ -298,8 +298,8 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Create and confirm a payment intent against a customer.",
     tags: ["payments", "money", "external"],
     cases: [
-      { when: "capture_method is manual and the intent is uncaptured", tone: "r0", inverse: "POST /v1/payment_intents/:id/cancel", window: "7 days before the authorisation expires", note: "an uncaptured authorisation holds funds but never moves them, so cancelling is clean", if: { kind: "argument", argument: "capture_method", operator: "equals", value: "manual" } },
-      { when: "the charge settled and the balance can cover a refund", tone: "r2", inverse: "POST /v1/refunds", window: "no hard limit, practically 180 days for disputes", note: "the customer sees a charge and a refund, not the absence of a charge, and the card network fee is not returned", if: { kind: "fact", fact: "stripe.balance_covers_refund", is: "true" } },
+      { when: "capture_method is manual and the intent is uncaptured", tone: "r0", inverse: "POST /v1/payment_intents/:id/cancel", window: "7 days before the authorisation expires", note: "an uncaptured authorisation holds funds but never moves them, so cancelling is clean", if: { kind: "all", of: [{ kind: "argument", argument: "capture_method", operator: "equals", value: "manual" }, { kind: "fact", fact: "stripe.intent.captured", is: "false" }] } },
+      { when: "the charge settled and the balance can cover a refund", tone: "r2", inverse: "POST /v1/refunds", window: "no hard limit, practically 180 days for disputes", note: "the customer sees a charge and a refund, not the absence of a charge, and the card network fee is not returned", if: { kind: "all", of: [{ kind: "fact", fact: "stripe.balance_covers_refund", is: "true" }, { kind: "fact", fact: "stripe.charge.settled", is: "true" }] } },
       { when: "always", tone: "r3", inverse: null, window: "none", note: "a refund with an insufficient balance fails, which leaves the charge standing" , if: { kind: "always" } },
     ],
   },
@@ -310,7 +310,7 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Refund a charge in whole or in part.",
     tags: ["payments", "money"],
     cases: [
-      { when: "the refund is still pending and unsubmitted", tone: "r1", inverse: "POST /v1/refunds/:id/cancel", window: "minutes, only for some payment methods", note: "cancellation is available for a narrow set of methods and never for cards", if: { kind: "fact", fact: "stripe.refund.submitted", is: "false" } },
+      { when: "the refund is still pending and unsubmitted", tone: "r1", inverse: "POST /v1/refunds/:id/cancel", window: "minutes, only for some payment methods", note: "cancellation is available for a narrow set of methods and never for cards", if: { kind: "all", of: [{ kind: "fact", fact: "stripe.refund.submitted", is: "false" }, { kind: "fact", fact: "stripe.refund.pending", is: "true" }] } },
       { when: "always", tone: "r3", inverse: null, window: "none", note: "there is no un-refund, only a fresh charge, which needs the customer to authorise it again" , if: { kind: "always" } },
     ],
   },
@@ -549,7 +549,7 @@ const dataEntries: RegistryEntry[] = [
     summary: "DELETE rows matching a predicate.",
     tags: ["database", "delete"],
     cases: [
-      { when: "the interceptor captured the full rows and no foreign key cascaded", tone: "r0", inverse: "INSERT from the captured rows", window: "unbounded", note: "identity columns must be restored explicitly or the ids shift", if: { kind: "fact", fact: "pg.capture.before_image", is: "true" } },
+      { when: "the interceptor captured the full rows and no foreign key cascaded", tone: "r0", inverse: "INSERT from the captured rows", window: "unbounded", note: "identity columns must be restored explicitly or the ids shift", if: { kind: "all", of: [{ kind: "fact", fact: "pg.capture.before_image", is: "true" }, { kind: "fact", fact: "pg.cascade.traversed", is: "false" }] } },
       { when: "a foreign key with ON DELETE CASCADE was traversed", tone: "r1", inverse: "INSERT the captured rows across every affected table in dependency order", window: "unbounded", note: "this is the case people underestimate, because one DELETE silently becomes many", if: { kind: "fact", fact: "pg.cascade.traversed", is: "true" } },
       { when: "always", tone: "r3", inverse: null, window: "none", note: "no before image means the rows are gone unless a backup predates the statement" , if: { kind: "always" } },
     ],
@@ -761,7 +761,7 @@ const devEntries: RegistryEntry[] = [
     summary: "Push an image tag to a registry.",
     tags: ["distribution", "supply-chain"],
     cases: [
-      { when: "the tag is immutable and previously unused", tone: "r1", inverse: "delete the tag", window: "unbounded", note: "the digest may already be pinned by a running deployment", if: { kind: "fact", fact: "registry.tag.immutable", is: "true" } },
+      { when: "the tag is immutable and previously unused", tone: "r1", inverse: "delete the tag", window: "unbounded", note: "the digest may already be pinned by a running deployment", if: { kind: "all", of: [{ kind: "fact", fact: "registry.tag.immutable", is: "true" }, { kind: "fact", fact: "registry.tag.previously_used", is: "false" }] } },
       { when: "always", tone: "r2", inverse: "re-push the captured prior digest to the tag", window: "unbounded", note: "a mutable tag like latest means anything that pulled in between got the wrong image" , if: { kind: "always" } },
     ],
   },
@@ -1023,7 +1023,7 @@ const localEntries: RegistryEntry[] = [
     tags: ["filesystem", "write", "overwrite"],
     cases: [
       { when: "the interceptor copied the prior contents to the shadow store", tone: "r0", inverse: "restore the copy", window: "the shadow store retention", note: "cheap for source files, expensive for anything large, so the interceptor has a size ceiling", if: { kind: "fact", fact: "fs.shadow.captured", is: "true" } },
-      { when: "the path is untracked and did not exist", tone: "r0", inverse: "unlink", window: "unbounded", note: "nothing was displaced", if: { kind: "fact", fact: "fs.path.existed", is: "false" } },
+      { when: "the path is untracked and did not exist", tone: "r0", inverse: "unlink", window: "unbounded", note: "nothing was displaced", if: { kind: "all", of: [{ kind: "fact", fact: "fs.path.existed", is: "false" }, { kind: "fact", fact: "fs.tree.git_clean", is: "true" }] } },
       { when: "always", tone: "r3", inverse: null, window: "none", note: "an unversioned file over the copy ceiling has no recoverable prior state" , if: { kind: "always" } },
     ],
   },
