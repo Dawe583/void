@@ -1,9 +1,6 @@
 import { watchFile, unwatchFile } from "node:fs";
-import { readFile } from "node:fs/promises";
-
-import { GENESIS_PREV, entryHash } from "./canonical.ts";
-import { sha256Hex } from "./sign.ts";
 import type { JsonlEntry } from "./store.ts";
+import { readLedgerEntries, verifyChain } from "./verify.ts";
 
 export type LedgerFeedRecord = {
   readonly seq: number;
@@ -42,28 +39,14 @@ export async function readLedgerFeed(
   ledgerPath: string,
   options: { readonly afterSeq?: number } = {},
 ): Promise<FeedPage> {
-  const entries = await readEntries(ledgerPath);
-  const records: LedgerFeedRecord[] = [];
-  let prev = GENESIS_PREV;
-  let checked = 0;
+  const entries = await readLedgerEntries(ledgerPath);
+  const result = await verifyChain(entries);
+  if (!result.ok) throw new Error(`ledger chain invalid: ${result.reason}`);
+  const records = entries
+    .filter((entry) => entry.seq > (options.afterSeq ?? 0))
+    .map((entry) => toFeedRecord(entry));
 
-  for (const entry of entries) {
-    checked += 1;
-    if (entry.seq !== checked)
-      throw new Error(`ledger chain invalid: expected seq ${checked}, found ${entry.seq}`);
-    if (entry.prev_hash !== prev)
-      throw new Error(`ledger chain invalid: entry ${entry.seq} points at ${entry.prev_hash}, expected ${prev}`);
-    const recomputed = await entryHash(entry.body, prev, sha256Hex);
-    if (recomputed !== entry.hash)
-      throw new Error(`ledger chain invalid: entry ${entry.seq} body does not match digest`);
-
-    if (entry.seq > (options.afterSeq ?? 0)) {
-      records.push(toFeedRecord(entry));
-    }
-    prev = entry.hash;
-  }
-
-  return { records, verified: true, head: prev };
+  return { records, verified: true, head: result.head };
 }
 
 export function watchLedgerFeed(
@@ -107,37 +90,6 @@ export function watchLedgerFeed(
       unwatchFile(ledgerPath, tick);
     },
   };
-}
-
-async function readEntries(ledgerPath: string): Promise<JsonlEntry[]> {
-  const text = await readFile(ledgerPath, "utf8");
-  const entries: JsonlEntry[] = [];
-  const lines = text.split("\n");
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]!.trim();
-    if (line === "") continue;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line);
-    } catch {
-      throw new Error(`ledger line ${index + 1} is not JSON`);
-    }
-    entries.push(asEntry(parsed, index + 1));
-  }
-  return entries;
-}
-
-function asEntry(value: unknown, line: number): JsonlEntry {
-  if (typeof value !== "object" || value === null)
-    throw new Error(`ledger line ${line} is not an object`);
-  const entry = value as Partial<JsonlEntry>;
-  if (typeof entry.seq !== "number" || !Number.isInteger(entry.seq) || entry.seq < 1)
-    throw new Error(`ledger line ${line} has invalid seq`);
-  if (typeof entry.body !== "object" || entry.body === null)
-    throw new Error(`ledger line ${line} has invalid body`);
-  if (typeof entry.prev_hash !== "string" || typeof entry.hash !== "string")
-    throw new Error(`ledger line ${line} has invalid chain digests`);
-  return entry as JsonlEntry;
 }
 
 function toFeedRecord(entry: JsonlEntry): LedgerFeedRecord {
