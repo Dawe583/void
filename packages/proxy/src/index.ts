@@ -43,3 +43,4 @@ export { forwardResourceMessage, relayResourceNotification } from "./forward/res
 export { forwardPromptMessage, relayPromptNotification } from "./forward/prompts.ts";
 export * from "./relay/notifications.ts";
 export * from "./relay/requests.ts";
+export * from "./approval-loop.ts";

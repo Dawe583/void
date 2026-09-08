@@ -45,3 +45,5 @@ export * from "./rules.ts";
 export * from "./decide.ts";
 export * from "./hold.ts";
 export * from "./channels/cli.ts";
+export * from "./approvals.ts";
+export * from "./channels/slack.ts";

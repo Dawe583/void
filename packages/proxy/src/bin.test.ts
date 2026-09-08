@@ -214,10 +214,15 @@ function toolCall(id: number, name: string): Record<string, unknown> {
 }
 
 async function waitForQueue(getQueue: () => HoldQueue | null): Promise<HoldQueue> {
-  for (let attempts = 0; attempts < 50; attempts += 1) {
+  // The hold lands after awaited ledger appends (real fs in a temp dir),
+  // so a fixed tick count races disk latency. Poll on wall time instead:
+  // the queue either appears within the hold's own lifetime or the test
+  // genuinely failed.
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
     const queue = getQueue();
     if (queue !== null && queue.list().length > 0) return queue;
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await new Promise<void>((resolve) => setTimeout(resolve, 5));
   }
   throw new Error("queue was not populated");
 }
