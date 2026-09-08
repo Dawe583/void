@@ -145,8 +145,24 @@
         },
         {
           "$ref": "#/$defs/any"
+        },
+        {
+          "$ref": "#/$defs/always"
         }
       ]
+    },
+    "always": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "always"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "The terminal case, the structured form of when: always."
     }
   },
   "$ref": "#/$defs/precondition"

@@ -14,5 +14,8 @@
   },
   "devDependencies": {
     "@types/node": "catalog:"
+  },
+  "dependencies": {
+    "@void/registry": "workspace:*"
   }
 }

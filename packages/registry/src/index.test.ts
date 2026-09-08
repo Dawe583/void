@@ -1,7 +1,13 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { REGISTRY_DISCLAIMER, registry, registryStats, worstCase } from "./index.ts";
+import {
+  REGISTRY_DISCLAIMER,
+  registry,
+  registryStats,
+  worstCase,
+  validatePrecondition,
+} from "./index.ts";
 
 describe("@void/registry", () => {
   test("re-exports the same 89 entries the site and the endpoint publish", () => {
@@ -21,6 +27,22 @@ describe("@void/registry", () => {
       const last = entry.cases.at(-1);
       assert.ok(last, `${entry.id} has no cases`);
       assert.equal(last.when, "always", `${entry.id} does not end with an unguarded case`);
+    }
+  });
+
+  test("a structured case is a valid precondition and fallbacks are always-kind", () => {
+    // The migration contract: every structured guard passes the closed
+    // grammar's own validator, and the only structured form a fallback case
+    // may take is the terminal always kind, so a case that is meant to be
+    // terminal cannot smuggle in a narrower condition.
+    for (const entry of registry) {
+      entry.cases.forEach((item, index) => {
+        if (item.if === undefined) return;
+        const errors = validatePrecondition(item.if, `${entry.id}.cases[${index}].if`);
+        assert.deepEqual(errors, [], `${entry.id} case ${index}: ${errors.join("; ")}`);
+        if (item.when === "always")
+          assert.deepEqual(item.if, { kind: "always" }, `${entry.id} case ${index}: fallback must be always`);
+      });
     }
   });
 

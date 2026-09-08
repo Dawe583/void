@@ -1,3 +1,5 @@
+import type { Precondition } from "./precondition.ts";
+
 /**
  * The Reversibility Registry.
  *
@@ -31,6 +33,12 @@ export type RegistryCase = {
   /** How long the inverse stays valid. */
   window: string;
   note: string;
+  /**
+   * The structured form of `when`, optional because the migration lands per
+   * entry: an unmigrated case is display only and the evaluator must say
+   * unclassified rather than guess from the prose.
+   */
+  if?: Precondition;
 };
 
 export type RegistryEntry = {
@@ -67,9 +75,9 @@ const awsEntries: RegistryEntry[] = [
     summary: "Write an object, overwriting whatever key it lands on.",
     tags: ["storage", "write", "overwrite"],
     cases: [
-      { when: "bucket versioning is Enabled", tone: "r0", inverse: "s3:DeleteObject on the new versionId", window: "until a lifecycle rule expires the prior version", note: "the previous version stays addressable, so the overwrite is a pointer move" },
-      { when: "the key did not exist", tone: "r0", inverse: "s3:DeleteObject", window: "unbounded", note: "nothing was displaced, the inverse is a plain delete" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "versioning off means the prior bytes are gone at the moment of the PUT" },
+      { when: "bucket versioning is Enabled", tone: "r0", inverse: "s3:DeleteObject on the new versionId", window: "until a lifecycle rule expires the prior version", note: "the previous version stays addressable, so the overwrite is a pointer move", if: { kind: "fact", fact: "bucket.versioning", is: "Enabled" } },
+      { when: "the key did not exist", tone: "r0", inverse: "s3:DeleteObject", window: "unbounded", note: "nothing was displaced, the inverse is a plain delete", if: { kind: "fact", fact: "s3.key.existed", is: "false" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "versioning off means the prior bytes are gone at the moment of the PUT" , if: { kind: "always" } },
     ],
   },
   {
@@ -79,9 +87,9 @@ const awsEntries: RegistryEntry[] = [
     summary: "Delete an object by key.",
     tags: ["storage", "delete"],
     cases: [
-      { when: "bucket versioning is Enabled and MFA delete is off", tone: "r0", inverse: "s3:DeleteObject on the delete marker", window: "until a lifecycle rule expires noncurrent versions", note: "the delete only writes a marker, the object is still there underneath" },
-      { when: "a versionId was passed explicitly", tone: "r3", inverse: null, window: "none", note: "deleting a specific version is a permanent destruction, not a marker" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "without versioning the bytes are unrecoverable outside a backup" },
+      { when: "bucket versioning is Enabled and MFA delete is off", tone: "r0", inverse: "s3:DeleteObject on the delete marker", window: "until a lifecycle rule expires noncurrent versions", note: "the delete only writes a marker, the object is still there underneath", if: { kind: "all", of: [{ kind: "fact", fact: "bucket.versioning", is: "Enabled" }, { kind: "fact", fact: "bucket.mfa_delete", is: "off" }] } },
+      { when: "a versionId was passed explicitly", tone: "r3", inverse: null, window: "none", note: "deleting a specific version is a permanent destruction, not a marker", if: { kind: "argument", argument: "versionId", operator: "present" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "without versioning the bytes are unrecoverable outside a backup" , if: { kind: "always" } },
     ],
   },
   {
@@ -101,8 +109,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Replace a bucket policy.",
     tags: ["storage", "access-control"],
     cases: [
-      { when: "the new policy does not widen access beyond the account", tone: "r0", inverse: "s3:PutBucketPolicy with the captured prior document", window: "unbounded", note: "policy documents are small and fully snapshotable" },
-      { when: "always", tone: "r2", inverse: "s3:PutBucketPolicy with the captured prior document", window: "unbounded", note: "restoring the policy closes the hole but cannot un-read anything fetched while it was open" },
+      { when: "the new policy does not widen access beyond the account", tone: "r0", inverse: "s3:PutBucketPolicy with the captured prior document", window: "unbounded", note: "policy documents are small and fully snapshotable", if: { kind: "fact", fact: "s3.policy.widens_access", is: "false" } },
+      { when: "always", tone: "r2", inverse: "s3:PutBucketPolicy with the captured prior document", window: "unbounded", note: "restoring the policy closes the hole but cannot un-read anything fetched while it was open" , if: { kind: "always" } },
     ],
   },
   {
@@ -123,8 +131,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Stop a running instance.",
     tags: ["compute", "state"],
     cases: [
-      { when: "the instance is EBS backed", tone: "r0", inverse: "ec2:StartInstances", window: "unbounded", note: "the public IPv4 changes unless an Elastic IP is attached" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "instance store volumes do not survive a stop" },
+      { when: "the instance is EBS backed", tone: "r0", inverse: "ec2:StartInstances", window: "unbounded", note: "the public IPv4 changes unless an Elastic IP is attached", if: { kind: "fact", fact: "ec2.instance.root_device_type", is: "ebs" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "instance store volumes do not survive a stop" , if: { kind: "always" } },
     ],
   },
   {
@@ -145,8 +153,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Add an inbound rule to a security group.",
     tags: ["network", "access-control"],
     cases: [
-      { when: "the source is a security group or an RFC1918 range", tone: "r0", inverse: "ec2:RevokeSecurityGroupIngress", window: "unbounded", note: "internal exposure only, the revoke is exact" },
-      { when: "always", tone: "r2", inverse: "ec2:RevokeSecurityGroupIngress", window: "unbounded", note: "a rule open to 0.0.0.0/0 is scanned within minutes, so the revoke closes the door but the exposure happened" },
+      { when: "the source is a security group or an RFC1918 range", tone: "r0", inverse: "ec2:RevokeSecurityGroupIngress", window: "unbounded", note: "internal exposure only, the revoke is exact", if: { kind: "fact", fact: "ec2.rule.source_internal", is: "true" } },
+      { when: "always", tone: "r2", inverse: "ec2:RevokeSecurityGroupIngress", window: "unbounded", note: "a rule open to 0.0.0.0/0 is scanned within minutes, so the revoke closes the door but the exposure happened" , if: { kind: "always" } },
     ],
   },
   {
@@ -290,9 +298,9 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Create and confirm a payment intent against a customer.",
     tags: ["payments", "money", "external"],
     cases: [
-      { when: "capture_method is manual and the intent is uncaptured", tone: "r0", inverse: "POST /v1/payment_intents/:id/cancel", window: "7 days before the authorisation expires", note: "an uncaptured authorisation holds funds but never moves them, so cancelling is clean" },
-      { when: "the charge settled and the balance can cover a refund", tone: "r2", inverse: "POST /v1/refunds", window: "no hard limit, practically 180 days for disputes", note: "the customer sees a charge and a refund, not the absence of a charge, and the card network fee is not returned" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "a refund with an insufficient balance fails, which leaves the charge standing" },
+      { when: "capture_method is manual and the intent is uncaptured", tone: "r0", inverse: "POST /v1/payment_intents/:id/cancel", window: "7 days before the authorisation expires", note: "an uncaptured authorisation holds funds but never moves them, so cancelling is clean", if: { kind: "argument", argument: "capture_method", operator: "equals", value: "manual" } },
+      { when: "the charge settled and the balance can cover a refund", tone: "r2", inverse: "POST /v1/refunds", window: "no hard limit, practically 180 days for disputes", note: "the customer sees a charge and a refund, not the absence of a charge, and the card network fee is not returned", if: { kind: "fact", fact: "stripe.balance_covers_refund", is: "true" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "a refund with an insufficient balance fails, which leaves the charge standing" , if: { kind: "always" } },
     ],
   },
   {
@@ -302,8 +310,8 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Refund a charge in whole or in part.",
     tags: ["payments", "money"],
     cases: [
-      { when: "the refund is still pending and unsubmitted", tone: "r1", inverse: "POST /v1/refunds/:id/cancel", window: "minutes, only for some payment methods", note: "cancellation is available for a narrow set of methods and never for cards" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "there is no un-refund, only a fresh charge, which needs the customer to authorise it again" },
+      { when: "the refund is still pending and unsubmitted", tone: "r1", inverse: "POST /v1/refunds/:id/cancel", window: "minutes, only for some payment methods", note: "cancellation is available for a narrow set of methods and never for cards", if: { kind: "fact", fact: "stripe.refund.submitted", is: "false" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "there is no un-refund, only a fresh charge, which needs the customer to authorise it again" , if: { kind: "always" } },
     ],
   },
   {
@@ -324,8 +332,8 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Cancel a subscription.",
     tags: ["payments", "billing"],
     cases: [
-      { when: "cancel_at_period_end was used", tone: "r0", inverse: "POST /v1/subscriptions/:id with cancel_at_period_end false", window: "until the period ends", note: "the subscription is still active, only the renewal flag changed" },
-      { when: "always", tone: "r1", inverse: "create a new subscription on the same price", window: "unbounded", note: "billing anchors, trial state and the subscription id do not survive, so proration and revenue reporting shift" },
+      { when: "cancel_at_period_end was used", tone: "r0", inverse: "POST /v1/subscriptions/:id with cancel_at_period_end false", window: "until the period ends", note: "the subscription is still active, only the renewal flag changed", if: { kind: "argument", argument: "cancel_at_period_end", operator: "equals", value: "true" } },
+      { when: "always", tone: "r1", inverse: "create a new subscription on the same price", window: "unbounded", note: "billing anchors, trial state and the subscription id do not survive, so proration and revenue reporting shift" , if: { kind: "always" } },
     ],
   },
   {
@@ -335,8 +343,8 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Finalise a draft invoice.",
     tags: ["payments", "billing", "external"],
     cases: [
-      { when: "the invoice is still a draft", tone: "r0", inverse: "DELETE /v1/invoices/:id", window: "until finalisation", note: "draft invoices are private and deletable" },
-      { when: "always", tone: "r2", inverse: "POST /v1/invoices/:id/void", window: "unbounded", note: "voiding keeps the invoice number consumed and the customer may already have the emailed copy" },
+      { when: "the invoice is still a draft", tone: "r0", inverse: "DELETE /v1/invoices/:id", window: "until finalisation", note: "draft invoices are private and deletable", if: { kind: "fact", fact: "stripe.invoice.is_draft", is: "true" } },
+      { when: "always", tone: "r2", inverse: "POST /v1/invoices/:id/void", window: "unbounded", note: "voiding keeps the invoice number consumed and the customer may already have the emailed copy" , if: { kind: "always" } },
     ],
   },
   {
@@ -402,9 +410,9 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Send a message from a user mailbox.",
     tags: ["messaging", "external", "deferred"],
     cases: [
-      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "this is the single highest value hold in the registry, because most agent email damage is caught within a minute" },
-      { when: "every recipient is inside the same Workspace domain", tone: "r2", inverse: "delete from recipient mailboxes via the admin API", window: "unbounded with delegated admin", note: "an admin can remove the message, but read receipts, notifications and forwards already happened" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "an external recipient cannot be made to unsee a message" },
+      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "this is the single highest value hold in the registry, because most agent email damage is caught within a minute", if: { kind: "fact", fact: "hold.released", is: "false" } },
+      { when: "every recipient is inside the same Workspace domain", tone: "r2", inverse: "delete from recipient mailboxes via the admin API", window: "unbounded with delegated admin", note: "an admin can remove the message, but read receipts, notifications and forwards already happened", if: { kind: "fact", fact: "gmail.recipients.internal", is: "true" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "an external recipient cannot be made to unsee a message" , if: { kind: "always" } },
     ],
   },
   {
@@ -435,8 +443,8 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Delete a file.",
     tags: ["storage", "delete", "deferred"],
     cases: [
-      { when: "the file was trashed rather than permanently deleted", tone: "r0", inverse: "files.update with trashed false", window: "30 days in the trash", note: "the default delete is a trash operation, which is a deferral the vendor already built" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "files.delete skips the trash, and shared drive retention does not cover it" },
+      { when: "the file was trashed rather than permanently deleted", tone: "r0", inverse: "files.update with trashed false", window: "30 days in the trash", note: "the default delete is a trash operation, which is a deferral the vendor already built", if: { kind: "fact", fact: "gdrive.delete.trashes", is: "true" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "files.delete skips the trash, and shared drive retention does not cover it" , if: { kind: "always" } },
     ],
   },
   {
@@ -457,9 +465,9 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Post a message to a channel or conversation.",
     tags: ["messaging", "deferred"],
     cases: [
-      { when: "the interceptor holds the post and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "nothing was posted, so nobody was notified" },
-      { when: "the channel is private with fewer than five members", tone: "r1", inverse: "chat.delete", window: "unbounded with the right token", note: "deletion is fast enough that in practice few people saw it, but push notifications already fired" },
-      { when: "always", tone: "r2", inverse: "chat.delete plus a correction message", window: "unbounded with the right token", note: "the message vanishes from history but mobile notifications, email digests and exports keep it" },
+      { when: "the interceptor holds the post and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "nothing was posted, so nobody was notified", if: { kind: "fact", fact: "hold.released", is: "false" } },
+      { when: "the channel is private with fewer than five members", tone: "r1", inverse: "chat.delete", window: "unbounded with the right token", note: "deletion is fast enough that in practice few people saw it, but push notifications already fired", if: { kind: "fact", fact: "slack.channel.private_small", is: "true" } },
+      { when: "always", tone: "r2", inverse: "chat.delete plus a correction message", window: "unbounded with the right token", note: "the message vanishes from history but mobile notifications, email digests and exports keep it" , if: { kind: "always" } },
     ],
   },
   {
@@ -529,9 +537,9 @@ const dataEntries: RegistryEntry[] = [
     summary: "UPDATE one or more rows.",
     tags: ["database", "write"],
     cases: [
-      { when: "the interceptor captured a before image of every matched row", tone: "r0", inverse: "UPDATE from the captured image, keyed by primary key", window: "unbounded", note: "the interceptor runs the predicate as a SELECT first, which is also where the blast radius number comes from" },
-      { when: "the statement ran inside an open transaction VOID controls", tone: "r0", inverse: "ROLLBACK", window: "until commit", note: "the cheapest inverse there is, and the reason VOID prefers to own the transaction boundary" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "an unbounded UPDATE with no before image cannot be reconstructed from the WAL after the retention window" },
+      { when: "the interceptor captured a before image of every matched row", tone: "r0", inverse: "UPDATE from the captured image, keyed by primary key", window: "unbounded", note: "the interceptor runs the predicate as a SELECT first, which is also where the blast radius number comes from", if: { kind: "fact", fact: "pg.capture.before_image", is: "true" } },
+      { when: "the statement ran inside an open transaction VOID controls", tone: "r0", inverse: "ROLLBACK", window: "until commit", note: "the cheapest inverse there is, and the reason VOID prefers to own the transaction boundary", if: { kind: "fact", fact: "pg.transaction.void_controlled", is: "true" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "an unbounded UPDATE with no before image cannot be reconstructed from the WAL after the retention window" , if: { kind: "always" } },
     ],
   },
   {
@@ -541,9 +549,9 @@ const dataEntries: RegistryEntry[] = [
     summary: "DELETE rows matching a predicate.",
     tags: ["database", "delete"],
     cases: [
-      { when: "the interceptor captured the full rows and no foreign key cascaded", tone: "r0", inverse: "INSERT from the captured rows", window: "unbounded", note: "identity columns must be restored explicitly or the ids shift" },
-      { when: "a foreign key with ON DELETE CASCADE was traversed", tone: "r1", inverse: "INSERT the captured rows across every affected table in dependency order", window: "unbounded", note: "this is the case people underestimate, because one DELETE silently becomes many" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "no before image means the rows are gone unless a backup predates the statement" },
+      { when: "the interceptor captured the full rows and no foreign key cascaded", tone: "r0", inverse: "INSERT from the captured rows", window: "unbounded", note: "identity columns must be restored explicitly or the ids shift", if: { kind: "fact", fact: "pg.capture.before_image", is: "true" } },
+      { when: "a foreign key with ON DELETE CASCADE was traversed", tone: "r1", inverse: "INSERT the captured rows across every affected table in dependency order", window: "unbounded", note: "this is the case people underestimate, because one DELETE silently becomes many", if: { kind: "fact", fact: "pg.cascade.traversed", is: "true" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "no before image means the rows are gone unless a backup predates the statement" , if: { kind: "always" } },
     ],
   },
   {
@@ -564,8 +572,8 @@ const dataEntries: RegistryEntry[] = [
     summary: "Apply a schema migration.",
     tags: ["database", "schema"],
     cases: [
-      { when: "the migration is additive only and a down migration exists", tone: "r0", inverse: "the down migration", window: "unbounded", note: "adding a nullable column or an index is genuinely reversible" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "a migration that drops or narrows a column destroys data that the down migration cannot invent" },
+      { when: "the migration is additive only and a down migration exists", tone: "r0", inverse: "the down migration", window: "unbounded", note: "adding a nullable column or an index is genuinely reversible", if: { kind: "fact", fact: "pg.migration.additive_only", is: "true" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "a migration that drops or narrows a column destroys data that the down migration cannot invent" , if: { kind: "always" } },
     ],
   },
   {
@@ -644,8 +652,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Merge a pull request into its base branch.",
     tags: ["source", "deploy"],
     cases: [
-      { when: "no deployment or release automation is triggered by the base branch", tone: "r1", inverse: "revert commit", window: "unbounded", note: "history keeps both the merge and the revert, which is correct but visible" },
-      { when: "always", tone: "r2", inverse: "revert commit plus the compensations for whatever the merge deployed", window: "unbounded", note: "a merge that ships to production is not one action, it is the root of a causal chain" },
+      { when: "no deployment or release automation is triggered by the base branch", tone: "r1", inverse: "revert commit", window: "unbounded", note: "history keeps both the merge and the revert, which is correct but visible", if: { kind: "fact", fact: "github.base_branch.deploys", is: "false" } },
+      { when: "always", tone: "r2", inverse: "revert commit plus the compensations for whatever the merge deployed", window: "unbounded", note: "a merge that ships to production is not one action, it is the root of a causal chain" , if: { kind: "always" } },
     ],
   },
   {
@@ -677,8 +685,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Publish a release and its tag.",
     tags: ["source", "distribution"],
     cases: [
-      { when: "the release is a draft", tone: "r0", inverse: "delete the draft", window: "until publication", note: "drafts are invisible outside the repository" },
-      { when: "always", tone: "r2", inverse: "delete the release and the tag", window: "unbounded", note: "package registries, mirrors and CI caches may have pulled the artifact within seconds" },
+      { when: "the release is a draft", tone: "r0", inverse: "delete the draft", window: "until publication", note: "drafts are invisible outside the repository", if: { kind: "fact", fact: "github.release.is_draft", is: "true" } },
+      { when: "always", tone: "r2", inverse: "delete the release and the tag", window: "unbounded", note: "package registries, mirrors and CI caches may have pulled the artifact within seconds" , if: { kind: "always" } },
     ],
   },
   {
@@ -753,8 +761,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Push an image tag to a registry.",
     tags: ["distribution", "supply-chain"],
     cases: [
-      { when: "the tag is immutable and previously unused", tone: "r1", inverse: "delete the tag", window: "unbounded", note: "the digest may already be pinned by a running deployment" },
-      { when: "always", tone: "r2", inverse: "re-push the captured prior digest to the tag", window: "unbounded", note: "a mutable tag like latest means anything that pulled in between got the wrong image" },
+      { when: "the tag is immutable and previously unused", tone: "r1", inverse: "delete the tag", window: "unbounded", note: "the digest may already be pinned by a running deployment", if: { kind: "fact", fact: "registry.tag.immutable", is: "true" } },
+      { when: "always", tone: "r2", inverse: "re-push the captured prior digest to the tag", window: "unbounded", note: "a mutable tag like latest means anything that pulled in between got the wrong image" , if: { kind: "always" } },
     ],
   },
   {
@@ -1014,9 +1022,9 @@ const localEntries: RegistryEntry[] = [
     summary: "Write a file, truncating it if it exists.",
     tags: ["filesystem", "write", "overwrite"],
     cases: [
-      { when: "the interceptor copied the prior contents to the shadow store", tone: "r0", inverse: "restore the copy", window: "the shadow store retention", note: "cheap for source files, expensive for anything large, so the interceptor has a size ceiling" },
-      { when: "the path is untracked and did not exist", tone: "r0", inverse: "unlink", window: "unbounded", note: "nothing was displaced" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "an unversioned file over the copy ceiling has no recoverable prior state" },
+      { when: "the interceptor copied the prior contents to the shadow store", tone: "r0", inverse: "restore the copy", window: "the shadow store retention", note: "cheap for source files, expensive for anything large, so the interceptor has a size ceiling", if: { kind: "fact", fact: "fs.shadow.captured", is: "true" } },
+      { when: "the path is untracked and did not exist", tone: "r0", inverse: "unlink", window: "unbounded", note: "nothing was displaced", if: { kind: "fact", fact: "fs.path.existed", is: "false" } },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "an unversioned file over the copy ceiling has no recoverable prior state" , if: { kind: "always" } },
     ],
   },
   {

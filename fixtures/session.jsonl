@@ -1,0 +1,30 @@
+{"tool": "aws.s3.object.put", "arguments": {"bucket": "prod-data", "key": "reports/2026-09-08.json"}, "facts": {"bucket.versioning": "Enabled", "bucket.mfa_delete": "off"}}
+{"tool": "aws.s3.object.put", "arguments": {"bucket": "prod-data", "key": "reports/2026-09-08-2.json"}, "facts": {"bucket.versioning": "Enabled", "bucket.mfa_delete": "off"}}
+{"tool": "aws.s3.object.put", "arguments": {"bucket": "prod-data", "key": "exports/customers-gold.csv"}, "facts": {"bucket.versioning": "Enabled", "bucket.mfa_delete": "off"}}
+{"tool": "aws.s3.object.delete", "arguments": {"bucket": "prod-data", "key": "tmp/staging.bin"}, "facts": {"bucket.versioning": "Enabled", "bucket.mfa_delete": "off"}}
+{"tool": "aws.s3.object.delete", "arguments": {"bucket": "prod-data", "key": "tmp/staging2.bin"}, "facts": {"bucket.versioning": "Enabled", "bucket.mfa_delete": "off"}}
+{"tool": "aws.s3.object.delete", "arguments": {"bucket": "prod-data", "key": "exports/customers-gold.csv"}, "facts": {"bucket.versioning": "Enabled", "bucket.mfa_delete": "off"}}
+{"tool": "aws.s3.bucket.policy.put", "arguments": {"bucket": "prod-data", "policy": {"version": "2012-10-17"}}}
+{"tool": "aws.ec2.instance.stop", "arguments": {"instanceId": "i-0abc"}}
+{"tool": "aws.ec2.instance.stop", "arguments": {"instanceId": "i-0def"}}
+{"tool": "aws.ec2.securitygroup.authorize_ingress", "arguments": {"groupId": "sg-1", "portRange": "5432"}}
+{"tool": "postgres.row.update", "arguments": {"table": "orders", "set": "status = shipped", "where": "id = 4121"}}
+{"tool": "postgres.row.update", "arguments": {"table": "orders", "set": "status = shipped", "where": "id = 4122"}}
+{"tool": "postgres.row.update", "arguments": {"table": "customers", "set": "tier = gold", "where": "id = 77"}}
+{"tool": "postgres.row.update", "arguments": {"table": "ledger", "set": "verified = true", "where": "day = 2026-09-08"}}
+{"tool": "postgres.row.delete", "arguments": {"table": "events", "where": "kind = deploy and ok = false"}}
+{"tool": "postgres.row.delete", "arguments": {"table": "sessions", "where": "expired = true"}}
+{"tool": "postgres.migration.apply", "arguments": {"name": "add-events-index"}}
+{"tool": "stripe.payment_intent.create", "arguments": {"amount": 4200, "currency": "usd"}}
+{"tool": "stripe.refund.create", "arguments": {"payment_intent": "pi_3311", "amount": 1200}}
+{"tool": "stripe.invoice.finalize", "arguments": {"invoice": "in_7781"}}
+{"tool": "stripe.subscription.delete", "arguments": {"subscription": "sub_88"}}
+{"tool": "slack.chat.post_message", "arguments": {"channel": "C0ops", "text": "deploy done"}}
+{"tool": "slack.chat.post_message", "arguments": {"channel": "C0ops", "text": "orders sync done"}}
+{"tool": "gmail.message.send", "arguments": {"to": "ops@example.com", "subject": "nightly report"}}
+{"tool": "github.pull_request.merge", "arguments": {"repo": "acme/void", "number": 512}}
+{"tool": "github.release.publish", "arguments": {"repo": "acme/void", "tag": "v0.4.1"}}
+{"tool": "docker.image.push", "arguments": {"name": "acme/ops-tool", "tag": "1.9.2"}}
+{"tool": "fs.file.write", "arguments": {"path": "/srv/exports/report.json", "bytes": 2048}}
+{"tool": "fs.file.write", "arguments": {"path": "/srv/exports/inventory.json", "bytes": 512}}
+{"tool": "google.drive.file.delete", "arguments": {"fileId": "drv-9x2"}}

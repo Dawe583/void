@@ -45,12 +45,23 @@ export type AnyPrecondition = {
   of: readonly Precondition[];
 };
 
+/**
+ * The terminal case, the structured form of "when: always". It exists so a
+ * migrated entry's fallback is explicit in the data: the evaluator stays
+ * dumb, and an entry whose fallback is not yet migrated keeps answering
+ * unclassified rather than silently inheriting a tone from prose.
+ */
+export type AlwaysPrecondition = {
+  kind: "always";
+};
+
 export type Precondition =
   | FactPrecondition
   | NotPrecondition
   | ArgumentPrecondition
   | AllPrecondition
-  | AnyPrecondition;
+  | AnyPrecondition
+  | AlwaysPrecondition;
 
 export const PRECONDITION_KINDS = [
   "fact",
@@ -58,6 +69,7 @@ export const PRECONDITION_KINDS = [
   "argument",
   "all",
   "any",
+  "always",
 ] as const;
 
 /**
@@ -102,6 +114,11 @@ export function validatePrecondition(value: unknown, path: string): string[] {
         errors.push(`${path}.value: required when the operator is equals`);
       const allowed = ["kind", "argument", "operator", "value"];
       const extra = Object.keys(record).filter((k) => !allowed.includes(k));
+      if (extra.length > 0) errors.push(`${path}: unknown key ${extra.join(", ")}`);
+      break;
+    }
+    case "always": {
+      const extra = Object.keys(record).filter((k) => !["kind"].includes(k));
       if (extra.length > 0) errors.push(`${path}: unknown key ${extra.join(", ")}`);
       break;
     }
@@ -166,5 +183,7 @@ export function holds(
       return precondition.of.every((item) => holds(item, facts, args, depth + 1));
     case "any":
       return precondition.of.some((item) => holds(item, facts, args, depth + 1));
+    case "always":
+      return true;
   }
 }
