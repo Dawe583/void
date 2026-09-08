@@ -12,6 +12,7 @@
 export const COMMANDS = [
   "run",
   "classify",
+  "feed",
   "watch",
   "approvals",
   "ledger",
@@ -47,3 +48,4 @@ export function parseInvocation(argv: readonly string[]): ParsedInvocation {
 
 export * from "./tui/index.ts";
 export * from "./classify.ts";
+export * from "./feed.ts";

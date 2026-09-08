@@ -79,3 +79,4 @@ export function signingPreimage(alg: Alg, keyId: string, entryHash: string): Uin
 export * from "./canonical.ts";
 export * from "./sign.ts";
 export * from "./store.ts";
+export * from "./feed.ts";
