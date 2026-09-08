@@ -82,3 +82,4 @@ export * from "./store.ts";
 export * from "./feed.ts";
 export * from "./verify.ts";
 export * from "./attest.ts";
+export * from "./hardening.ts";

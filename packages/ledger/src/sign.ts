@@ -28,6 +28,7 @@ import { homedir } from "node:os";
 
 import type { Alg, KeyProvider } from "./index.ts";
 import { canonicalJson, entryHash } from "./canonical.ts";
+import { assertPrivateKeyFileMode } from "./hardening.ts";
 
 /** The digest engine. Swappable at the test boundary, node:crypto in production. */
 export const sha256Hex = async (input: string): Promise<string> =>
@@ -91,7 +92,7 @@ export function keyProviderFromPkcs8(pkcs8: Buffer): KeyProvider {
 async function keyProviderFromDirectory(dir: string): Promise<KeyProvider> {
   const file = join(dir, "dev-ed25519.pkcs8");
   try {
-    return keyProviderFromPkcs8(await readFile(file));
+    return keyProviderFromPkcs8(await readExistingKey(file));
   } catch (error) {
     if (!isMissingFile(error)) throw error;
   }
@@ -106,13 +107,18 @@ async function keyProviderFromDirectory(dir: string): Promise<KeyProvider> {
     // any unreadable read back is retried, never accepted as a key.
     for (let attempt = 0; attempt < 20; attempt += 1) {
       try {
-        return keyProviderFromPkcs8(await readFile(file));
+        return keyProviderFromPkcs8(await readExistingKey(file));
       } catch {
         await new Promise((resolve) => setTimeout(resolve, 5));
       }
     }
     throw new Error(`development key at ${file} never became readable`);
   }
+}
+
+async function readExistingKey(file: string): Promise<Buffer> {
+  await assertPrivateKeyFileMode(file);
+  return readFile(file);
 }
 
 function isMissingFile(error: unknown): boolean {

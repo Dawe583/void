@@ -96,6 +96,46 @@ rules:
     if (!tooLong.ok) assert.ok(tooLong.errors.some((e) => e.includes("900")));
   });
 
+
+  test("unknown YAML keys and invalid negative hold seconds fail loudly", () => {
+    const badTop = loadPolicy(`
+version: 1
+rules:
+  - match: {}
+    decision: allow
+extra: true
+`);
+    assert.equal(badTop.ok, false);
+    if (!badTop.ok) assert.ok(badTop.errors.some((e) => e.includes("unknown key extra")));
+
+    const badRule = loadPolicy(`
+version: 1
+rules:
+  - match: { class: r2 }
+    decision: hold
+    seconds: -1
+    mystery: true
+  - match: {}
+    decision: hold
+    seconds: 60
+`);
+    assert.equal(badRule.ok, false);
+    if (!badRule.ok) {
+      assert.ok(badRule.errors.some((e) => e.includes("unknown key mystery")));
+      assert.ok(badRule.errors.some((e) => e.includes("at least 1")));
+    }
+
+    const badNan = loadPolicy(`
+version: 1
+rules:
+  - match: {}
+    decision: hold
+    seconds: .nan
+`);
+    assert.equal(badNan.ok, false);
+    if (!badNan.ok) assert.ok(badNan.errors.some((e) => e.includes("seconds")));
+  });
+
   test("blast_radius is the only comparison, and only lt", () => {
     const wrongOp = validatePolicyFile({
       version: 1,

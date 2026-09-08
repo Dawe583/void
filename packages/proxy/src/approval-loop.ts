@@ -13,7 +13,7 @@ export type ApprovalClock = {
 };
 
 export type ApprovalPump = {
-  readonly onHold: (queue: HoldQueue) => void;
+  readonly onHold: (queue: HoldQueue) => () => void;
   readonly poll: (dueAt?: number) => readonly ApprovalRecord[];
   readonly stop: () => void;
 };
@@ -26,14 +26,21 @@ export function pumpApprovals(
 
   return {
     onHold(queue) {
-      const originalHold = queue.hold.bind(queue);
+      const originalHold = queue.hold;
+      const runHold = originalHold.bind(queue);
+      const restore = (): void => {
+        if (active === null || active.queue !== queue) return;
+        queue.hold = originalHold;
+        active = null;
+      };
       queue.hold = ((call: Omit<HeldCall, "id" | "heldAt" | "expiresAt">, seconds: number) => {
-        const promise = originalHold(call, seconds);
+        const promise = runHold(call, seconds);
         const held = newestHold(queue, call.tool);
         broker.register(queue, policyCallFromHeld(held));
         return promise;
       }) as HoldQueue["hold"];
       active = { queue, originalHold };
+      return restore;
     },
     poll(dueAt = clock.now()) {
       return broker.expire(dueAt);

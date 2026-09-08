@@ -8,7 +8,7 @@ import { ApprovalBroker } from "../../policy/src/approvals.ts";
 import { pumpApprovals } from "./approval-loop.ts";
 import { runProxy } from "./bin.ts";
 import type { ProxyOptions, UpstreamEvents } from "./bin.ts";
-import type { HoldQueue } from "../../policy/src/hold.ts";
+import { HoldQueue } from "../../policy/src/hold.ts";
 import type { UpstreamProcess } from "./transport/stdio.ts";
 
 describe("pumpApprovals", () => {
@@ -44,6 +44,20 @@ describe("pumpApprovals", () => {
     assert.match(error.error.message, /was denied by a human/);
     assert.match(error.error.message, /Do not retry/);
     assert.equal(error.error.data.result, "denied");
+  });
+
+
+  test("onHold cleanup restores the original queue hook", () => {
+    const { broker } = brokerWithNotification();
+    const queue = new HoldQueue();
+    const originalHold = queue.hold;
+    const pump = pumpApprovals(broker);
+
+    const cleanup = pump.onHold(queue);
+    assert.notEqual(queue.hold, originalHold);
+    cleanup();
+
+    assert.equal(queue.hold, originalHold);
   });
 
   test("poll drains expired approvals through the hold queue", async () => {

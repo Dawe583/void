@@ -26,12 +26,29 @@ describe("interceptCall", () => {
         return { kind: "allow" };
       },
       hold: async () => { throw new Error("hold should not run"); },
-      ledger: (entry) => ledger.push(entry),
+      ledger: (entry) => { ledger.push(entry); },
     });
 
     assert.deepEqual(verdict, { kind: "allow" });
     assert.equal(ledger.length, 2);
     assert.deepEqual(ledger.map((entry) => (entry as { decision: string }).decision), ["allow", "allow:resolved"]);
+  });
+
+
+  test("awaits ledger appends in order before forwarding", async () => {
+    const order: string[] = [];
+    const verdict = await interceptCall(call, {
+      classify: () => classified("r0"),
+      policy: () => ({ kind: "allow" }),
+      hold: async () => { throw new Error("hold should not run"); },
+      ledger: async (entry) => {
+        await Promise.resolve();
+        order.push(entry.decision);
+      },
+    });
+
+    assert.deepEqual(verdict, { kind: "allow" });
+    assert.deepEqual(order, ["allow", "allow:resolved"]);
   });
 
   test("denies with a readable application error that names the call", async () => {
@@ -68,7 +85,7 @@ describe("interceptCall", () => {
         outcome: { kind: "released", release: { kind: "approved" } },
         call: { id: "h1", tool: call.tool, klass: "r2", blastRadius: 12, ruleIndex: 2, rationale: "needs a human", args: call.args, heldAt: 1, expiresAt: 1 + seconds * 1000, notify: ["cli"] },
       }),
-      ledger: (entry) => ledger.push(entry),
+      ledger: (entry) => { ledger.push(entry); },
     });
 
     assert.equal(verdict.kind, "hold");
@@ -122,7 +139,7 @@ describe("interceptCall", () => {
       classify: () => classified("r3"),
       policy: () => ({ kind: "deny", ruleIndex: 0, rationale: "no" }),
       hold: async () => { throw new Error("hold should not run"); },
-      ledger: (entry) => ledger.push(entry),
+      ledger: (entry) => { ledger.push(entry); },
     });
 
     const stored = JSON.stringify(ledger);

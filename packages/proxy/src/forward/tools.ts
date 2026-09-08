@@ -37,7 +37,7 @@ export type InterceptDeps = {
   readonly classify: (probeFacts: Readonly<Record<string, string>>) => EvaluationResult;
   readonly policy: (call: PolicyCall) => PolicyDecision;
   readonly hold: (seconds: number) => Promise<HoldResolution>;
-  readonly ledger: (entry: LedgerEntryInput) => void;
+  readonly ledger: (entry: LedgerEntryInput) => void | Promise<void>;
   readonly probe?: ProbeProvider;
   readonly now?: () => Date;
 };
@@ -152,15 +152,15 @@ function digestArgs(args: Readonly<Record<string, unknown>>): string {
   return createHash("sha256").update(JSON.stringify(args)).digest("hex");
 }
 
-function writeLedger(
+async function writeLedger(
   deps: InterceptDeps,
   now: () => Date,
   tool: string,
   klass: string,
   decision: string,
   argsDigest: string,
-): void {
-  deps.ledger({ at: now().toISOString(), tool, klass, decision, argsDigest });
+): Promise<void> {
+  await deps.ledger({ at: now().toISOString(), tool, klass, decision, argsDigest });
 }
 
 function denyError(

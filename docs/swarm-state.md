@@ -19,7 +19,7 @@ Workspace: 366 checks green (registry 28, ledger 39, policy 44, proxy 60, connec
 | HTTP bin wiring | http-bin-wiring | landed: runProxy supports transport stdio or http; void-proxy accepts --transport stdio|http and --upstream-url for http; stdio warns if --upstream-url is supplied | transport/http.ts landed |
 | hardening pass | hardening | landed fail-closed guards: JSON-RPC batch and null id reject, inbound ceiling, no payload echo, SIGTERM/SIGINT hold drain, workspace sanitization, key mode checks, sequential ledger appends, feed parse exit | all packages |
 | final e2e sweep | e2e-final | landed scripts/src/e2e-final.mjs, test, and HTTP fixture; script PASS with NOTE for missing approve command and replay drift surface | CLI surfaces + http flags |
-| docs + changelog + release | docs-release | reading docs, exports, scripts, and git log before writing release docs | everything |
+| docs + changelog + release | docs-release | landed README, CHANGELOG, operations runbook, SDK docs, SDK README, and docs release test; verification complete with one proxy typecheck blocked by sibling hardening test syntax | everything |
 
 ## Rules
 

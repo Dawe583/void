@@ -18,10 +18,10 @@ export async function runFeedCommand(
   io: FeedCommandIo,
   options: FeedCommandOptions = {},
 ): Promise<number> {
-  const parsed = parseFeedArgs(argv, io.env ?? process.env);
   const readFeed = options.readFeed ?? readLedgerFeed;
   const watchFeed = options.watchFeed ?? watchLedgerFeed;
   try {
+    const parsed = parseFeedArgs(argv, io.env ?? process.env);
     const page = await readFeed(parsed.ledger);
     let lastPrinted = printPage(page, parsed.json, io.stdout, 0, parsed.follow);
     if (!parsed.follow) return 0;

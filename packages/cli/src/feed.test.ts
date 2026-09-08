@@ -88,6 +88,17 @@ describe("runFeedCommand", () => {
     assert.equal((JSON.parse(out[1]!) as { seq: number }).seq, 2);
   });
 
+
+  test("argument parse errors exit one instead of throwing", async () => {
+    const err: string[] = [];
+    const code = await runFeedCommand(["--unknown"], {
+      stdout: () => {},
+      stderr: (line) => err.push(line),
+    });
+    assert.equal(code, 1);
+    assert.match(err.join("\n"), /unknown feed option/);
+  });
+
   test("a missing or invalid ledger exits one with a loud error", async () => {
     const err: string[] = [];
     const code = await runFeedCommand(["--ledger", "missing.jsonl"], {
