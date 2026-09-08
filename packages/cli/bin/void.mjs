@@ -4,7 +4,7 @@
  * command not wired yet fails loudly rather than pretending to succeed.
  */
 import { readFileSync } from "node:fs";
-import { runClassifyCommand, runFeedCommand, runReplayCommand, parseInvocation } from "../src/index.ts";
+import { runClassifyCommand, runFeedCommand, runReplayCommand, runTaintCommand, runVerifyCommand, parseInvocation } from "../src/index.ts";
 
 const parsed = parseInvocation(process.argv.slice(2));
 if (!parsed.ok) {
@@ -28,6 +28,18 @@ try {
     if (!parsed.args.includes("--follow") || code !== 0) process.exit(code);
   } else if (parsed.command === "replay") {
     const code = await runReplayCommand(parsed.args, {
+      stdout: (line) => console.log(line),
+      stderr: (line) => console.error(line),
+    });
+    process.exit(code);
+  } else if (parsed.command === "taint") {
+    const code = await runTaintCommand(parsed.args, {
+      stdout: (line) => console.log(line),
+      stderr: (line) => console.error(line),
+    });
+    process.exit(code);
+  } else if (parsed.command === "verify") {
+    const code = await runVerifyCommand(parsed.args, {
       stdout: (line) => console.log(line),
       stderr: (line) => console.error(line),
     });

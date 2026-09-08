@@ -31,9 +31,9 @@ Workspace: 299 checks green (registry 28, ledger 23, policy 44, proxy 52, connec
 | ----- | ----- | ------ | ---------- |
 | streamable HTTP transport | http-transport | landed http.ts and http-requests.ts with 8 new tests, proxy typecheck and node --test pass | stdio.ts events, rpc.ts |
 | taint graph capture | taint-a | landed graph.ts and capture.ts; shape published below; ledger package typecheck and tests pass | ledger entries, feed.ts |
-| taint query + void taint | taint-b | implementing query and CLI against injectable taint graph shape | taint-a graph shapes |
-| attestation + standalone verifier | attestation | in progress: extracting verifyChain, adding attest docs and CLI verify | store.ts, feed.ts chain core |
-| registry expansion batch 2 | registry-batch | landed: registry now has 163 entries, 74 new in batch 2, 74 new fact rows, registry typecheck and 28 tests pass | frozen fact vocabulary |
+| taint query + void taint | taint-b | landed query.ts and void taint wiring; ledger and cli typecheck pass, own tests pass; full cli suite blocked by registry-batch expected count drift | taint-a graph shapes |
+| attestation + standalone verifier | attestation | landed attest.ts, verify.ts and void verify; ledger and cli typecheck and tests pass | store.ts, feed.ts chain core |
+| registry expansion batch 2 | registry-batch | landed: registry has 163 entries, 74 new in batch 2, 74 fact rows, registry tests and cli classify test pass | frozen fact vocabulary |
 
 
 ### WP-12 taint shapes

@@ -20,6 +20,8 @@ export const COMMANDS = [
   "policy",
   "export",
   "attest",
+  "taint",
+  "verify",
 ] as const;
 
 export type Command = (typeof COMMANDS)[number];
@@ -50,3 +52,5 @@ export * from "./tui/index.ts";
 export * from "./classify.ts";
 export * from "./feed.ts";
 export * from "./replay.ts";
+export * from "./taint.ts";
+export * from "./verify.ts";
