@@ -21,7 +21,7 @@ Workspace: 240 tests green (registry 28, ledger 23, policy 39, proxy 44, connect
 | ----- | ----- | ------ | ---------- |
 | measured blast radius in forwarder | proxy-probes | landed: probe provider in forward/tools.ts, proxy blast dispatcher, 52 proxy tests green | probes/registry exports |
 | connector registry + manifest | connector-registry | landed registry.ts, manifest.ts and tests; connectors typecheck, connectors tests, cli tests green | wave 1 exports |
-| approvals end to end | approvals-wiring | in progress: designing ApprovalBroker and proxy pump API | hold.ts + channels |
+| approvals end to end | approvals-wiring | done: ApprovalBroker and proxy pump landed, policy/proxy typecheck and tests green | hold.ts + channels |
 | control-plane API | api-server | landed apps/control-plane/api server, tests, package scripts; ApprovalBroker is injectable with 503 fallback | ledger feed + approvals decision shape |
 | connector e2e round trip | e2e-connectors | landed scripts/src/e2e-connectors.mjs and scripts/src/e2e-connectors.test.mjs; scenario, own test, and connectors typecheck pass | connector-registry manifest.ts |
 
