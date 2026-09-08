@@ -2,6 +2,7 @@ import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 
 import type { RegistryTone } from "../../../registry/src/index.ts";
+import { probeDispatcher, type ConnectorProbe, type ProbeCache } from "../blast.ts";
 import { interceptCall, type InterceptedCall, type JsonRpcError } from "./tools.ts";
 
 const call: InterceptedCall = {
@@ -128,4 +129,115 @@ describe("interceptCall", () => {
     assert.match(stored, /[0-9a-f]{64}/);
     assert.doesNotMatch(stored, /secret_table/);
   });
+});
+
+
+test("probe radius replaces the argument fallback before policy", async () => {
+  const verdict = await interceptCall(call, {
+    classify: () => classified("r2"),
+    probe: async (policyCall) => {
+      assert.equal(policyCall.blastRadius, 12);
+      assert.deepEqual(policyCall.args, call.args);
+      return { radius: 41 };
+    },
+    policy: (policyCall) => {
+      assert.equal(policyCall.blastRadius, 41);
+      return { kind: "allow" };
+    },
+    hold: async () => { throw new Error("hold should not run"); },
+    ledger: () => {},
+  });
+
+  assert.deepEqual(verdict, { kind: "allow" });
+});
+
+test("probe error keeps fallback radius and still decides", async () => {
+  const verdict = await interceptCall(call, {
+    classify: () => classified("r2"),
+    probe: async () => ({ error: "probe timed out" }),
+    policy: (policyCall) => {
+      assert.equal(policyCall.blastRadius, 12);
+      return { kind: "allow" };
+    },
+    hold: async () => { throw new Error("hold should not run"); },
+    ledger: () => {},
+  });
+
+  assert.deepEqual(verdict, { kind: "allow" });
+});
+
+test("probe facts can be merged while declared facts win conflicts", async () => {
+  const declaredFacts = { "bucket.versioning": "Disabled" };
+  const seenFacts: Array<Readonly<Record<string, string>>> = [];
+  const verdict = await interceptCall({ ...call, tool: "aws.s3.object.delete", connector: "s3" }, {
+    classify: (probeFacts) => {
+      const facts = { ...probeFacts, ...declaredFacts };
+      seenFacts.push(facts);
+      return facts["bucket.versioning"] === "Disabled" ? classified("r3") : classified("r0");
+    },
+    probe: async () => ({ facts: { "bucket.versioning": "Enabled", "bucket.mfa_delete": "off" } }),
+    policy: (policyCall) => {
+      assert.equal(policyCall.klass, "r3");
+      return { kind: "allow" };
+    },
+    hold: async () => { throw new Error("hold should not run"); },
+    ledger: () => {},
+  });
+
+  assert.deepEqual(verdict, { kind: "allow" });
+  assert.deepEqual(seenFacts, [
+    { "bucket.versioning": "Disabled" },
+    { "bucket.versioning": "Disabled", "bucket.mfa_delete": "off" },
+  ]);
+});
+
+test("without a probe the argument fallback is unchanged", async () => {
+  const verdict = await interceptCall({ ...call, args: { n: 3 } }, {
+    classify: () => classified("r1"),
+    policy: (policyCall) => {
+      assert.equal(policyCall.blastRadius, 3);
+      return { kind: "deny", ruleIndex: 1, rationale: "regression lock" };
+    },
+    hold: async () => { throw new Error("hold should not run"); },
+    ledger: () => {},
+  });
+
+  assert.equal(verdict.kind, "deny");
+  assert.match((verdict as { error: JsonRpcError }).error.error.message, /blast radius 3/);
+});
+
+test("probe dispatcher uses cache so executor is not invoked on a hit", async () => {
+  type Executor = { runs: number };
+  const executor: Executor = { runs: 0 };
+  const probe: ConnectorProbe<Executor> = {
+    id: "demo",
+    async run(_call, exec) {
+      exec.runs += 1;
+      return { radius: exec.runs, facts: { measured: String(exec.runs) } };
+    },
+  };
+  const memo = new Map<string, Awaited<ReturnType<typeof probe.run>>>();
+  const cache: ProbeCache<Executor> = {
+    async run(item, probeCall, exec) {
+      const key = `${item.id}:${JSON.stringify(probeCall)}`;
+      const cached = memo.get(key);
+      if (cached !== undefined) return cached;
+      const result = await item.run(probeCall, exec);
+      memo.set(key, result);
+      return result;
+    },
+  };
+  const dispatch = probeDispatcher(() => [probe], cache, executor);
+  const policyCall = {
+    tool: "postgres.row.delete",
+    connector: "postgres",
+    workspace: undefined,
+    klass: "r2",
+    blastRadius: undefined,
+    args: { table: "users" },
+  };
+
+  assert.deepEqual(await dispatch(policyCall), { radius: 1, facts: { measured: "1" } });
+  assert.deepEqual(await dispatch(policyCall), { radius: 1, facts: { measured: "1" } });
+  assert.equal(executor.runs, 1);
 });

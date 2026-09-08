@@ -5,6 +5,7 @@ import { UNCLASSIFIED_CLASS, type PolicyCall, type PolicyDecision } from "../../
 import { holdErrorMessage, type HeldCall, type HoldResolution } from "../../../policy/src/index.ts";
 
 import type { JsonRpcError, JsonRpcResult } from "../rpc.ts";
+import type { ProbeProvider, ProbeProviderResult } from "../blast.ts";
 
 export type { JsonRpcError, JsonRpcResult } from "../rpc.ts";
 
@@ -29,10 +30,15 @@ export type LedgerEntryInput = {
 };
 
 export type InterceptDeps = {
-  readonly classify: () => EvaluationResult;
+  /**
+   * The caller owns declared facts. When it merges this probe map, declared
+   * facts stay authoritative because they are the operator safety contract.
+   */
+  readonly classify: (probeFacts: Readonly<Record<string, string>>) => EvaluationResult;
   readonly policy: (call: PolicyCall) => PolicyDecision;
   readonly hold: (seconds: number) => Promise<HoldResolution>;
   readonly ledger: (entry: LedgerEntryInput) => void;
+  readonly probe?: ProbeProvider;
   readonly now?: () => Date;
 };
 
@@ -46,8 +52,12 @@ export async function interceptCall(
   const now = deps.now ?? (() => new Date());
   const digest = digestArgs(call.args);
   try {
-    const classification = deps.classify();
-    const policyCall = buildPolicyCall(call, classification);
+    const baseClassification = deps.classify({});
+    const fallbackRadius = extractBlastRadius(call.args);
+    const probeResult = await runProbe(deps, call, buildPolicyCall(call, baseClassification, fallbackRadius));
+    const probeFacts = probeResult !== undefined && !("error" in probeResult) && probeResult.facts !== undefined ? probeResult.facts : {};
+    const classification = Object.keys(probeFacts).length === 0 ? baseClassification : deps.classify(probeFacts);
+    const policyCall = buildPolicyCall(call, classification, chooseBlastRadius(fallbackRadius, probeResult));
     const decision = deps.policy(policyCall);
     // The decision record lands before the verdict, so a crash after the
     // decision still leaves the ledger saying what was about to happen.
@@ -90,14 +100,18 @@ export async function interceptCall(
   }
 }
 
-function buildPolicyCall(call: InterceptedCall, classification: EvaluationResult): PolicyCall {
+function buildPolicyCall(
+  call: InterceptedCall,
+  classification: EvaluationResult,
+  blastRadius: number | undefined,
+): PolicyCall {
   const klass = classification.outcome === "classified" ? classification.tone : UNCLASSIFIED_CLASS;
   return {
     tool: call.tool,
     connector: call.connector,
     workspace: call.workspace,
     klass,
-    blastRadius: extractBlastRadius(call.args),
+    blastRadius,
   };
 }
 
@@ -107,6 +121,31 @@ function extractBlastRadius(args: Readonly<Record<string, unknown>>): number | u
     if (typeof value === "number" && Number.isFinite(value)) return value;
   }
   return undefined;
+}
+
+async function runProbe(
+  deps: InterceptDeps,
+  call: InterceptedCall,
+  policyCall: PolicyCall,
+): Promise<ProbeProviderResult | undefined> {
+  if (deps.probe === undefined) return undefined;
+  try {
+    return await deps.probe({ ...policyCall, args: call.args });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function chooseBlastRadius(
+  fallbackRadius: number | undefined,
+  probeResult: ProbeProviderResult | undefined,
+): number | undefined {
+  if (probeResult !== undefined && !("error" in probeResult) && typeof probeResult.radius === "number" && Number.isFinite(probeResult.radius)) {
+    return probeResult.radius;
+  }
+  // Probe rollout must not widen into a new denial path. The argument fallback
+  // preserves the old behaviour when a probe fails or has no measured number.
+  return fallbackRadius;
 }
 
 function digestArgs(args: Readonly<Record<string, unknown>>): string {
