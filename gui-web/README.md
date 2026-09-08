@@ -21,21 +21,38 @@ a live session.
 
 ```
 gui-web/
-  index.html       shell, black 44px nav, parchment sub nav, tabs
-  styles.css       Apple tokens from docs/GUI-RULES.md
-  fixtures.js      MOCK session, calls, holds, ledger, registry, policy
-  app.js           hash router, toast, status line
+  index.html       shell, black 44px nav, parchment sub nav, sidebar
+  styles.css       Apple tokens from docs/GUI-RULES.md plus chat layer
+  fixtures.js      MOCK session, calls, holds, ledger, registry, policy,
+                   providers, models, routing, usage, keys
+  app.js           hash router, sidebar, palette, shortcuts, status line
+  js/api.js        real OpenAI compatible client (streaming, models, test)
   views/           one file per view, registered on window.VOID_VIEWS
+    chat.js        real chat: streaming, stop, retry, edit, copy, export
     overview.js    dark hero, stats, class mix, recent calls, hub
     intercept.js   one call through classify, policy, model, ledger preview
     live.js        intercepted call feed with pause and filter
     holds.js       approval queue, approve or refuse
-    ledger.js      chain browser, search, mock verify
+    ledger.js      chain browser, search, working verify
     registry.js    case explorer with first match evaluator
     policy.js      rules with toggles, approval channel
-    providers.js   gateway, direct, local, BYOK keys, test
+    providers.js   gateway, direct, local, BYOK keys, real test
     models.js      catalog, routing, fallbacks, spend, request log
     replay.js      inverse plan plus attestation export
+    shortcuts.js   cheatsheet, press ?
+```
+
+## Chat is real, governance is mock
+
+Chat calls your configured provider for real (key in Providers,
+stored in this browser only). Everything else (holds, ledger,
+replay, audit) is an interactive local simulation of the VOID
+write path, clearly labeled mock.
+
+## Shortcuts
+
+Cmd or Ctrl K palette, Cmd or Ctrl N new chat, Enter send,
+Shift Enter newline, Esc stop or close, ? cheatsheet.
     sessions.js    wrapped agent sessions, transports, posture
     connectors.js  postgres and S3 undo plus snapshot store
     facts.js       declared facts, probe cache, mock probe run

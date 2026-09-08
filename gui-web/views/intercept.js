@@ -35,6 +35,8 @@ window.VOID_VIEWS.intercept = function (root) {
       "<div class='cta-row'><button class='btn-primary btn-small' id='ic-append'>Append to mock ledger</button></div></div>";
     wrap.innerHTML = html;
     wrap.querySelector("#ic-tool").onchange = function (e) { tool = e.target.value; paint(); };
+    var modelSel = wrap.querySelector("#ic-model");
+    if (modelSel) modelSel.onchange = evaluate;
 
     function evaluate() {
       var idx = -1;

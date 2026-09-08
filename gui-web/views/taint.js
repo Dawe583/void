@@ -9,7 +9,7 @@ window.VOID_VIEWS.taint = function (root) {
       return "<tr><td class='mono'>" + e.from + "</td><td class='mono'>" + e.to + "</td><td>" + e.kind + "</td></tr>";
     }).join("") + "</table></div>" +
     "<div class='card' style='margin-top:16px'><h3>Scope query</h3><div class='toolbar'><select id='tn-pick' aria-label='Write'>" +
-    F.taintEdges.map(function (e, i) { return "<option value='" + i + "'>" + e.to + "</option>"; }).join("") +
+    F.taintEdges.map(function (e, i) { return "<option value='" + i + "'>" + e.from + " to " + e.to + "</option>"; }).join("") +
     "</select><button class='btn-primary btn-small' id='tn-run'>Compute scope</button></div><div id='tn-out'></div>" +
     "<p class='muted small'>Scope size against ledger size guards superset drift. A scope that covers everything is useless.</p></div>";
   wrap.innerHTML = html;
