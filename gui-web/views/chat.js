@@ -63,6 +63,17 @@ window.VOID_VIEWS.chat = function (root) {
   var queued = [];
   var pendingAtt = [];
   var curMsg = -1;
+  var planMode = false;
+  var proposeIdx = 0;
+
+  // Mock tool proposals for Plan mode. Nothing executes, Allow only
+  // appends a mock ledger entry so the VOID workflow is tangible.
+  var TOOL_PRESETS = [
+    { tool: "postgres.sessions.delete", target: "public.sessions, 14 rows", cls: "R1", blast: 14, inverse: "keyed INSERT from before-image", note: "Stale rows, dependency graph checked.", pre: "rows older than 90 days", snap: "before-image sealed" },
+    { tool: "s3.object.delete", target: "prod-exports/report.csv", cls: "R2", blast: 1, inverse: "remove delete marker", note: "Versioning unknown, no inverse confirmed.", pre: "versioning enabled", snap: "marker id recorded" },
+    { tool: "stripe.refund.create", target: "payment pi_81A, $420.00", cls: "R2", blast: 1, inverse: "compensation: reverse charge", note: "External money movement, needs approval.", pre: "amount under limit", snap: "idempotency key kept" },
+    { tool: "postgres.table.drop", target: "public.audit_events", cls: "R3", blast: 0, inverse: "none, irreversible", note: "DDL drop, treat as R3.", pre: "none match", snap: "full dump required" }
+  ];
 
   var EXT = { python: "py", py: "py", javascript: "js", js: "js", jsx: "jsx", typescript: "ts", ts: "ts", tsx: "tsx", html: "html", css: "css", json: "json", markdown: "md", md: "md", bash: "sh", sh: "sh", shell: "sh", zsh: "sh", sql: "sql", yaml: "yml", yml: "yml", toml: "toml", xml: "xml", java: "java", c: "c", h: "h", cpp: "cpp", rust: "rs", rs: "rs", go: "go", ruby: "rb", rb: "rb", php: "php", swift: "swift", kotlin: "kt", kt: "kt", r: "r", csv: "csv", tsv: "tsv", text: "txt", plain: "txt", plaintext: "txt", code: "txt", diff: "diff", dockerfile: "dockerfile", ini: "ini", swiftui: "swift" };
 
@@ -271,6 +282,7 @@ window.VOID_VIEWS.chat = function (root) {
     var modelOpts = modelOptions(chat.model);
     var html = "<div class='chat-head'><select id='ch-model' aria-label='Model'>" + modelOpts + "</select>" +
       "<span class='muted small'>" + esc(chat.title) + "</span><span class='chat-head-sp'></span>" +
+      "<button class='btn-pearl btn-small' id='ch-plan' aria-pressed='false'>Plan off</button>" +
       "<input id='ch-find' type='text' placeholder='Find' aria-label='Find in conversation' style='max-width:140px'>" +
       "<button class='btn-pearl btn-small' id='ch-exp-md'>Export md</button>" +
       "<button class='btn-pearl btn-small' id='ch-exp-json'>JSON</button>" +
@@ -280,10 +292,13 @@ window.VOID_VIEWS.chat = function (root) {
       "<div class='chat-msgs' id='ch-msgs'></div>" +
       "<div id='ch-chips' class='att-row'></div>" +
       "<div class='composer' id='ch-drop'><button class='btn-pearl btn-small' id='ch-attach' aria-label='Attach files'>+</button>" +
+      "<button class='btn-pearl btn-small' id='ch-propose' hidden>Propose tool</button>" +
+      "<button class='btn-pearl btn-small' id='ch-mic' aria-label='Voice input'>Mic</button>" +
       "<input id='ch-file' type='file' multiple hidden accept='image/jpeg,image/png,image/gif,image/webp,.pdf,.docx,.txt,.md,.markdown,.csv,.json,.html,.xml,.yml,.yaml,.toml,.ini,.js,.ts,.jsx,.tsx,.py,.rb,.php,.java,.c,.h,.cpp,.rs,.go,.swift,.kt,.sql,.sh,.css,.r'>" +
       "<textarea id='ch-in' rows='2' placeholder='Message, Enter sends. Drop files or paste images.' aria-label='Message'></textarea>" +
       "<button class='btn-primary btn-small' id='ch-send'>Send</button>" +
-      "<button class='btn-ghost btn-small' id='ch-stop' hidden>Stop</button></div>";
+      "<button class='btn-ghost btn-small' id='ch-stop' hidden>Stop</button></div>" +
+      "<div id='ch-slash-hint'></div>";
     wrap.innerHTML = html;
     root.innerHTML = "";
     root.appendChild(wrap);
@@ -310,6 +325,23 @@ window.VOID_VIEWS.chat = function (root) {
     return opts.join("");
   }
 
+  function toolCard(m, i) {
+    var st = m.status === "allowed" ? " allowed" : m.status === "skipped" ? " skipped" : "";
+    var h = "<div class='toolcard" + st + "'><div class='tool-head'>" + esc(m.tool) + " <span class='dim'>" + esc(m.target) + "</span></div>" +
+      "<div><span class='badge-" + String(m.cls).toLowerCase() + "'>" + m.cls + "</span> <span class='muted small'>blast " + m.blast + "</span></div>" +
+      "<div class='muted small'>inverse: " + esc(m.inverse) + "</div>" +
+      "<div class='muted small'>" + esc(m.note) + " Mock proposal, nothing executes.</div>" +
+      "<div id='tool-detail-" + i + "' hidden><div class='feed-detail'>precondition: " + esc(m.pre || "") + "<br>case: first match wins<br>snapshot: " + esc(m.snap || "") + "</div></div>";
+    if (m.status === "proposed") {
+      h += "<div class='tool-actions'><button class='btn-primary btn-small' data-tool='allow' data-i='" + i + "'>Allow</button>" +
+        "<button class='btn-pearl btn-small' data-tool='inspect' data-i='" + i + "'>Inspect</button>" +
+        "<button class='btn-ghost btn-small' data-tool='skip' data-i='" + i + "'>Skip</button></div>";
+    } else {
+      h += "<div class='muted small'>status: " + m.status + "</div>";
+    }
+    return h + "</div>";
+  }
+
   function paintMsgs() {
     var box = wrap.querySelector("#ch-msgs");
     if (!box) return;
@@ -319,6 +351,7 @@ window.VOID_VIEWS.chat = function (root) {
       return;
     }
     box.innerHTML = chat.msgs.map(function (m, i) {
+      if (m.role === "tool") return toolCard(m, i);
       var body;
       if (m.role === "user") {
         body = "<p>" + esc(m.content || "").replace(/\n/g, "<br>") + "</p>" + attChips(m);
@@ -342,11 +375,38 @@ window.VOID_VIEWS.chat = function (root) {
       var op = b.getAttribute("data-op");
       if (op === "copy") b.onclick = function () { copyText(chat.msgs[i].content, "Message copied."); };
       if (op === "save") b.onclick = function () {
-        downloadFile("reply-" + i + ".md", chat.msgs[i].content, "text/markdown");
-        if (window.VOID_TOAST) window.VOID_TOAST("Reply saved as file.");
+        var c = chat.msgs[i].content;
+        if (window.VOID_ARTIFACTS) window.VOID_ARTIFACTS.open({ name: "reply-" + i + ".md", lang: "markdown", text: c });
+        else {
+          downloadFile("reply-" + i + ".md", c, "text/markdown");
+          if (window.VOID_TOAST) window.VOID_TOAST("Reply saved as file.");
+        }
       };
       if (op === "retry") b.onclick = retry;
       if (op === "edit") b.onclick = function () { editMsg(i); };
+    });
+    box.querySelectorAll("button[data-tool]").forEach(function (b) {
+      var i = parseInt(b.getAttribute("data-i"), 10);
+      var op = b.getAttribute("data-tool");
+      if (op === "inspect") b.onclick = function () {
+        var d = box.querySelector("#tool-detail-" + i);
+        if (d) d.hidden = !d.hidden;
+      };
+      if (op === "skip") b.onclick = function () {
+        chat.msgs[i].status = "skipped";
+        window.VOID_CHATS.update(chat);
+        paintMsgs();
+      };
+      if (op === "allow") b.onclick = function () {
+        var m = chat.msgs[i];
+        m.status = "allowed";
+        var L = window.VOID_FIXTURES.ledgerEntries;
+        var seq = L.length + 1;
+        L.push({ seq: seq, hash: "m" + seq + "k" + String(seq * 7).padStart(2, "0"), prev: L[L.length - 1].hash, sig: "OK", cls: m.cls, tool: m.tool, decision: "forward" });
+        window.VOID_CHATS.update(chat);
+        if (window.VOID_TOAST) window.VOID_TOAST("Allowed, mock ledger entry " + seq + ".");
+        paintMsgs();
+      };
     });
     box.querySelectorAll("button[data-copycode]").forEach(function (b) {
       b.onclick = function () {
@@ -359,8 +419,13 @@ window.VOID_VIEWS.chat = function (root) {
         var parts = b.getAttribute("data-dlcode").split(":");
         var pre = b.parentElement.nextElementSibling;
         var lang = (b.parentElement.querySelector("span") || {}).textContent || "txt";
-        downloadFile("snippet-" + parts[0] + "-" + parts[1] + "." + extFor(lang), pre ? pre.textContent : "", "text/plain");
-        if (window.VOID_TOAST) window.VOID_TOAST("File generated, check downloads.");
+        var fname = "snippet-" + parts[0] + "-" + parts[1] + "." + extFor(lang);
+        var code = pre ? pre.textContent : "";
+        if (window.VOID_ARTIFACTS) window.VOID_ARTIFACTS.open({ name: fname, lang: lang, text: code });
+        else {
+          downloadFile(fname, code, "text/plain");
+          if (window.VOID_TOAST) window.VOID_TOAST("File generated, check downloads.");
+        }
       };
     });
   }
@@ -381,10 +446,95 @@ window.VOID_VIEWS.chat = function (root) {
     } else fallback();
   }
 
+  var SLASH = [
+    ["/verify", "open ledger verify"],
+    ["/replay", "open replay"],
+    ["/export", "open attestation export"],
+    ["/holds", "open holds queue"],
+    ["/model <id>", "switch chat model"],
+    ["/plan", "toggle plan mode"]
+  ];
+
+  function syncPlan() {
+    var btn = wrap.querySelector("#ch-plan");
+    if (btn) {
+      btn.textContent = planMode ? "Plan on" : "Plan off";
+      btn.setAttribute("aria-pressed", planMode ? "true" : "false");
+    }
+    var pr = wrap.querySelector("#ch-propose");
+    if (pr) pr.hidden = !planMode;
+    var ta = wrap.querySelector("#ch-in");
+    if (ta) ta.placeholder = planMode ? "Describe the task, then propose tool calls." : "Message, Enter sends. Drop files or paste images.";
+  }
+
+  function proposeTool() {
+    var p = TOOL_PRESETS[proposeIdx % TOOL_PRESETS.length];
+    proposeIdx++;
+    chat.msgs.push({ role: "tool", tool: p.tool, target: p.target, cls: p.cls, blast: p.blast, inverse: p.inverse, note: p.note, pre: p.pre, snap: p.snap, status: "proposed" });
+    window.VOID_CHATS.update(chat);
+    paintMsgs();
+  }
+
+  function slashHint() {
+    var box = wrap.querySelector("#ch-slash-hint");
+    if (!box) return;
+    var v = wrap.querySelector("#ch-in").value;
+    if (v.charAt(0) !== "/") { box.textContent = ""; return; }
+    var head = v.split(" ")[0];
+    var hits = SLASH.filter(function (s) { return s[0].indexOf(head) === 0; });
+    box.textContent = hits.map(function (s) { return s[0] + " " + s[1]; }).join("  |  ") || "unknown command";
+  }
+
+  function dictate() {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { if (window.VOID_TOAST) window.VOID_TOAST("Voice input unsupported here."); return; }
+    var rec = new SR();
+    rec.lang = "en-US";
+    rec.onresult = function (e) {
+      var t = "";
+      for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+      var ta = wrap.querySelector("#ch-in");
+      if (ta) { ta.value += (ta.value ? " " : "") + t; ta.focus(); }
+    };
+    rec.onerror = function () { if (window.VOID_TOAST) window.VOID_TOAST("Voice input failed."); };
+    try { rec.start(); } catch (e) { /* already started */ }
+  }
+
+  function runSlash(text) {
+    var parts = text.slice(1).split(/\s+/);
+    var cmd = parts[0];
+    var arg = parts.slice(1).join(" ");
+    if (cmd === "verify") location.hash = "#/ledger";
+    else if (cmd === "replay") location.hash = "#/replay";
+    else if (cmd === "export") location.hash = "#/audit";
+    else if (cmd === "holds") location.hash = "#/holds";
+    else if (cmd === "plan") {
+      planMode = !planMode;
+      syncPlan();
+      if (window.VOID_TOAST) window.VOID_TOAST("Plan " + (planMode ? "on" : "off") + ".");
+    }
+    else if (cmd === "model") {
+      var all = (F.models || []).map(function (m) { return m.id; }).concat(window.VOID_REMOTE_MODELS || []);
+      var hit = arg && all.find(function (id) { return id.toLowerCase().indexOf(arg.toLowerCase()) >= 0; });
+      if (hit) {
+        chat.model = hit;
+        window.VOID_CHATS.update(chat);
+        paint();
+        if (window.VOID_TOAST) window.VOID_TOAST("Model " + hit + ".");
+      }
+      else if (window.VOID_TOAST) window.VOID_TOAST("No model matches.");
+    }
+    else if (window.VOID_TOAST) window.VOID_TOAST("Commands: /verify /replay /export /holds /model /plan");
+  }
+
   function wire() {
     var input = wrap.querySelector("#ch-in");
     wrap.querySelector("#ch-send").onclick = send;
     wrap.querySelector("#ch-stop").onclick = stop;
+    wrap.querySelector("#ch-plan").onclick = function () { planMode = !planMode; syncPlan(); };
+    wrap.querySelector("#ch-propose").onclick = proposeTool;
+    wrap.querySelector("#ch-mic").onclick = dictate;
+    syncPlan();
     wrap.querySelector("#ch-attach").onclick = function () { wrap.querySelector("#ch-file").click(); };
     wrap.querySelector("#ch-file").onchange = function (e) { addFiles(e.target.files); e.target.value = ""; };
     var dz = wrap.querySelector("#ch-drop");
@@ -402,6 +552,7 @@ window.VOID_VIEWS.chat = function (root) {
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
     });
+    input.addEventListener("input", slashHint);
     wrap.querySelector("#ch-model").onchange = function (e) {
       chat.model = e.target.value;
       window.VOID_CHATS.update(chat);
@@ -437,6 +588,7 @@ window.VOID_VIEWS.chat = function (root) {
 
   function toMarkdown() {
     return "# " + chat.title + "\n\n" + chat.msgs.map(function (m) {
+      if (m.role === "tool") return "## Tool " + m.tool + " (" + m.cls + ", " + m.status + ")\n\n" + m.target + "\n";
       var atts = (m.attMeta || []).map(function (a) { return a.name; }).join(", ");
       return (m.role === "user" ? "## You" : "## Assistant" + (m.model ? " (" + m.model + ")" : "")) + "\n\n" +
         (atts ? "_Attachments: " + atts + "_\n\n" : "") + m.content + "\n";
@@ -463,6 +615,7 @@ window.VOID_VIEWS.chat = function (root) {
     var input = wrap.querySelector("#ch-in");
     var text = input.value.trim();
     if ((!text && pendingAtt.length === 0) || aborter) return;
+    if (text.charAt(0) === "/") { input.value = ""; slashHint(); runSlash(text); return; }
     if (!API.hasKey()) {
       if (window.VOID_TOAST) window.VOID_TOAST("Set a provider key first.");
       location.hash = "#/providers";

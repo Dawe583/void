@@ -28,17 +28,26 @@ gui-web/
   app.js           hash router, sidebar, palette, shortcuts, status line
   js/api.js        real OpenAI compatible client (streaming, models, test)
   views/           one file per view, registered on window.VOID_VIEWS
-    chat.js        real chat: streaming, stop, retry, edit, copy, export
+    chat.js        agent session: streaming, tool cards, plan mode,
+                   slash commands, voice input, attachments
+    artifacts.js   right drawer for generated files (preview, copy)
     overview.js    dark hero, stats, class mix, recent calls, hub
     intercept.js   one call through classify, policy, model, ledger preview
     live.js        intercepted call feed with pause and filter
-    holds.js       approval queue, approve or refuse
+    holds.js       approval queue, focus mode, j/k/a/d keys
     ledger.js      chain browser, search, working verify
     registry.js    case explorer with first match evaluator
     policy.js      rules with toggles, approval channel
     providers.js   gateway, direct, local, BYOK keys, real test
     models.js      catalog, routing, fallbacks, spend, request log
     replay.js      inverse plan plus attestation export
+    sessions.js    wrapped agent sessions, transports, posture
+    connectors.js  postgres and S3 undo plus snapshot store
+    facts.js       declared facts, probe cache, mock probe run
+    taint.js       read to write edges plus scope query
+    audit.js       period export, frame map, verifier, forgers
+    cli.js         command builder with copy and exit codes
+    settings.js    posture, keys, policy source, channels
     shortcuts.js   cheatsheet, press ?
 ```
 
@@ -62,16 +71,9 @@ export to markdown or JSON.
 
 ## Shortcuts
 
-Cmd or Ctrl K palette, Cmd or Ctrl N new chat, Enter send,
-Shift Enter newline, Esc stop or close, ? cheatsheet.
-    sessions.js    wrapped agent sessions, transports, posture
-    connectors.js  postgres and S3 undo plus snapshot store
-    facts.js       declared facts, probe cache, mock probe run
-    taint.js       read to write edges plus scope query
-    audit.js       period export, frame map, verifier, forgers
-    cli.js         command builder with copy and exit codes
-    settings.js    posture, keys, policy source, channels
-```
+Cmd or Ctrl K palette, Cmd or Ctrl N new chat, Cmd or Ctrl 1-4
+chat/holds/ledger/replay, Enter send, Shift Enter newline,
+Esc stop or close, ? cheatsheet, j/k move, a approve, d refuse.
 
 ## Desktop path
 
@@ -82,7 +84,9 @@ this branch until the core proxy and ledger land on main.
 
 ## Design
 
-Tokens follow `docs/GUI-RULES.md`: Action Blue #0066cc is the only
-interactive color, system type, pill primary CTAs, hairline cards
-with no shadow, 44px touch targets, reduced motion collapse.
-Layout dials used: variance 6, motion 4, density 5.
+VOID Aperture, exactly like apps/tui-preview: warm near-black paper,
+single orange accent, mono labels, serif display, ASCII glyphs,
+no gradients, one soft shadow reserved for palette and drawers.
+Dark first, light theme fully supported, theme toggle in nav,
+system font stacks only, fully offline except provider calls
+and the optional PDF/DOCX engines from CDN.

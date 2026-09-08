@@ -20,6 +20,29 @@ var NAV_GROUPS = {
   "nav-setup": ["providers", "models", "sessions", "connectors", "facts", "cli", "settings"]
 };
 
+// Sidebar group titles, keyed by the same ids as NAV_GROUPS.
+var NAV_TITLES = { "nav-workbench": "Operate", "nav-govern": "Observe", "nav-setup": "Setup" };
+
+// Theme: dark by default, persisted in localStorage under void.theme.
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+}
+function initTheme() {
+  var saved = null;
+  try { saved = localStorage.getItem("void.theme"); } catch (e) { /* storage blocked, keep dark */ }
+  applyTheme(saved === "light" ? "light" : "dark");
+}
+function toggleTheme() {
+  var next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  applyTheme(next);
+  try { localStorage.setItem("void.theme", next); } catch (e) { /* storage blocked, session only */ }
+  if (window.VOID_TOAST) window.VOID_TOAST("Theme " + next + ".");
+}
+// Run now, not on DOMContentLoaded: this script loads at the end of
+// body, so documentElement exists and the theme lands before first
+// paint of the sidebar content.
+initTheme();
+
 function currentView() {
   var h = (location.hash || "#/chat").replace("#/", "").split("?")[0];
   if (VIEWS.indexOf(h) < 0) return null;
@@ -28,6 +51,7 @@ function currentView() {
 
 function render() {
   if (window.VOID_LIVE_STOP) { window.VOID_LIVE_STOP(); window.VOID_LIVE_STOP = null; }
+  if (window.VOID_HOLDS_CLEANUP) { window.VOID_HOLDS_CLEANUP(); window.VOID_HOLDS_CLEANUP = null; }
   var pal = document.getElementById("palette");
   if (pal) pal.hidden = true;
   var name = currentView();
@@ -74,6 +98,43 @@ function updateStatus() {
   if (lab) lab.textContent = keyed ? "key set" : "no key";
 }
 
+// Boot sequence: terminal power-on lines, then reveal. Click skips.
+// Reduced motion or repeat visits (void.booted) show one line only.
+function boot() {
+  var el = document.getElementById("boot");
+  if (!el) return;
+  var pre = document.getElementById("boot-lines");
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var seen = null;
+  try { seen = localStorage.getItem("void.booted"); } catch (e) { /* storage blocked */ }
+  function done() {
+    el.remove();
+    try { localStorage.setItem("void.booted", "1"); } catch (e) { /* storage blocked */ }
+  }
+  el.addEventListener("click", done);
+  if (reduce || seen) {
+    pre.textContent = "VOID WORKBENCH\nready";
+    setTimeout(done, 350);
+    return;
+  }
+  var lines = [
+    "VOID WORKBENCH v0.1",
+    "> ledger chain ............ <span class='ok'>SEALED</span>",
+    "> policy .................. <span class='ok'>ENFORCED</span>",
+    "> proxy ................... <span class='warn'>MOCK</span>",
+    "> provider key ............ " + (window.VOID_API && window.VOID_API.hasKey() ? "<span class='ok'>SET</span>" : "<span class='warn'>MISSING</span>"),
+    "ready"
+  ];
+  var i = 0;
+  pre.innerHTML = "";
+  var timer = setInterval(function () {
+    if (!document.body.contains(el) || i >= lines.length) { clearInterval(timer); return; }
+    pre.innerHTML += lines[i] + "\n";
+    i++;
+    if (i >= lines.length) { clearInterval(timer); setTimeout(done, 450); }
+  }, 180);
+}
+
 function openPalette() {
   var pal = document.getElementById("palette");
   pal.hidden = false;
@@ -92,7 +153,8 @@ function paletteRows(q) {
     { label: "New chat", sub: "action", run: function () { location.hash = "#/chat"; setTimeout(function () { if (window.VOID_VIEWS.chat) { var c = window.VOID_CHATS.create((window.VOID_FIXTURES.routing || {}).def || "z-ai/glm-5.3"); location.hash = "#/chat?" + c.id; } }, 50); } },
     { label: "Verify ledger chain", sub: "action", run: function () { location.hash = "#/ledger"; } },
     { label: "Export attestation", sub: "action", run: function () { location.hash = "#/audit"; } },
-    { label: "Open holds queue", sub: "action", run: function () { location.hash = "#/holds"; } }
+    { label: "Open holds queue", sub: "action", run: function () { location.hash = "#/holds"; } },
+    { label: "Toggle theme", sub: "action", run: function () { toggleTheme(); } }
   ].filter(function (a) { return !q || a.label.toLowerCase().indexOf(q.toLowerCase()) >= 0; });
   return views.concat(actions);
 }
@@ -152,6 +214,12 @@ document.addEventListener("keydown", function (e) {
     location.hash = "#/chat?" + c.id;
     return;
   }
+  if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4"].indexOf(e.key) >= 0 && !typing()) {
+    var jump = { 1: "chat", 2: "holds", 3: "ledger", 4: "replay" }[e.key];
+    e.preventDefault();
+    location.hash = "#/" + jump;
+    return;
+  }
   if (e.key === "Escape" && window.VOID_STOP) { window.VOID_STOP(); return; }
   if ((e.key === "?" || (e.shiftKey && e.key === "/")) && !typing()) {
     location.hash = "#/shortcuts";
@@ -164,9 +232,12 @@ document.addEventListener("input", function (e) {
 
 window.addEventListener("hashchange", render);
 document.addEventListener("DOMContentLoaded", function () {
+  boot();
   render();
   var po = document.getElementById("palette-open");
   if (po) po.onclick = openPalette;
+  var tt = document.getElementById("theme-toggle");
+  if (tt) tt.onclick = toggleTheme;
   var sn = document.getElementById("side-new");
   if (sn) sn.onclick = function () {
     var def = ((window.VOID_FIXTURES || {}).routing || {}).def || "z-ai/glm-5.3";
