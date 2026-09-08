@@ -20,6 +20,7 @@ import { homedir } from "node:os";
 import type { LedgerStore } from "./index.ts";
 import { GENESIS_PREV, canonicalJson, entryHash } from "./canonical.ts";
 import { sha256Hex, verifySignature } from "./sign.ts";
+import { sanitizeWorkspace } from "./hardening.ts";
 
 /**
  * What one line in the JSONL file is. The receipt is the entry plus what the
@@ -67,14 +68,30 @@ export function jsonlStore(
   options: JsonlStoreOptions = {},
 ): LedgerStore<unknown, JsonlEntry, JsonlReceipt> {
   const dir = options.dir ?? ledgerDir(options.env);
-  const file = (workspace: string): string => join(dir, `${workspace}.jsonl`);
+  const file = (workspace: string): string => join(dir, `${sanitizeWorkspace(workspace)}.jsonl`);
 
-  return {
-    async append(body: JsonlEntry["body"]): Promise<JsonlReceipt> {
+  // Appends serialize per workspace. The read-tail-then-write sequence is
+  // not atomic: two appends racing in one process both read the same tail
+  // and mint the same seq, and the chain forks silently. The store is the
+  // only writer, so one in-process queue per workspace file closes the
+  // window without a filesystem lock broker.
+  const tailLocks = new Map<string, Promise<unknown>>();
+  const withTailLock = async <T>(workspace: string, run: () => Promise<T>): Promise<T> => {
+    const previous = tailLocks.get(workspace) ?? Promise.resolve();
+    const next = previous.catch(() => {}).then(run);
+    tailLocks.set(workspace, next);
+    try {
+      return await next;
+    } finally {
+      if (tailLocks.get(workspace) === next) tailLocks.delete(workspace);
+    }
+  };
+
+  const appendInner = async (body: JsonlEntry["body"]): Promise<JsonlReceipt> => {
       const workspace =
         "workspace" in (body as object) &&
         typeof (body as { workspace?: unknown }).workspace === "string"
-          ? (body as { workspace: string }).workspace
+          ? sanitizeWorkspace((body as { workspace: string }).workspace)
           : throwNoWorkspace();
       await mkdir(dir, { recursive: true, mode: 0o700 });
       const [prev, seq] = await headInfo(file(workspace), workspace);
@@ -105,6 +122,19 @@ export function jsonlStore(
         await handle.close();
       }
       return entry;
+  };
+
+  return {
+    async append(body: JsonlEntry["body"]): Promise<JsonlReceipt> {
+      const workspace =
+        "workspace" in (body as object) &&
+        typeof (body as { workspace?: unknown }).workspace === "string"
+          ? sanitizeWorkspace((body as { workspace: string }).workspace)
+          : throwNoWorkspace();
+      // The lock is per workspace file: the tail that decides the next seq
+      // lives in one file, so appends to different workspaces can still
+      // interleave safely.
+      return withTailLock(workspace, () => appendInner(body));
     },
 
     async *read(workspace: string): AsyncIterable<JsonlEntry> {
