@@ -98,9 +98,9 @@ describe("classifyTranscript, the distribution", () => {
 
 describe("the registry precondition", () => {
   test("the registry loads and is the published size", () => {
-    // 89 entries today. If this number moves, the site mirror and the
-    // endpoint move with it, so the test is the tripwire.
-    assert.equal(REGISTRY_SIZE, 89);
+    // Registry expansion changes this count deliberately, so this stays a
+    // tripwire for clients that publish the same registry surface.
+    assert.equal(REGISTRY_SIZE, 163);
   });
 });
 

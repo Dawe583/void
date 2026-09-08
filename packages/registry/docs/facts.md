@@ -108,6 +108,80 @@ extends the list and this file is the index.
 | vectordb.embedding_model.pinned | string | Whether the embedding model version is pinned, true or false. |
 | vectordb.source_documents.pinned | string | Whether the source documents are pinned, true or false. |
 | zendesk.ticket.requester_notified | string | Whether the requester notification was sent for the ticket, true or false. |
+| asana.member_state_captured | string | Whether the member's workspace access and team memberships were captured before removal, true or false. |
+| asana.portfolio.capture.settings | string | Whether the portfolio membership, fields and settings were captured before deletion, true or false. |
+| asana.project.within_restore_window | string | Whether the deleted Asana project is still inside the vendor restore window, true or false. |
+| asana.task.capture.full_payload | string | Whether the interceptor captured every task body, comment and relationship before deletion, true or false. |
+| asana.team_state_captured | string | Whether the team members, projects and settings were captured before deletion, true or false. |
+| gitea.actions.secret_values_captured | string | Whether Gitea Actions secret values were captured in the operator vault before deletion, true or false. |
+| gitea.commits.reachable | string | Whether overwritten commits remain reachable through refs, reflog or backup, true or false. |
+| gitea.member_state_captured | string | Whether Gitea organization team memberships and repository grants were captured, true or false. |
+| gitea.repository.backup_exists | string | Whether a repository backup exists for restoring the deleted Gitea repository, true or false. |
+| gitea.repository.contains_private_data | string | Whether the Gitea repository contains private data, true or false. |
+| gitea.transfer.target_cooperative | string | Whether the new Gitea owner is expected to transfer the repository back on request, true or false. |
+| github.actions.secret_values_captured | string | Whether GitHub Actions secret values were captured in the operator vault before deletion, true or false. |
+| github.branch_protection.captured | string | Whether the branch protection rule was captured before deletion, true or false. |
+| github.deploy_key.captured | string | Whether the deploy key public key and write access flag were captured before deletion, true or false. |
+| github.environment.secret_values_captured | string | Whether GitHub environment secret values were captured in the operator vault before deletion, true or false. |
+| github.org.member_state_captured | string | Whether organization membership, teams and roles were captured before removal, true or false. |
+| github.repository.contains_private_data | string | Whether the GitHub repository contains private data, true or false. |
+| github.repository.public | string | Whether the GitHub repository is public, true or false. |
+| github.repository.public_mirrors_observed | string | Whether public mirrors or caches of the repository were observed after visibility change, true or false. |
+| github.team_state_captured | string | Whether team membership and repository grants were captured before deletion, true or false. |
+| github.transfer.target_cooperative | string | Whether the new GitHub owner is expected to transfer the repository back on request, true or false. |
+| gitlab.branch.deploys | string | Whether deployment or release automation triggers from the GitLab branch, true or false. |
+| gitlab.ci_variable_values_captured | string | Whether GitLab CI variable values were captured in the operator vault before deletion, true or false. |
+| gitlab.commits.reachable | string | Whether overwritten GitLab commits remain reachable through refs, merge requests or backup, true or false. |
+| gitlab.member_state_captured | string | Whether GitLab group roles and project memberships were captured before removal, true or false. |
+| gitlab.project.contains_private_data | string | Whether the GitLab project contains private data, true or false. |
+| gitlab.project.within_restore_window | string | Whether the deleted GitLab project is still inside the vendor restore window, true or false. |
+| gitlab.protected_branch.captured | string | Whether the protected branch rule was captured before deletion, true or false. |
+| gitlab.transfer.target_cooperative | string | Whether the new GitLab namespace owner is expected to transfer the project back on request, true or false. |
+| jira.board.capture.settings | string | Whether the Jira board filter and settings were captured before deletion, true or false. |
+| jira.project.in_trash | string | Whether the Jira project is still in trash with project data retained, true or false. |
+| jira.scrub.display_name_only | string | Whether the Jira data scrub is limited to reversible display name masking, true or false. |
+| jira.workflow.capture.full_payload | string | Whether the Jira workflow XML and scheme bindings were captured before deletion, true or false. |
+| kubernetes.deployment.prior_replicas_captured | string | Whether the prior Deployment replica count was captured before scaling, true or false. |
+| kubernetes.deployment.replicas_gt_0 | string | Whether the Deployment had more than zero desired replicas before the scale call, true or false. |
+| kubernetes.helm.values_captured | string | Whether the Helm chart reference and values were captured before uninstall, true or false. |
+| kubernetes.namespace.empty | string | Whether the Kubernetes namespace has no namespaced resources other than system defaults, true or false. |
+| kubernetes.secret.source_in_git | string | Whether the Secret manifest or sealed source is available in git, true or false. |
+| kubernetes.workload.has_persistent_volume | string | Whether the Kubernetes workload owns or depends on a persistent volume, true or false. |
+| linear.issue.capture.full_payload | string | Whether every Linear issue payload, comment and relationship was captured before deletion, true or false. |
+| linear.project.capture.full_payload | string | Whether the Linear project payload was captured before deletion, true or false. |
+| linear.project.in_archive | string | Whether the Linear project remains present in archive for unarchive, true or false. |
+| linear.scrub.archive_exists | string | Whether a policy-approved archive exists for data scrubbed from Linear, true or false. |
+| linear.team_state_captured | string | Whether Linear team settings, members and workflow states were captured before deletion, true or false. |
+| sendgrid.clients.rotatable | string | Whether every SendGrid client can receive and use a newly issued API key, true or false. |
+| sendgrid.domain.config_captured | string | Whether SendGrid domain settings and DNS records were captured before deletion, true or false. |
+| sendgrid.suppression.capture.list | string | Whether the SendGrid suppression list was captured before deletion, true or false. |
+| sendgrid.template.capture.versions | string | Whether SendGrid template versions were captured before deletion, true or false. |
+| sentry.clients.redeployable | string | Whether applications using the Sentry DSN can be redeployed with a new DSN, true or false. |
+| sentry.events.exported | string | Whether Sentry events were exported before deletion or scrubbing, true or false. |
+| sentry.member_state_captured | string | Whether Sentry member role and team assignments were captured before removal, true or false. |
+| sentry.project.settings_captured | string | Whether Sentry project settings and DSNs were captured before deletion, true or false. |
+| sentry.replay.archive_exists | string | Whether a policy-approved archive exists for replay data scrubbed from Sentry, true or false. |
+| shopify.customer.erasure_pending | string | Whether the Shopify customer erasure request is still pending and cancellable, true or false. |
+| shopify.discount.capture.definitions | string | Whether Shopify discount definitions were captured before deletion, true or false. |
+| shopify.order.payment_captured | string | Whether payment has been captured for the Shopify order, true or false. |
+| shopify.theme.previous_live_captured | string | Whether the previous live Shopify theme id was captured before publishing, true or false. |
+| supabase.auth.users_count | string | The number of Supabase Auth users selected by the bulk delete, for example 0 or nonzero. |
+| supabase.auth.users_exported | string | Whether Supabase Auth users and provider identities were exported before deletion, true or false. |
+| supabase.branch.unique_data | string | Whether the Supabase database branch contains data not present in its parent, true or false. |
+| supabase.database.pitr_available | string | Whether Supabase point in time recovery covers the database at the call time, true or false. |
+| supabase.edge_function.source_in_git | string | Whether the Supabase Edge Function source and deploy manifest are in git, true or false. |
+| supabase.rls.policy_captured | string | Whether the Supabase row level security policy SQL was captured before deletion, true or false. |
+| supabase.secret_values_captured | string | Whether Supabase project secret values were captured in the operator vault before deletion, true or false. |
+| supabase.storage.objects_mirrored | string | Whether every Supabase Storage object targeted by the purge was mirrored before deletion, true or false. |
+| terraform.lock.holder_active | string | Whether the Terraform state lock holder is still active, true or false. |
+| terraform.plan.destroy_actions_count | string | The destroy action count in the Terraform plan, for example 0 or nonzero. |
+| terraform.state.backup_exists | string | Whether a Terraform state backup exists from before the state operation, true or false. |
+| terraform.variable_set.captured | string | Whether Terraform variable names and secret values were captured before deletion, true or false. |
+| terraform.workspace.empty | string | Whether the Terraform workspace has no resources remaining in state, true or false. |
+| twilio.clients.rotatable | string | Whether every Twilio client can receive and use a newly issued API key, true or false. |
+| twilio.domain.config_captured | string | Whether Twilio domain configuration and DNS records were captured before deletion, true or false. |
+| twilio.messaging_service.captured | string | Whether Twilio Messaging Service configuration was captured before deletion, true or false. |
+| twilio.number.within_reclaim_window | string | Whether the released Twilio phone number is still inside the provider reclaim window, true or false. |
 
 A fact value is a string or a boolean. The precondition grammar compares
 strings exactly and treats booleans with presence, because `is` on a boolean

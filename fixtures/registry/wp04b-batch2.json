@@ -1,0 +1,2870 @@
+{
+  "batch": "wp-04b-batch-2",
+  "entries": [
+    {
+      "id": "kubernetes.deployment.delete",
+      "vendor": "kubernetes",
+      "surface": "Deployment",
+      "summary": "Delete a Deployment and its managed ReplicaSets and Pods.",
+      "tags": [
+        "kubernetes",
+        "delete",
+        "compute"
+      ],
+      "cases": [
+        {
+          "when": "manifests are in git and the workload has no persistent volume",
+          "tone": "r1",
+          "inverse": "kubectl apply -f captured manifest",
+          "window": "while referenced images remain available",
+          "note": "the replacement has new UIDs and a gap in service history",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "kubernetes.manifests.in_git",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "kubernetes.workload.has_persistent_volume",
+                "is": "false"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "the spec can often be recreated but the live rollout state and terminated Pods are gone",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "kubernetes.deployment.scale_down",
+      "vendor": "kubernetes",
+      "surface": "Deployment",
+      "summary": "Scale a Deployment down to fewer replicas.",
+      "tags": [
+        "kubernetes",
+        "scale",
+        "compute"
+      ],
+      "cases": [
+        {
+          "when": "the prior replica count was captured and replicas were greater than zero",
+          "tone": "r0",
+          "inverse": "kubectl scale deployment to the captured replica count",
+          "window": "until another actor changes the scale target",
+          "note": "the Deployment object remains the same and the inverse only restores desired count",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "kubernetes.deployment.prior_replicas_captured",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "kubernetes.deployment.replicas_gt_0",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Pods killed during the scale down cannot be brought back with the same identity",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "kubernetes.secret.delete",
+      "vendor": "kubernetes",
+      "surface": "Secret",
+      "summary": "Delete a Kubernetes Secret.",
+      "tags": [
+        "kubernetes",
+        "secret",
+        "delete",
+        "credential"
+      ],
+      "cases": [
+        {
+          "when": "the Secret manifest or sealed source is in git",
+          "tone": "r1",
+          "inverse": "kubectl apply -f captured Secret manifest",
+          "window": "while the secret material remains valid",
+          "note": "the recreated Secret gets a new resource version and consumers may have observed an outage",
+          "if": {
+            "kind": "fact",
+            "fact": "kubernetes.secret.source_in_git",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "without a captured value the secret bytes are no longer recoverable from the API",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "kubernetes.namespace.delete_cascade",
+      "vendor": "kubernetes",
+      "surface": "Namespace",
+      "summary": "Delete a Namespace and cascade deletion to namespaced resources.",
+      "tags": [
+        "kubernetes",
+        "namespace",
+        "delete",
+        "cascade"
+      ],
+      "cases": [
+        {
+          "when": "the namespace is empty",
+          "tone": "r1",
+          "inverse": "kubectl create namespace with captured labels and annotations",
+          "window": "unbounded",
+          "note": "the namespace object can be recreated but its UID changes",
+          "if": {
+            "kind": "fact",
+            "fact": "kubernetes.namespace.empty",
+            "is": "true"
+          }
+        },
+        {
+          "when": "manifests are in git and every persistent volume uses Retain",
+          "tone": "r2",
+          "inverse": "reapply manifests and rebind retained volumes",
+          "window": "while retained volumes and images exist",
+          "note": "the control plane objects can be rebuilt but workload identity and event history change",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "kubernetes.manifests.in_git",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "kubernetes.pv.reclaim_policy",
+                "is": "Retain"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "cascade deletion can remove workloads, claims and controller state with no exact inverse",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "kubernetes.pvc.delete",
+      "vendor": "kubernetes",
+      "surface": "PersistentVolumeClaim",
+      "summary": "Delete a PersistentVolumeClaim.",
+      "tags": [
+        "kubernetes",
+        "storage",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the bound PersistentVolume reclaim policy is Retain",
+          "tone": "r2",
+          "inverse": "recreate the claim and bind it to the retained volume",
+          "window": "while the retained volume exists",
+          "note": "the data may remain but claim identity and consumers must be repaired",
+          "if": {
+            "kind": "fact",
+            "fact": "kubernetes.pv.reclaim_policy",
+            "is": "Retain"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "a Delete reclaim policy can destroy the backing volume with the claim",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "kubernetes.helm.release.uninstall",
+      "vendor": "kubernetes",
+      "surface": "Helm",
+      "summary": "Uninstall a Helm release.",
+      "tags": [
+        "kubernetes",
+        "helm",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "chart values were captured and every persistent volume uses Retain",
+          "tone": "r2",
+          "inverse": "helm install with captured chart and values, then rebind retained volumes",
+          "window": "while chart artifacts and retained volumes exist",
+          "note": "Helm can recreate objects but cannot preserve UIDs or downtime-free state",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "kubernetes.helm.values_captured",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "kubernetes.pv.reclaim_policy",
+                "is": "Retain"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "hooks and cascading resource deletion can remove state that Helm history cannot restore",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "kubernetes.configmap.delete",
+      "vendor": "kubernetes",
+      "surface": "ConfigMap",
+      "summary": "Delete a ConfigMap used by workloads.",
+      "tags": [
+        "kubernetes",
+        "config",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the ConfigMap manifest is in git",
+          "tone": "r1",
+          "inverse": "kubectl apply -f captured ConfigMap manifest",
+          "window": "while the referenced data stays current",
+          "note": "workloads may have restarted or failed during the absence",
+          "if": {
+            "kind": "fact",
+            "fact": "kubernetes.manifests.in_git",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "the previous key values are not recoverable without a captured manifest",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "kubernetes.service.delete",
+      "vendor": "kubernetes",
+      "surface": "Service",
+      "summary": "Delete a Service and its cluster virtual IP.",
+      "tags": [
+        "kubernetes",
+        "network",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the Service manifest is in git",
+          "tone": "r1",
+          "inverse": "kubectl apply -f captured Service manifest",
+          "window": "unbounded",
+          "note": "the recreated Service can receive a different cluster IP unless it was pinned",
+          "if": {
+            "kind": "fact",
+            "fact": "kubernetes.manifests.in_git",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "clients may have cached or observed the missing endpoint even after recreation",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "terraform.apply.plan",
+      "vendor": "terraform",
+      "surface": "Apply",
+      "summary": "Apply a Terraform plan that may destroy or replace resources.",
+      "tags": [
+        "terraform",
+        "infra",
+        "apply"
+      ],
+      "cases": [
+        {
+          "when": "the plan has zero destroy actions",
+          "tone": "r1",
+          "inverse": "terraform apply the captured rollback plan",
+          "window": "while providers keep prior remote state",
+          "note": "remote provider side effects can still leave traces outside state",
+          "if": {
+            "kind": "fact",
+            "fact": "terraform.plan.destroy_actions_count",
+            "is": "0"
+          }
+        },
+        {
+          "when": "destroy actions exist and every destroyed resource is stateless and re-creatable from configuration",
+          "tone": "r2",
+          "inverse": "terraform apply the prior configuration",
+          "window": "while provider names and quotas remain available",
+          "note": "the resource graph can be rebuilt but identities and outage history change",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "terraform.plan.destroy_actions_count",
+                "is": "nonzero"
+              },
+              {
+                "kind": "fact",
+                "fact": "terraform.plan.stateless_recreatable",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "destroying stateful resources can remove provider-side data with no exact inverse",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "terraform.state.rm",
+      "vendor": "terraform",
+      "surface": "State",
+      "summary": "Remove an address from Terraform state.",
+      "tags": [
+        "terraform",
+        "state",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a state backup exists",
+          "tone": "r1",
+          "inverse": "restore the captured state backup",
+          "window": "until another apply depends on the modified state",
+          "note": "restoring state is exact for Terraform but may conflict with later remote changes",
+          "if": {
+            "kind": "fact",
+            "fact": "terraform.state.backup_exists",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "the remote object may survive but Terraform forgets ownership and future applies can drift",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "terraform.force_unlock",
+      "vendor": "terraform",
+      "surface": "Lock",
+      "summary": "Force unlock a Terraform state lock.",
+      "tags": [
+        "terraform",
+        "state",
+        "lock"
+      ],
+      "cases": [
+        {
+          "when": "the recorded lock holder is inactive",
+          "tone": "r0",
+          "inverse": "no inverse needed",
+          "window": "immediate",
+          "note": "removing a stale lock only returns the backend to the usable state",
+          "if": {
+            "kind": "fact",
+            "fact": "terraform.lock.holder_active",
+            "is": "false"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "unlocking an active writer can allow concurrent applies and corrupt state ordering",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "terraform.workspace.delete",
+      "vendor": "terraform",
+      "surface": "Workspace",
+      "summary": "Delete a Terraform workspace.",
+      "tags": [
+        "terraform",
+        "workspace",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the workspace state backup exists and no resources remain",
+          "tone": "r1",
+          "inverse": "recreate workspace and restore the captured state",
+          "window": "while backend history retains the backup",
+          "note": "the workspace name can return but backend audit history records the deletion",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "terraform.state.backup_exists",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "terraform.workspace.empty",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleting a workspace can discard the last copy of state for live resources",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "terraform.variable_set.delete",
+      "vendor": "terraform",
+      "surface": "Variables",
+      "summary": "Delete a Terraform variable set.",
+      "tags": [
+        "terraform",
+        "config",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the prior variable set was captured",
+          "tone": "r1",
+          "inverse": "recreate variables from the captured set",
+          "window": "while secret values remain captured",
+          "note": "secret variables cannot be read back after deletion unless intercepted before the call",
+          "if": {
+            "kind": "fact",
+            "fact": "terraform.variable_set.captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "write-only secret values are lost when no capture exists",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "github.repository.transfer_public",
+      "vendor": "github",
+      "surface": "Repository",
+      "summary": "Transfer a public repository to another owner.",
+      "tags": [
+        "github",
+        "repository",
+        "transfer",
+        "public"
+      ],
+      "cases": [
+        {
+          "when": "the repository is public and the target owner will transfer it back",
+          "tone": "r2",
+          "inverse": "request transfer back to the original owner",
+          "window": "while the target owner cooperates",
+          "note": "public clones and forks made during the transfer cannot be recalled",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "github.repository.public",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "github.transfer.target_cooperative",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "ownership and access may be lost without a unilateral inverse",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "github.organization.member.remove",
+      "vendor": "github",
+      "surface": "Organization",
+      "summary": "Remove a member from a GitHub organization.",
+      "tags": [
+        "github",
+        "identity",
+        "access-control"
+      ],
+      "cases": [
+        {
+          "when": "membership, teams and roles were captured",
+          "tone": "r1",
+          "inverse": "reinvite the member and restore captured teams and roles",
+          "window": "while the user accepts the invitation",
+          "note": "the access gap and audit log remain even if permissions return",
+          "if": {
+            "kind": "fact",
+            "fact": "github.org.member_state_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "access can be re-granted but private forks, tokens and automation may be disrupted",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "github.actions.secret.delete",
+      "vendor": "github",
+      "surface": "Actions",
+      "summary": "Delete GitHub Actions repository secrets.",
+      "tags": [
+        "github",
+        "secret",
+        "delete",
+        "credential"
+      ],
+      "cases": [
+        {
+          "when": "the secret values are captured in the operator vault",
+          "tone": "r1",
+          "inverse": "gh secret set for each captured secret",
+          "window": "while the secret values remain valid",
+          "note": "GitHub cannot reveal deleted secret values, so only an external capture makes this reversible",
+          "if": {
+            "kind": "fact",
+            "fact": "github.actions.secret_values_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "write-only secret values are gone from GitHub after deletion",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "github.branch.force_push.default",
+      "vendor": "github",
+      "surface": "Git",
+      "summary": "Force push the default branch.",
+      "tags": [
+        "github",
+        "git",
+        "history"
+      ],
+      "cases": [
+        {
+          "when": "overwritten commits remain reachable and the default branch does not deploy",
+          "tone": "r1",
+          "inverse": "force push the captured prior tip",
+          "window": "while overwritten commits remain reachable",
+          "note": "restoring history can invalidate work based on the new tip",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "github.commits.reachable",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "github.base_branch.deploys",
+                "is": "false"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "lost commits or triggered deployments cannot be exactly undone",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "github.branch.protection.delete",
+      "vendor": "github",
+      "surface": "Branches",
+      "summary": "Delete a branch protection rule.",
+      "tags": [
+        "github",
+        "access-control",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the prior protection rule was captured",
+          "tone": "r1",
+          "inverse": "recreate the captured branch protection rule",
+          "window": "unbounded",
+          "note": "writes accepted while protection was absent remain in history",
+          "if": {
+            "kind": "fact",
+            "fact": "github.branch_protection.captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "the rule can be rebuilt but unreviewed pushes during the gap remain",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "github.team.delete",
+      "vendor": "github",
+      "surface": "Teams",
+      "summary": "Delete a GitHub team.",
+      "tags": [
+        "github",
+        "identity",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "team membership and repository grants were captured",
+          "tone": "r1",
+          "inverse": "recreate the team and restore captured grants",
+          "window": "while members and repositories still exist",
+          "note": "the team slug and audit trail can change",
+          "if": {
+            "kind": "fact",
+            "fact": "github.team_state_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "permissions can be reassembled but exact team identity and audit continuity are lost",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "github.deploy_key.delete",
+      "vendor": "github",
+      "surface": "Deploy keys",
+      "summary": "Delete a repository deploy key.",
+      "tags": [
+        "github",
+        "credential",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the public key and write access flag were captured",
+          "tone": "r1",
+          "inverse": "recreate the deploy key from the captured public key",
+          "window": "while the private key still exists wherever it was generated",
+          "note": "GitHub stores only the public key, so runtime reachability depends on the external private key",
+          "if": {
+            "kind": "fact",
+            "fact": "github.deploy_key.captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "a new key can restore access but every consumer must rotate",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "github.repository.visibility_public",
+      "vendor": "github",
+      "surface": "Repository",
+      "summary": "Change a private repository to public.",
+      "tags": [
+        "github",
+        "repository",
+        "exposure"
+      ],
+      "cases": [
+        {
+          "when": "the repository has no private data and the visibility change has not propagated to mirrors",
+          "tone": "r1",
+          "inverse": "set repository visibility back to private",
+          "window": "minutes",
+          "note": "the setting can be restored but the exposure event is still visible in audit history",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "github.repository.contains_private_data",
+                "is": "false"
+              },
+              {
+                "kind": "fact",
+                "fact": "github.repository.public_mirrors_observed",
+                "is": "false"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "making code public cannot unshare clones or cached copies",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "github.environment.secret.delete",
+      "vendor": "github",
+      "surface": "Environments",
+      "summary": "Delete GitHub environment secrets.",
+      "tags": [
+        "github",
+        "secret",
+        "delete",
+        "credential"
+      ],
+      "cases": [
+        {
+          "when": "the environment secret values are captured in the operator vault",
+          "tone": "r1",
+          "inverse": "gh secret set with the captured environment scope",
+          "window": "while the values remain valid",
+          "note": "the environment protection rules do not store secret plaintext",
+          "if": {
+            "kind": "fact",
+            "fact": "github.environment.secret_values_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "write-only environment secret values are gone after deletion",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitlab.project.delete",
+      "vendor": "gitlab",
+      "surface": "Project",
+      "summary": "Delete a GitLab project.",
+      "tags": [
+        "gitlab",
+        "project",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the project is inside the restore window",
+          "tone": "r1",
+          "inverse": "restore the project from GitLab pending deletion",
+          "window": "until the deletion window expires",
+          "note": "webhooks and runners may need repair after restore",
+          "if": {
+            "kind": "fact",
+            "fact": "gitlab.project.within_restore_window",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "after permanent deletion the repository, issues and packages are gone from GitLab",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitlab.branch.force_push",
+      "vendor": "gitlab",
+      "surface": "Git",
+      "summary": "Force push a GitLab branch.",
+      "tags": [
+        "gitlab",
+        "git",
+        "history"
+      ],
+      "cases": [
+        {
+          "when": "overwritten commits remain reachable and the branch does not deploy",
+          "tone": "r1",
+          "inverse": "force push the captured prior tip",
+          "window": "while overwritten commits remain reachable",
+          "note": "pipelines and reviews created from the new tip remain as traces",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "gitlab.commits.reachable",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "gitlab.branch.deploys",
+                "is": "false"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "lost commits or triggered deployments cannot be exactly undone",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitlab.group.member.remove",
+      "vendor": "gitlab",
+      "surface": "Group",
+      "summary": "Remove a member from a GitLab group.",
+      "tags": [
+        "gitlab",
+        "identity",
+        "access-control"
+      ],
+      "cases": [
+        {
+          "when": "group roles and project memberships were captured",
+          "tone": "r1",
+          "inverse": "reinvite the member and restore captured roles",
+          "window": "while the user accepts the invitation",
+          "note": "the access gap and audit event remain",
+          "if": {
+            "kind": "fact",
+            "fact": "gitlab.member_state_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "access can be restored but tokens and running jobs may already have failed",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitlab.ci_variable.delete",
+      "vendor": "gitlab",
+      "surface": "CI variables",
+      "summary": "Delete GitLab CI variables.",
+      "tags": [
+        "gitlab",
+        "secret",
+        "delete",
+        "credential"
+      ],
+      "cases": [
+        {
+          "when": "the variable values were captured in the operator vault",
+          "tone": "r1",
+          "inverse": "recreate the CI variables from the captured values",
+          "window": "while the values remain valid",
+          "note": "masked variables are write-only in GitLab after creation",
+          "if": {
+            "kind": "fact",
+            "fact": "gitlab.ci_variable_values_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleted masked variable values cannot be read back from GitLab",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitlab.project.transfer_public_namespace",
+      "vendor": "gitlab",
+      "surface": "Project",
+      "summary": "Transfer a project into a public namespace.",
+      "tags": [
+        "gitlab",
+        "project",
+        "transfer",
+        "public"
+      ],
+      "cases": [
+        {
+          "when": "the namespace owner will transfer it back and the project has no private data",
+          "tone": "r2",
+          "inverse": "request transfer back to the original namespace",
+          "window": "while the new owner cooperates",
+          "note": "public fetches during the transfer cannot be recalled",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "gitlab.transfer.target_cooperative",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "gitlab.project.contains_private_data",
+                "is": "false"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "project ownership can be lost without a unilateral restore path",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitlab.protected_branch.delete",
+      "vendor": "gitlab",
+      "surface": "Protected branches",
+      "summary": "Delete a GitLab protected branch rule.",
+      "tags": [
+        "gitlab",
+        "access-control",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the protected branch rule was captured",
+          "tone": "r1",
+          "inverse": "recreate the protected branch rule",
+          "window": "unbounded",
+          "note": "pushes accepted while protection was absent remain in history",
+          "if": {
+            "kind": "fact",
+            "fact": "gitlab.protected_branch.captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "the rule can be rebuilt but the protection gap cannot be erased",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitea.repository.delete",
+      "vendor": "gitea",
+      "surface": "Repository",
+      "summary": "Delete a Gitea repository.",
+      "tags": [
+        "gitea",
+        "repository",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a repository backup exists",
+          "tone": "r1",
+          "inverse": "restore the repository from the captured backup",
+          "window": "while the backup is retained",
+          "note": "repository ids, hooks and issue side effects may differ after restore",
+          "if": {
+            "kind": "fact",
+            "fact": "gitea.repository.backup_exists",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "without a backup the repository database rows and git data are removed",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitea.branch.force_push",
+      "vendor": "gitea",
+      "surface": "Git",
+      "summary": "Force push a Gitea branch.",
+      "tags": [
+        "gitea",
+        "git",
+        "history"
+      ],
+      "cases": [
+        {
+          "when": "overwritten commits remain reachable",
+          "tone": "r1",
+          "inverse": "force push the captured prior tip",
+          "window": "while commits remain reachable",
+          "note": "restoring the tip changes history again for anyone who pulled the new one",
+          "if": {
+            "kind": "fact",
+            "fact": "gitea.commits.reachable",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "unreachable commits may be garbage collected with no service restore path",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitea.organization.member.remove",
+      "vendor": "gitea",
+      "surface": "Organization",
+      "summary": "Remove a member from a Gitea organization.",
+      "tags": [
+        "gitea",
+        "identity",
+        "access-control"
+      ],
+      "cases": [
+        {
+          "when": "team memberships and repository grants were captured",
+          "tone": "r1",
+          "inverse": "reinvite the member and restore captured teams",
+          "window": "while the user account exists",
+          "note": "access continuity and audit history are not erased",
+          "if": {
+            "kind": "fact",
+            "fact": "gitea.member_state_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "permissions can be reconstructed but work depending on the access may already have failed",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitea.actions.secret.delete",
+      "vendor": "gitea",
+      "surface": "Actions",
+      "summary": "Delete Gitea Actions secrets.",
+      "tags": [
+        "gitea",
+        "secret",
+        "delete",
+        "credential"
+      ],
+      "cases": [
+        {
+          "when": "the secret values are captured in the operator vault",
+          "tone": "r1",
+          "inverse": "recreate the captured secrets",
+          "window": "while values remain valid",
+          "note": "secret plaintext is not readable after creation",
+          "if": {
+            "kind": "fact",
+            "fact": "gitea.actions.secret_values_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleted write-only secret values cannot be recovered from Gitea",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gitea.repository.transfer_public",
+      "vendor": "gitea",
+      "surface": "Repository",
+      "summary": "Transfer a repository to a public owner.",
+      "tags": [
+        "gitea",
+        "repository",
+        "transfer",
+        "public"
+      ],
+      "cases": [
+        {
+          "when": "the target owner will transfer it back and the repository has no private data",
+          "tone": "r2",
+          "inverse": "request transfer back to the original owner",
+          "window": "while the new owner cooperates",
+          "note": "public clones during the transfer cannot be recalled",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "gitea.transfer.target_cooperative",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "gitea.repository.contains_private_data",
+                "is": "false"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "ownership may be lost with no unilateral inverse",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "linear.project.delete",
+      "vendor": "linear",
+      "surface": "Project",
+      "summary": "Delete a Linear project.",
+      "tags": [
+        "linear",
+        "project",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the full project payload was captured",
+          "tone": "r1",
+          "inverse": "recreate the project from the captured payload",
+          "window": "while teams and issue ids are still meaningful",
+          "note": "Linear can recreate content but not preserve every id or notification trace",
+          "if": {
+            "kind": "fact",
+            "fact": "linear.project.capture.full_payload",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "exports can mitigate loss but project identity and history are not exactly restorable",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "linear.issue.bulk_delete",
+      "vendor": "linear",
+      "surface": "Issues",
+      "summary": "Bulk delete Linear issues.",
+      "tags": [
+        "linear",
+        "issue",
+        "delete",
+        "bulk"
+      ],
+      "cases": [
+        {
+          "when": "full issue payloads were captured",
+          "tone": "r1",
+          "inverse": "recreate each issue from the captured payload",
+          "window": "while referenced projects and teams exist",
+          "note": "issue identifiers and notification history change",
+          "if": {
+            "kind": "fact",
+            "fact": "linear.issue.capture.full_payload",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleted issue descriptions and comments are not recoverable without capture",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "linear.team.delete",
+      "vendor": "linear",
+      "surface": "Team",
+      "summary": "Delete a Linear team.",
+      "tags": [
+        "linear",
+        "team",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "team settings, members and workflow states were captured",
+          "tone": "r1",
+          "inverse": "recreate the team and restore captured settings",
+          "window": "while workspace members exist",
+          "note": "the team key and issue links may change",
+          "if": {
+            "kind": "fact",
+            "fact": "linear.team_state_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "work can be reorganized but team identity and routing history are gone",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "linear.workspace.data_scrub",
+      "vendor": "linear",
+      "surface": "Workspace",
+      "summary": "Scrub personal data from Linear workspace records.",
+      "tags": [
+        "linear",
+        "privacy",
+        "scrub"
+      ],
+      "cases": [
+        {
+          "when": "the scrub only redacts data already exported to the compliance archive",
+          "tone": "r2",
+          "inverse": "restore operational references from the archive where allowed",
+          "window": "while the archive is retained",
+          "note": "privacy erasure can be mitigated for operations but should not be reversed into the product",
+          "if": {
+            "kind": "fact",
+            "fact": "linear.scrub.archive_exists",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "a completed privacy scrub is intentionally destructive",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "linear.project.archive",
+      "vendor": "linear",
+      "surface": "Project",
+      "summary": "Archive a Linear project.",
+      "tags": [
+        "linear",
+        "project",
+        "archive"
+      ],
+      "cases": [
+        {
+          "when": "the project remains restorable from archive",
+          "tone": "r1",
+          "inverse": "unarchive the project",
+          "window": "while the archive state is retained",
+          "note": "automation that skipped archived projects may already have run",
+          "if": {
+            "kind": "fact",
+            "fact": "linear.project.in_archive",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "the project can be recreated but scheduling and notification side effects remain",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "jira.project.delete",
+      "vendor": "jira",
+      "surface": "Project",
+      "summary": "Delete a Jira project.",
+      "tags": [
+        "jira",
+        "project",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the project is inside Jira trash and project data is retained",
+          "tone": "r1",
+          "inverse": "restore the project from trash",
+          "window": "until trash retention expires",
+          "note": "project restoration leaves deletion and restoration audit events",
+          "if": {
+            "kind": "fact",
+            "fact": "jira.project.in_trash",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "permanent project deletion removes issues, configuration and history",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "jira.issue.bulk_delete",
+      "vendor": "jira",
+      "surface": "Issues",
+      "summary": "Bulk delete Jira issues.",
+      "tags": [
+        "jira",
+        "issue",
+        "delete",
+        "bulk"
+      ],
+      "cases": [
+        {
+          "when": "the interceptor captured issues, comments and attachments",
+          "tone": "r1",
+          "inverse": "recreate issues from the captured payload",
+          "window": "while referenced projects and users exist",
+          "note": "issue keys and notifications cannot be exactly preserved",
+          "if": {
+            "kind": "fact",
+            "fact": "jira.issue.capture.full_payload",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "bulk deleted issue content is not recoverable without capture",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "jira.user.data_scrub",
+      "vendor": "jira",
+      "surface": "Users",
+      "summary": "Scrub a user's personal data from Jira.",
+      "tags": [
+        "jira",
+        "privacy",
+        "scrub"
+      ],
+      "cases": [
+        {
+          "when": "the scrub is limited to reversible display name masking",
+          "tone": "r2",
+          "inverse": "restore display names where policy allows",
+          "window": "while account mappings remain",
+          "note": "privacy actions are policy constrained and audit-visible",
+          "if": {
+            "kind": "fact",
+            "fact": "jira.scrub.display_name_only",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "completed erasure of user personal data is intentionally irreversible",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "jira.workflow.delete",
+      "vendor": "jira",
+      "surface": "Workflow",
+      "summary": "Delete a Jira workflow.",
+      "tags": [
+        "jira",
+        "config",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the workflow XML and scheme bindings were captured",
+          "tone": "r1",
+          "inverse": "import the workflow and restore captured scheme bindings",
+          "window": "while referenced statuses exist",
+          "note": "issues moved during the gap may stay on different paths",
+          "if": {
+            "kind": "fact",
+            "fact": "jira.workflow.capture.full_payload",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "workflow shape can be rebuilt but transition history and automation gaps remain",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "jira.board.delete",
+      "vendor": "jira",
+      "surface": "Board",
+      "summary": "Delete a Jira board.",
+      "tags": [
+        "jira",
+        "board",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the board filter and settings were captured",
+          "tone": "r1",
+          "inverse": "recreate the board from captured settings",
+          "window": "while the saved filter exists",
+          "note": "board id and sprint side effects may change",
+          "if": {
+            "kind": "fact",
+            "fact": "jira.board.capture.settings",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "reports and filters can be rebuilt but board identity and analytics history change",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "asana.project.delete",
+      "vendor": "asana",
+      "surface": "Project",
+      "summary": "Delete an Asana project.",
+      "tags": [
+        "asana",
+        "project",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the project is inside the restore window",
+          "tone": "r1",
+          "inverse": "restore the project from Asana deleted projects",
+          "window": "until the restore window expires",
+          "note": "notifications and integrations may have observed the deletion",
+          "if": {
+            "kind": "fact",
+            "fact": "asana.project.within_restore_window",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "after the restore window expires project data is permanently deleted",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "asana.task.bulk_delete",
+      "vendor": "asana",
+      "surface": "Tasks",
+      "summary": "Bulk delete Asana tasks.",
+      "tags": [
+        "asana",
+        "task",
+        "delete",
+        "bulk"
+      ],
+      "cases": [
+        {
+          "when": "full task payloads were captured",
+          "tone": "r1",
+          "inverse": "recreate tasks from captured payloads",
+          "window": "while projects and users remain",
+          "note": "task ids, activity history and notifications cannot be exactly preserved",
+          "if": {
+            "kind": "fact",
+            "fact": "asana.task.capture.full_payload",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleted task bodies and comments are not recoverable without capture",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "asana.team.delete",
+      "vendor": "asana",
+      "surface": "Team",
+      "summary": "Delete an Asana team.",
+      "tags": [
+        "asana",
+        "team",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "team members, projects and settings were captured",
+          "tone": "r1",
+          "inverse": "recreate the team and restore captured membership",
+          "window": "while workspace members exist",
+          "note": "team identity and audit history change",
+          "if": {
+            "kind": "fact",
+            "fact": "asana.team_state_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "membership can be rebuilt but access gaps and integration failures remain",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "asana.portfolio.delete",
+      "vendor": "asana",
+      "surface": "Portfolio",
+      "summary": "Delete an Asana portfolio.",
+      "tags": [
+        "asana",
+        "portfolio",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "portfolio membership and fields were captured",
+          "tone": "r1",
+          "inverse": "recreate the portfolio from captured settings",
+          "window": "while referenced projects exist",
+          "note": "portfolio id and reporting continuity change",
+          "if": {
+            "kind": "fact",
+            "fact": "asana.portfolio.capture.settings",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "the visible grouping can be rebuilt but historical reporting continuity is lost",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "asana.workspace.member.remove",
+      "vendor": "asana",
+      "surface": "Workspace",
+      "summary": "Remove a member from an Asana workspace.",
+      "tags": [
+        "asana",
+        "identity",
+        "access-control"
+      ],
+      "cases": [
+        {
+          "when": "member access and team memberships were captured",
+          "tone": "r1",
+          "inverse": "reinvite the member and restore captured access",
+          "window": "while the user accepts the invitation",
+          "note": "tasks reassigned or automation triggered during the gap remain changed",
+          "if": {
+            "kind": "fact",
+            "fact": "asana.member_state_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "permissions can be restored but access-dependent work may already have failed",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sentry.project.delete",
+      "vendor": "sentry",
+      "surface": "Project",
+      "summary": "Delete a Sentry project.",
+      "tags": [
+        "sentry",
+        "project",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "project settings and DSNs were captured and events were exported",
+          "tone": "r2",
+          "inverse": "recreate the project and import supported settings",
+          "window": "while exports are retained",
+          "note": "event ids, issue grouping and inbound DSNs do not return exactly",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "sentry.project.settings_captured",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "sentry.events.exported",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleting the project removes issue and event history from Sentry",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sentry.issue.bulk_delete",
+      "vendor": "sentry",
+      "surface": "Issues",
+      "summary": "Bulk delete Sentry issues.",
+      "tags": [
+        "sentry",
+        "issue",
+        "delete",
+        "bulk"
+      ],
+      "cases": [
+        {
+          "when": "events were exported before deletion",
+          "tone": "r2",
+          "inverse": "recreate tracking from exported events where supported",
+          "window": "while exports are retained",
+          "note": "Sentry issue grouping and comments cannot be exactly replayed",
+          "if": {
+            "kind": "fact",
+            "fact": "sentry.events.exported",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleted issues and events are not restorable from the service",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sentry.organization.member.remove",
+      "vendor": "sentry",
+      "surface": "Organization",
+      "summary": "Remove a member from a Sentry organization.",
+      "tags": [
+        "sentry",
+        "identity",
+        "access-control"
+      ],
+      "cases": [
+        {
+          "when": "member role and team assignments were captured",
+          "tone": "r1",
+          "inverse": "reinvite the member and restore captured assignments",
+          "window": "while the user accepts the invitation",
+          "note": "the access gap and audit event remain",
+          "if": {
+            "kind": "fact",
+            "fact": "sentry.member_state_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "access can be restored but alerts and ownership workflows may already have changed",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sentry.dsn.revoke",
+      "vendor": "sentry",
+      "surface": "DSN",
+      "summary": "Revoke a Sentry DSN.",
+      "tags": [
+        "sentry",
+        "credential",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "applications can receive a newly issued DSN through the deploy pipeline",
+          "tone": "r2",
+          "inverse": "create a new DSN and deploy it to clients",
+          "window": "while clients can be redeployed",
+          "note": "the old DSN cannot be unrevoked, so clients must rotate",
+          "if": {
+            "kind": "fact",
+            "fact": "sentry.clients.redeployable",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "revoked ingestion credentials can strand clients that cannot be updated",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sentry.replay.scrub",
+      "vendor": "sentry",
+      "surface": "Replay",
+      "summary": "Scrub Sentry replay data.",
+      "tags": [
+        "sentry",
+        "privacy",
+        "scrub"
+      ],
+      "cases": [
+        {
+          "when": "the scrub removes only replay data already exported to an allowed archive",
+          "tone": "r2",
+          "inverse": "use the archive for investigation where policy allows",
+          "window": "while the archive is retained",
+          "note": "privacy scrubbing should not be reversed into Sentry",
+          "if": {
+            "kind": "fact",
+            "fact": "sentry.replay.archive_exists",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "completed replay scrubbing destroys diagnostic data",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "supabase.table.truncate",
+      "vendor": "supabase",
+      "surface": "Postgres",
+      "summary": "Truncate a Supabase table.",
+      "tags": [
+        "supabase",
+        "postgres",
+        "database",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "point in time recovery covers the table",
+          "tone": "r1",
+          "inverse": "restore to a new database and copy the table back",
+          "window": "within the PITR window",
+          "note": "restore is table-scoped only after manual copy and leaves audit traces",
+          "if": {
+            "kind": "fact",
+            "fact": "supabase.database.pitr_available",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "truncate removes rows without row-level undo information",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "supabase.table.drop",
+      "vendor": "supabase",
+      "surface": "Postgres",
+      "summary": "Drop a Supabase table.",
+      "tags": [
+        "supabase",
+        "postgres",
+        "database",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "point in time recovery covers the database",
+          "tone": "r1",
+          "inverse": "restore to a new database and copy schema and data back",
+          "window": "within the PITR window",
+          "note": "dependent policies, grants and generated ids need reconciliation",
+          "if": {
+            "kind": "fact",
+            "fact": "supabase.database.pitr_available",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "dropping the table removes schema and data with no service-side undelete",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "supabase.storage.bucket.purge",
+      "vendor": "supabase",
+      "surface": "Storage",
+      "summary": "Purge every object in a Supabase Storage bucket.",
+      "tags": [
+        "supabase",
+        "storage",
+        "delete",
+        "bulk"
+      ],
+      "cases": [
+        {
+          "when": "all objects were mirrored before the purge",
+          "tone": "r1",
+          "inverse": "upload mirrored objects back into the bucket",
+          "window": "while the mirror is retained",
+          "note": "object metadata and signed URL observations may differ",
+          "if": {
+            "kind": "fact",
+            "fact": "supabase.storage.objects_mirrored",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "purged objects are deleted from storage with no version restore path",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "supabase.auth.users.bulk_delete",
+      "vendor": "supabase",
+      "surface": "Auth",
+      "summary": "Bulk delete Supabase Auth users.",
+      "tags": [
+        "supabase",
+        "auth",
+        "identity",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "auth users count is zero",
+          "tone": "r0",
+          "inverse": "none needed",
+          "window": "unbounded",
+          "note": "a no-op bulk delete changes no account state",
+          "if": {
+            "kind": "fact",
+            "fact": "supabase.auth.users_count",
+            "is": "0"
+          }
+        },
+        {
+          "when": "user exports and provider identities were captured",
+          "tone": "r2",
+          "inverse": "recreate users where policy and providers allow",
+          "window": "while exports and external identities remain valid",
+          "note": "password hashes, sessions and auth UIDs cannot be exactly restored",
+          "if": {
+            "kind": "fact",
+            "fact": "supabase.auth.users_exported",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleted auth users, sessions and credentials have no exact inverse",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "supabase.edge_function.delete",
+      "vendor": "supabase",
+      "surface": "Edge Functions",
+      "summary": "Delete a Supabase Edge Function.",
+      "tags": [
+        "supabase",
+        "function",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the function source and secrets manifest are in git",
+          "tone": "r1",
+          "inverse": "redeploy the function from git",
+          "window": "while referenced secrets remain available",
+          "note": "deploy history and endpoint downtime remain as traces",
+          "if": {
+            "kind": "fact",
+            "fact": "supabase.edge_function.source_in_git",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "without source control the deployed code cannot be recovered from deletion",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "supabase.rls.policy.delete",
+      "vendor": "supabase",
+      "surface": "Postgres",
+      "summary": "Delete a Supabase row level security policy.",
+      "tags": [
+        "supabase",
+        "postgres",
+        "access-control",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the policy definition was captured",
+          "tone": "r1",
+          "inverse": "recreate the policy from captured SQL",
+          "window": "unbounded",
+          "note": "rows read or written while the policy was absent are not undone",
+          "if": {
+            "kind": "fact",
+            "fact": "supabase.rls.policy_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "the policy can be rebuilt but exposure or denied work during the gap remains",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "supabase.database.branch.delete",
+      "vendor": "supabase",
+      "surface": "Branches",
+      "summary": "Delete a Supabase database branch.",
+      "tags": [
+        "supabase",
+        "database",
+        "branch",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the branch has no unique data",
+          "tone": "r1",
+          "inverse": "recreate the branch from its parent",
+          "window": "while the parent remains",
+          "note": "branch identity and logs change but data loss is absent",
+          "if": {
+            "kind": "fact",
+            "fact": "supabase.branch.unique_data",
+            "is": "false"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "unique branch data is gone when the branch is deleted",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "supabase.secret.delete",
+      "vendor": "supabase",
+      "surface": "Secrets",
+      "summary": "Delete Supabase project secrets.",
+      "tags": [
+        "supabase",
+        "secret",
+        "delete",
+        "credential"
+      ],
+      "cases": [
+        {
+          "when": "the secret values are captured in the operator vault",
+          "tone": "r1",
+          "inverse": "set each secret from the captured values",
+          "window": "while the values remain valid",
+          "note": "secret plaintext is write-only after storage",
+          "if": {
+            "kind": "fact",
+            "fact": "supabase.secret_values_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleted secret values cannot be read back from Supabase",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "shopify.product.bulk_delete",
+      "vendor": "shopify",
+      "surface": "Products",
+      "summary": "Bulk delete Shopify products.",
+      "tags": [
+        "shopify",
+        "product",
+        "delete",
+        "bulk"
+      ],
+      "cases": [
+        {
+          "when": "the full product payloads were captured",
+          "tone": "r1",
+          "inverse": "recreate products from captured payloads",
+          "window": "while media and variant references remain available",
+          "note": "product ids, URLs and app side effects can change",
+          "if": {
+            "kind": "fact",
+            "fact": "shopify.product.capture.full_payload",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleted product data and media links are not recoverable without capture",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "shopify.theme.publish_live",
+      "vendor": "shopify",
+      "surface": "Themes",
+      "summary": "Publish a theme over the live Shopify theme.",
+      "tags": [
+        "shopify",
+        "theme",
+        "publish"
+      ],
+      "cases": [
+        {
+          "when": "the previous live theme id was captured",
+          "tone": "r0",
+          "inverse": "publish the captured previous theme",
+          "window": "while the previous theme is retained",
+          "note": "publishing switches the live pointer and does not delete the old theme",
+          "if": {
+            "kind": "fact",
+            "fact": "shopify.theme.previous_live_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "customers may see or cache the new live theme before rollback",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "shopify.order.bulk_cancel",
+      "vendor": "shopify",
+      "surface": "Orders",
+      "summary": "Cancel many Shopify orders at once.",
+      "tags": [
+        "shopify",
+        "order",
+        "cancel",
+        "bulk"
+      ],
+      "cases": [
+        {
+          "when": "no fulfilment or payment capture exists for the orders",
+          "tone": "r1",
+          "inverse": "recreate draft orders from captured payloads",
+          "window": "while inventory and customers remain",
+          "note": "order numbers and notifications change",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "shopify.order.fulfillment_created",
+                "is": "false"
+              },
+              {
+                "kind": "fact",
+                "fact": "shopify.order.payment_captured",
+                "is": "false"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "refunds and restocking can mitigate harm but the cancellations cannot be erased",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "shopify.customer.data_erasure",
+      "vendor": "shopify",
+      "surface": "Customers",
+      "summary": "Erase customer personal data from Shopify.",
+      "tags": [
+        "shopify",
+        "privacy",
+        "scrub"
+      ],
+      "cases": [
+        {
+          "when": "the erasure is still pending",
+          "tone": "r1",
+          "inverse": "cancel the pending erasure request",
+          "window": "before Shopify processes the request",
+          "note": "after processing, privacy erasure is meant to be permanent",
+          "if": {
+            "kind": "fact",
+            "fact": "shopify.customer.erasure_pending",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "completed customer data erasure is intentionally irreversible",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "shopify.discount.bulk_delete",
+      "vendor": "shopify",
+      "surface": "Discounts",
+      "summary": "Bulk delete Shopify discount codes.",
+      "tags": [
+        "shopify",
+        "discount",
+        "delete",
+        "bulk"
+      ],
+      "cases": [
+        {
+          "when": "the discount definitions were captured",
+          "tone": "r1",
+          "inverse": "recreate discounts from captured definitions",
+          "window": "while code names remain available",
+          "note": "redemption analytics and app side effects are not exactly restored",
+          "if": {
+            "kind": "fact",
+            "fact": "shopify.discount.capture.definitions",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "discounts can be recreated but campaigns and customer behavior during the gap remain changed",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "twilio.phone_number.release",
+      "vendor": "twilio",
+      "surface": "Phone Numbers",
+      "summary": "Release a Twilio phone number.",
+      "tags": [
+        "twilio",
+        "phone",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the number is still inside Twilio's reclaim window",
+          "tone": "r2",
+          "inverse": "attempt to reclaim the released number",
+          "window": "while the provider holds the number",
+          "note": "provider-side release is not a guaranteed inverse and inbound messages during the gap are lost",
+          "if": {
+            "kind": "fact",
+            "fact": "twilio.number.within_reclaim_window",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "the number can be assigned to another customer and cannot be recovered",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "twilio.messaging_service.delete",
+      "vendor": "twilio",
+      "surface": "Messaging Services",
+      "summary": "Delete a Twilio Messaging Service.",
+      "tags": [
+        "twilio",
+        "messaging",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the service configuration was captured",
+          "tone": "r2",
+          "inverse": "recreate the service and attach available senders",
+          "window": "while sender numbers remain available",
+          "note": "service SID, delivery history and inbound routing identity change",
+          "if": {
+            "kind": "fact",
+            "fact": "twilio.messaging_service.captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "sender routing and service identity are lost without a captured configuration",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "twilio.domain.delete",
+      "vendor": "twilio",
+      "surface": "Domains",
+      "summary": "Delete a Twilio domain or branded link domain.",
+      "tags": [
+        "twilio",
+        "domain",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "DNS records and provider configuration were captured",
+          "tone": "r2",
+          "inverse": "recreate the domain configuration and DNS records",
+          "window": "while the domain remains under operator control",
+          "note": "provider verification and reputation history may not return exactly",
+          "if": {
+            "kind": "fact",
+            "fact": "twilio.domain.config_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "a deleted provider domain can lose verification and reputation state",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "twilio.api_key.revoke",
+      "vendor": "twilio",
+      "surface": "API Keys",
+      "summary": "Revoke a Twilio API key.",
+      "tags": [
+        "twilio",
+        "credential",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "all clients can rotate to a new key",
+          "tone": "r2",
+          "inverse": "create a new key and deploy it to clients",
+          "window": "while clients are reachable",
+          "note": "the revoked key cannot be unrevoked, so rotation is mitigation only",
+          "if": {
+            "kind": "fact",
+            "fact": "twilio.clients.rotatable",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "unreachable clients that only know the revoked key lose access permanently",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sendgrid.domain.delete",
+      "vendor": "sendgrid",
+      "surface": "Domains",
+      "summary": "Delete a SendGrid authenticated sending domain.",
+      "tags": [
+        "sendgrid",
+        "domain",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "DNS records and domain settings were captured",
+          "tone": "r2",
+          "inverse": "recreate the domain and DNS records",
+          "window": "while DNS ownership remains",
+          "note": "sender reputation and verification continuity can still be damaged",
+          "if": {
+            "kind": "fact",
+            "fact": "sendgrid.domain.config_captured",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "deleting a sending domain can break authentication and reputation with no exact inverse",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sendgrid.api_key.revoke",
+      "vendor": "sendgrid",
+      "surface": "API Keys",
+      "summary": "Revoke a SendGrid API key.",
+      "tags": [
+        "sendgrid",
+        "credential",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "all clients can rotate to a new key",
+          "tone": "r2",
+          "inverse": "create a new API key and deploy it to clients",
+          "window": "while clients are reachable",
+          "note": "the old key cannot be restored after revocation",
+          "if": {
+            "kind": "fact",
+            "fact": "sendgrid.clients.rotatable",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "unreachable senders that only know the revoked key lose mail capability",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sendgrid.suppression.delete",
+      "vendor": "sendgrid",
+      "surface": "Suppressions",
+      "summary": "Delete SendGrid suppression records.",
+      "tags": [
+        "sendgrid",
+        "email",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the suppression list was captured",
+          "tone": "r1",
+          "inverse": "restore suppressions from the captured list",
+          "window": "while recipient addresses remain valid",
+          "note": "messages sent during the gap may have reached suppressed recipients",
+          "if": {
+            "kind": "fact",
+            "fact": "sendgrid.suppression.capture.list",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "suppression state can be rebuilt but unwanted sends during the gap remain",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sendgrid.template.delete",
+      "vendor": "sendgrid",
+      "surface": "Templates",
+      "summary": "Delete a SendGrid dynamic template.",
+      "tags": [
+        "sendgrid",
+        "template",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the template versions were captured",
+          "tone": "r1",
+          "inverse": "recreate the template and versions from capture",
+          "window": "while template id references can be updated",
+          "note": "the template id changes and clients may need redeploy",
+          "if": {
+            "kind": "fact",
+            "fact": "sendgrid.template.capture.versions",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "template content is not recoverable without a captured copy",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    }
+  ],
+  "factsAdded": [
+    "asana.member_state_captured",
+    "asana.portfolio.capture.settings",
+    "asana.project.within_restore_window",
+    "asana.task.capture.full_payload",
+    "asana.team_state_captured",
+    "gitea.actions.secret_values_captured",
+    "gitea.commits.reachable",
+    "gitea.member_state_captured",
+    "gitea.repository.backup_exists",
+    "gitea.repository.contains_private_data",
+    "gitea.transfer.target_cooperative",
+    "github.actions.secret_values_captured",
+    "github.branch_protection.captured",
+    "github.deploy_key.captured",
+    "github.environment.secret_values_captured",
+    "github.org.member_state_captured",
+    "github.repository.contains_private_data",
+    "github.repository.public",
+    "github.repository.public_mirrors_observed",
+    "github.team_state_captured",
+    "github.transfer.target_cooperative",
+    "gitlab.branch.deploys",
+    "gitlab.ci_variable_values_captured",
+    "gitlab.commits.reachable",
+    "gitlab.member_state_captured",
+    "gitlab.project.contains_private_data",
+    "gitlab.project.within_restore_window",
+    "gitlab.protected_branch.captured",
+    "gitlab.transfer.target_cooperative",
+    "jira.board.capture.settings",
+    "jira.project.in_trash",
+    "jira.scrub.display_name_only",
+    "jira.workflow.capture.full_payload",
+    "kubernetes.deployment.prior_replicas_captured",
+    "kubernetes.deployment.replicas_gt_0",
+    "kubernetes.helm.values_captured",
+    "kubernetes.namespace.empty",
+    "kubernetes.secret.source_in_git",
+    "kubernetes.workload.has_persistent_volume",
+    "linear.issue.capture.full_payload",
+    "linear.project.capture.full_payload",
+    "linear.project.in_archive",
+    "linear.scrub.archive_exists",
+    "linear.team_state_captured",
+    "sendgrid.clients.rotatable",
+    "sendgrid.domain.config_captured",
+    "sendgrid.suppression.capture.list",
+    "sendgrid.template.capture.versions",
+    "sentry.clients.redeployable",
+    "sentry.events.exported",
+    "sentry.member_state_captured",
+    "sentry.project.settings_captured",
+    "sentry.replay.archive_exists",
+    "shopify.customer.erasure_pending",
+    "shopify.discount.capture.definitions",
+    "shopify.order.payment_captured",
+    "shopify.theme.previous_live_captured",
+    "supabase.auth.users_count",
+    "supabase.auth.users_exported",
+    "supabase.branch.unique_data",
+    "supabase.database.pitr_available",
+    "supabase.edge_function.source_in_git",
+    "supabase.rls.policy_captured",
+    "supabase.secret_values_captured",
+    "supabase.storage.objects_mirrored",
+    "terraform.lock.holder_active",
+    "terraform.plan.destroy_actions_count",
+    "terraform.state.backup_exists",
+    "terraform.variable_set.captured",
+    "terraform.workspace.empty",
+    "twilio.clients.rotatable",
+    "twilio.domain.config_captured",
+    "twilio.messaging_service.captured",
+    "twilio.number.within_reclaim_window"
+  ]
+}
