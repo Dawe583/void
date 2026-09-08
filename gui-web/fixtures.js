@@ -50,5 +50,52 @@ window.VOID_FIXTURES = {
     { name: "allow reads", match: "class R0", action: "forward", on: true },
     { name: "hold mitigable", match: "class R2", action: "hold", on: true },
     { name: "hold irreversible", match: "class R3", action: "hold", on: true }
+  ],
+  sessions: [
+    { id: "sess-demo-01", agent: "demo-agent", host: "Claude Code", surface: "Postgres", transport: "stdio", posture: "fail closed", status: "active", calls: 8, holds: 2 },
+    { id: "sess-demo-02", agent: "demo-agent", host: "Claude Code", surface: "S3", transport: "http :7777", posture: "fail closed", status: "paused", calls: 31, holds: 0 },
+    { id: "sess-demo-00", agent: "ci-probe", host: "MCP client", surface: "Postgres", transport: "stdio", posture: "observe only", status: "closed", calls: 120, holds: 0 }
+  ],
+  facts: [
+    { fact: "s3 versioning assets", value: "off", verified: "2026-09-07", state: "fresh" },
+    { fact: "s3 versioning backups", value: "on", verified: "2026-09-07", state: "fresh" },
+    { fact: "pg role can write", value: "no", verified: "2026-09-05", state: "stale" },
+    { fact: "allowlisted hosts", value: "api.vendor", verified: "2026-09-08", state: "fresh" },
+    { fact: "snapshot bucket reachable", value: "yes", verified: "2026-09-01", state: "stale" }
+  ],
+  probeCache: [
+    { target: "DELETE FROM events", fact: "row count", ttl: "60s", status: "fresh", value: "42 rows" },
+    { target: "DELETE FROM orders", fact: "row count", ttl: "60s", status: "fresh", value: "41883 rows" },
+    { target: "s3://assets prefix", fact: "key count", ttl: "300s", status: "stale", value: "500 keys, 3 without prior version" },
+    { target: "api.vendor ping", fact: "reachability", ttl: "30s", status: "failed, declared used", value: "declared" }
+  ],
+  taintEdges: [
+    { from: "SELECT orders", to: "UPDATE users SET plan", kind: "read to write" },
+    { from: "SELECT order_items", to: "DELETE FROM orders", kind: "read to write" },
+    { from: "DELETE FROM orders", to: "stripe.payout.create", kind: "write to write" },
+    { from: "DELETE FROM orders", to: "sendgrid.mail.send", kind: "write to write" },
+    { from: "GET s3://assets/logo.png", to: "PUT s3://assets/logo.png", kind: "read to write" },
+    { from: "SELECT events", to: "DELETE FROM events", kind: "read to write" }
+  ],
+  frames: [
+    { frame: "ledger entry", maps: "seq, hash, prev, sig, class, tool" },
+    { frame: "classification", maps: "tool id, case index, precondition" },
+    { frame: "policy decision", maps: "rule id, decision, reason" },
+    { frame: "blast radius", maps: "measured count plus per table split" },
+    { frame: "replay step", maps: "inverse or compensation plus order" }
+  ],
+  cliCommands: [
+    { cmd: "void run", desc: "Wrap an agent session through the proxy.", ex: "void run -- npx agent" },
+    { cmd: "void approvals", desc: "List and resolve pending holds.", ex: "void approvals --json" },
+    { cmd: "void ledger verify", desc: "Verify chain links and signatures.", ex: "void ledger verify" },
+    { cmd: "void replay", desc: "Preview or run inverses in taint order.", ex: "void replay --to 7 --dry-run" },
+    { cmd: "void policy test", desc: "Test a policy file against a transcript.", ex: "void policy test --policy policy/default.yaml --transcript fixtures/session.jsonl" },
+    { cmd: "void classify", desc: "Print class distribution over a transcript.", ex: "void classify --transcript fixtures/session.jsonl" },
+    { cmd: "void probe", desc: "Measure blast radius for one statement.", ex: "void probe -- db.query DELETE FROM orders" },
+    { cmd: "void export", desc: "Export a signed period slice.", ex: "void export --period 2026-09 --sign" }
+  ],
+  keys: [
+    { id: "dev-01", alg: "ed25519", state: "active", note: "Verify reports development key, never plain valid." },
+    { id: "dev-00", alg: "ed25519", state: "retired", note: "Old entries still verify against retired keys." }
   ]
 };

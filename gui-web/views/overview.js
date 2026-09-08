@@ -39,4 +39,26 @@ window.VOID_VIEWS.overview = function (root) {
   }).join("");
   recent.innerHTML = "<h3>Recent calls</h3><table class='table'><tr><th>Time</th><th>Tool</th><th>Class</th><th>Decision</th></tr>" + rows + "</table>";
   root.appendChild(recent);
+
+  var pipe = document.createElement("div");
+  pipe.className = "card section";
+  pipe.innerHTML = "<h3>Write path</h3><p>Intercept, classify, policy, ledger, replay. Each step has its own view.</p>" +
+    "<div class='cta-row'><a class='btn-pearl' style='text-decoration:none' href='#/intercept'>Intercept</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/registry'>Registry</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/policy'>Policy</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/ledger'>Ledger</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/replay'>Replay</a></div>";
+  root.appendChild(pipe);
+
+  var hub = document.createElement("div");
+  hub.className = "card section";
+  hub.innerHTML = "<h3>All areas</h3><div class='cta-row'>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/sessions'>Sessions</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/connectors'>Connectors</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/facts'>Facts and probes</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/taint'>Taint graph</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/audit'>Audit</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/cli'>CLI</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/settings'>Settings</a></div>";
+  root.appendChild(hub);
 };

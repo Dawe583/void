@@ -10,7 +10,7 @@ window.VOID_TOAST = function (msg) {
   setTimeout(function () { el.remove(); }, 3200);
 };
 
-var VIEWS = ["overview", "live", "holds", "ledger", "registry", "policy", "replay"];
+var VIEWS = ["overview", "intercept", "live", "holds", "ledger", "registry", "policy", "replay", "sessions", "connectors", "facts", "taint", "audit", "cli", "settings"];
 
 function currentView() {
   var h = (location.hash || "#/overview").replace("#/", "");
