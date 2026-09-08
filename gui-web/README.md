@@ -26,13 +26,15 @@ gui-web/
   fixtures.js      MOCK session, calls, holds, ledger, registry, policy
   app.js           hash router, toast, status line
   views/           one file per view, registered on window.VOID_VIEWS
-    overview.js    hero, stats, class mix, recent calls, hub
-    intercept.js   one call through classify, policy, ledger preview
+    overview.js    dark hero, stats, class mix, recent calls, hub
+    intercept.js   one call through classify, policy, model, ledger preview
     live.js        intercepted call feed with pause and filter
     holds.js       approval queue, approve or refuse
     ledger.js      chain browser, search, mock verify
     registry.js    case explorer with first match evaluator
     policy.js      rules with toggles, approval channel
+    providers.js   gateway, direct, local, BYOK keys, test
+    models.js      catalog, routing, fallbacks, spend, request log
     replay.js      inverse plan plus attestation export
     sessions.js    wrapped agent sessions, transports, posture
     connectors.js  postgres and S3 undo plus snapshot store

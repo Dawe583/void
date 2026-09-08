@@ -17,10 +17,14 @@ window.VOID_VIEWS.intercept = function (root) {
 
   function paint() {
     var cases = F.registryCases[tool];
+    var modelOpts = F.models ? F.models.map(function (m) {
+      return "<option" + (m.id === F.routing.def ? " selected" : "") + ">" + m.id + "</option>";
+    }).join("") : "";
     var html = "<h2>Intercept simulator</h2><p class='muted'>One call through the full path: classify, policy, ledger preview. Mock, nothing executes.</p>" +
       "<div class='toolbar'><select id='ic-tool' aria-label='Tool'>" +
       tools.map(function (t) { return "<option" + (t === tool ? " selected" : "") + ">" + t + "</option>"; }).join("") +
-      "</select></div>" +
+      "</select>" +
+      (F.models ? "<select id='ic-model' aria-label='Model'>" + modelOpts + "</select><span class='muted small'>fallback: " + F.routing.fallbacks.join(", ") + "</span>" : "") + "</div>" +
       "<div class='card'><h3>1. Declared facts</h3><p class='muted small'>Tick facts that hold for the target.</p><div id='ic-facts'>" +
       cases.map(function (c, i) {
         return "<label style='display:block;padding:8px 0'><input type='checkbox' data-i='" + i + "'" + (i === 0 ? " checked" : "") + "> " + c.pre + "</label>";
@@ -39,9 +43,11 @@ window.VOID_VIEWS.intercept = function (root) {
       });
       var c = idx >= 0 ? cases[idx] : { pre: "no fact holds", cls: "R3", decision: "hold" };
       var rule = policyFor(c.cls);
+      var modelSel = wrap.querySelector("#ic-model");
+      var model = modelSel ? modelSel.value : "unconfigured";
       wrap.querySelector("#ic-class").innerHTML = "Case " + (idx >= 0 ? idx + 1 : "none") + " wins: <span class='badge-" + c.cls.toLowerCase() + "'>" + c.cls + "</span> " + c.decision;
       wrap.querySelector("#ic-pol").innerHTML = "Rule <b>" + rule.name + "</b> decides <b>" + rule.action + "</b>.";
-      wrap.querySelector("#ic-json").textContent = JSON.stringify({ seq: F.ledgerEntries.length + 1, prev: F.ledgerEntries[F.ledgerEntries.length - 1].hash, tool: tool, class: c.cls, decision: rule.action, sig: "ed25519 mock" }, null, 2);
+      wrap.querySelector("#ic-json").textContent = JSON.stringify({ seq: F.ledgerEntries.length + 1, prev: F.ledgerEntries[F.ledgerEntries.length - 1].hash, tool: tool, class: c.cls, decision: rule.action, model: model, sig: "ed25519 mock" }, null, 2);
       return { cls: c.cls, rule: rule };
     }
 

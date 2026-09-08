@@ -2,9 +2,9 @@ window.VOID_VIEWS = window.VOID_VIEWS || {};
 window.VOID_VIEWS.overview = function (root) {
   var F = window.VOID_FIXTURES;
   var hero = document.createElement("div");
-  hero.className = "hero";
+  hero.className = "hero-dark";
   hero.innerHTML = "<h1>Every write, reversible or accounted for</h1>" +
-    "<p>VOID sits between the agent and its tools, classifies each call, and records it.</p>" +
+    "<p>VOID sits between the agent and its tools, classifies each call, and records it. Press Cmd or Ctrl K to jump anywhere.</p>" +
     "<div class='cta-row'><a class='btn-primary' style='text-decoration:none' href='#/live'>Open live feed</a>" +
     "<a class='btn-ghost' style='text-decoration:none' href='#/holds'>Review holds</a></div>";
   root.appendChild(hero);
@@ -53,6 +53,8 @@ window.VOID_VIEWS.overview = function (root) {
   var hub = document.createElement("div");
   hub.className = "card section";
   hub.innerHTML = "<h3>All areas</h3><div class='cta-row'>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/providers'>Providers</a>" +
+    "<a class='btn-pearl' style='text-decoration:none' href='#/models'>Models and spend</a>" +
     "<a class='btn-pearl' style='text-decoration:none' href='#/sessions'>Sessions</a>" +
     "<a class='btn-pearl' style='text-decoration:none' href='#/connectors'>Connectors</a>" +
     "<a class='btn-pearl' style='text-decoration:none' href='#/facts'>Facts and probes</a>" +
@@ -61,4 +63,15 @@ window.VOID_VIEWS.overview = function (root) {
     "<a class='btn-pearl' style='text-decoration:none' href='#/cli'>CLI</a>" +
     "<a class='btn-pearl' style='text-decoration:none' href='#/settings'>Settings</a></div>";
   root.appendChild(hub);
+
+  if (F.providers) {
+    var prov = document.createElement("div");
+    prov.className = "grid grid-3 section";
+    var connected = F.providers.filter(function (p) { return p.status === "connected"; }).length;
+    prov.innerHTML =
+      "<div class='card'><div class='stat-num'>" + connected + "/" + F.providers.length + "</div><div class='muted'>providers connected</div><p><a href='#/providers'>Manage providers</a></p></div>" +
+      "<div class='card'><div class='stat-num small-mono mono' style='font-size:20px'>" + F.routing.def + "</div><div class='muted'>default model, $" + F.usage.spent.toFixed(2) + " of $" + F.usage.budget.toFixed(2) + " spent</div><p><a href='#/models'>Models and spend</a></p></div>" +
+      "<div class='card'><div class='stat-num'>" + F.models.length + "</div><div class='muted'>models in catalog</div><p><a href='#/models'>Open catalog</a></p></div>";
+    root.appendChild(prov);
+  }
 };

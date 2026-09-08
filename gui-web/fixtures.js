@@ -97,5 +97,33 @@ window.VOID_FIXTURES = {
   keys: [
     { id: "dev-01", alg: "ed25519", state: "active", note: "Verify reports development key, never plain valid." },
     { id: "dev-00", alg: "ed25519", state: "retired", note: "Old entries still verify against retired keys." }
+  ],
+  providers: [
+    { id: "openrouter", name: "OpenRouter", kind: "gateway, primary", base: "https://openrouter.ai/api/v1", key: "own key set, ends 4f2a", status: "connected", latency: "320ms", note: "BYOK tried before shared endpoints. One key, many models." },
+    { id: "ollama", name: "Ollama local", kind: "local", base: "http://localhost:11434/v1", key: "none needed", status: "connected", latency: "45ms", note: "Zero retention by construction, stays on this machine." },
+    { id: "openai", name: "OpenAI direct", kind: "direct, fallback", base: "https://api.openai.com/v1", key: "missing", status: "standby", latency: "n/a", note: "Used only when the gateway has no route." },
+    { id: "anthropic", name: "Anthropic direct", kind: "direct", base: "https://api.anthropic.com", key: "missing", status: "off", latency: "n/a", note: "Turn on to add a second direct fallback." }
+  ],
+  models: [
+    { id: "z-ai/glm-5.3", provider: "openrouter", tag: "FREE, default", ctx: "200k", out: "64k", tools: "yes", price: "0 / 0", note: "Daily driver. Cost tier low." },
+    { id: "openai/gpt-5-mini", provider: "openrouter", tag: "fallback 1", ctx: "400k", out: "128k", tools: "yes", price: "0.25 / 2.00", note: "Cheap reserve when the default errors." },
+    { id: "google/gemini-3-flash", provider: "openrouter", tag: "fallback 2", ctx: "1M", out: "64k", tools: "yes", price: "0.10 / 0.40", note: "Fast reserve, latency sensitive work." },
+    { id: "anthropic/claude-sonnet-4.5", provider: "openrouter", tag: "frontier", ctx: "1M", out: "128k", tools: "yes", price: "3.00 / 15.00", note: "Complex jobs only, needs explicit pick." },
+    { id: "meta/llama-3.3-70b", provider: "ollama", tag: "local", ctx: "128k", out: "8k", tools: "limited", price: "0 / 0", note: "Offline work, no data leaves." }
+  ],
+  routing: { def: "z-ai/glm-5.3", fallbacks: ["openai/gpt-5-mini", "google/gemini-3-flash"], sort: "price", allowFallbacks: true, dataPolicy: "deny training use", maxPrice: "5.00 per 1M", tier: "medium" },
+  usage: { period: "2026-09", budget: 20.0, spent: 6.42, byModel: [
+    { model: "z-ai/glm-5.3", tokens: "1.42M", cost: 0.0 },
+    { model: "openai/gpt-5-mini", tokens: "0.31M", cost: 0.7 },
+    { model: "google/gemini-3-flash", tokens: "0.88M", cost: 0.44 },
+    { model: "anthropic/claude-sonnet-4.5", tokens: "0.12M", cost: 5.28 }
+  ] },
+  requestLog: [
+    { t: "08:00:11", model: "z-ai/glm-5.3", provider: "openrouter", tokens: "2.1k", ms: 410, cost: "0.00", status: "ok" },
+    { t: "08:01:02", model: "z-ai/glm-5.3", provider: "openrouter", tokens: "8.4k", ms: 900, cost: "0.00", status: "ok" },
+    { t: "08:02:44", model: "openai/gpt-5-mini", provider: "openrouter", tokens: "12.0k", ms: 1200, cost: "0.02", status: "fallback" },
+    { t: "08:04:57", model: "z-ai/glm-5.3", provider: "openrouter", tokens: "1.1k", ms: 60, cost: "0.00", status: "cached" },
+    { t: "08:06:08", model: "anthropic/claude-sonnet-4.5", provider: "openrouter", tokens: "22.5k", ms: 3400, cost: "0.41", status: "ok" },
+    { t: "08:07:52", model: "meta/llama-3.3-70b", provider: "ollama", tokens: "3.3k", ms: 700, cost: "0.00", status: "ok" }
   ]
 };

@@ -226,3 +226,86 @@ pre.canonical {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* Design upgrade: component layer (Phosphor icons via CDN, Apple tokens kept) */
+.ph { font-size: 20px; vertical-align: -4px; }
+h2 .ph { color: var(--blue); }
+
+/* Dark hero tile: museum gallery band */
+.hero-dark {
+  background: var(--tile-1);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 48px;
+  margin-top: 24px;
+}
+.hero-dark h1 { font-size: 40px; font-weight: 600; line-height: 1.07; letter-spacing: -0.28px; margin: 0 0 8px; }
+.hero-dark p { color: #cccccc; max-width: 60ch; margin: 0 0 20px; }
+.hero-dark .btn-ghost { color: var(--blue-on-dark); border-color: var(--blue-on-dark); }
+
+/* Spend and health meters: single accent, track is divider */
+.meter { background: var(--divider); border-radius: var(--radius-pill); height: 8px; overflow: hidden; margin: 8px 0; }
+.meter > span { display: block; height: 100%; background: var(--blue); }
+
+/* Masked key badge */
+.key-badge {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  background: var(--parchment);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+}
+
+/* Command palette */
+.palette {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, 90vw);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  z-index: 200;
+}
+.palette input { width: 100%; }
+.pal-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--divider);
+  padding: 12px 4px;
+  font-size: 15px;
+  cursor: pointer;
+  text-align: left;
+}
+.pal-row:hover { background: var(--pearl); }
+
+/* Card hover: border shift only, never shadow */
+.card { transition: border-color 0.2s ease; }
+.grid .card:hover { border-color: #c7c7cc; }
+
+/* Scrollable tables keep headers visible */
+.table-wrap { overflow-x: auto; }
+.table thead th { position: sticky; top: 0; background: var(--canvas); }
+
+/* Status pills */
+.pill-ok, .pill-warn, .pill-off {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid;
+}
+.pill-ok { color: var(--ok); border-color: var(--ok); }
+.pill-warn { color: var(--warn); border-color: var(--warn); }
+.pill-off { color: var(--ink-faint); border-color: var(--hairline); }
+
+@media (max-width: 640px) {
+  .hero-dark { padding: 32px 24px; }
+  .hero-dark h1 { font-size: 28px; }
+}
