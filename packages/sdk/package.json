@@ -1,0 +1,23 @@
+{
+  "name": "@void/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  },
+  "dependencies": {
+    "@void/connectors": "workspace:*",
+    "@void/ledger": "workspace:*",
+    "@void/policy": "workspace:*",
+    "@void/proxy": "workspace:*"
+  }
+}

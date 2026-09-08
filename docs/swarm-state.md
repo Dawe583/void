@@ -15,9 +15,9 @@ Workspace: 366 checks green (registry 28, ledger 39, policy 44, proxy 60, connec
 
 | track | owner | status | depends on |
 | ----- | ----- | ------ | ---------- |
-| SDK wrap | sdk-wrap | in progress: reading proxy, policy and ledger seams, creating packages/sdk | runProxy + broker shapes |
+| SDK wrap | sdk-wrap | landed: packages/sdk exports VoidClient, holdHandle and typed errors; sdk typecheck and 6 node:test checks pass | runProxy + broker shapes |
 | HTTP bin wiring | http-bin-wiring | landed: runProxy supports transport stdio or http; void-proxy accepts --transport stdio|http and --upstream-url for http; stdio warns if --upstream-url is supplied | transport/http.ts landed |
-| hardening pass | hardening | auditing and patching fail-closed guards in proxy, ledger, policy and CLI | all packages |
+| hardening pass | hardening | landed fail-closed guards: JSON-RPC batch and null id reject, inbound ceiling, no payload echo, SIGTERM/SIGINT hold drain, workspace sanitization, key mode checks, sequential ledger appends, feed parse exit | all packages |
 | final e2e sweep | e2e-final | landed scripts/src/e2e-final.mjs, test, and HTTP fixture; script PASS with NOTE for missing approve command and replay drift surface | CLI surfaces + http flags |
 | docs + changelog + release | docs-release | reading docs, exports, scripts, and git log before writing release docs | everything |
 
