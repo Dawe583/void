@@ -99,7 +99,7 @@ const awsEntries: RegistryEntry[] = [
     summary: "Delete a bucket.",
     tags: ["storage", "delete", "namespace"],
     cases: [
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "bucket names are a global namespace and can be claimed by another account within minutes" },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "bucket names are a global namespace and can be claimed by another account within minutes" , if: {"kind": "always"} },
     ],
   },
   {
@@ -120,8 +120,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Terminate an instance.",
     tags: ["compute", "delete"],
     cases: [
-      { when: "the root volume has DeleteOnTermination false and an AMI exists", tone: "r1", inverse: "ec2:RunInstances from the AMI plus volume reattach", window: "while the AMI and volume are retained", note: "a new instance id and private address, so anything pinned to the old identity breaks" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "instance store and DeleteOnTermination volumes are destroyed with the instance" },
+      { when: "the root volume has DeleteOnTermination false and an AMI exists", tone: "r1", inverse: "ec2:RunInstances from the AMI plus volume reattach", window: "while the AMI and volume are retained", note: "a new instance id and private address, so anything pinned to the old identity breaks" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "aws.ec2.root_volume.delete_on_termination", "is": "false"}, {"kind": "fact", "fact": "aws.ec2.ami.exists", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "instance store and DeleteOnTermination volumes are destroyed with the instance" , if: {"kind": "always"} },
     ],
   },
   {
@@ -142,8 +142,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Delete an EBS volume.",
     tags: ["storage", "delete"],
     cases: [
-      { when: "a snapshot of the volume exists", tone: "r1", inverse: "ec2:CreateVolume from the snapshot", window: "while the snapshot is retained", note: "writes since the snapshot are lost and the volume id changes" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "no snapshot means no copy of the blocks" },
+      { when: "a snapshot of the volume exists", tone: "r1", inverse: "ec2:CreateVolume from the snapshot", window: "while the snapshot is retained", note: "writes since the snapshot are lost and the volume id changes" , if: {"kind": "fact", "fact": "aws.ec2.volume.snapshot_exists", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "no snapshot means no copy of the blocks" , if: {"kind": "always"} },
     ],
   },
   {
@@ -164,8 +164,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Delete a database instance.",
     tags: ["database", "delete"],
     cases: [
-      { when: "SkipFinalSnapshot is false", tone: "r1", inverse: "rds:RestoreDBInstanceFromDBSnapshot", window: "while the final snapshot is retained", note: "restore takes minutes to hours and produces a new endpoint" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "skipping the final snapshot with no automated backups leaves nothing to restore from" },
+      { when: "SkipFinalSnapshot is false", tone: "r1", inverse: "rds:RestoreDBInstanceFromDBSnapshot", window: "while the final snapshot is retained", note: "restore takes minutes to hours and produces a new endpoint" , if: {"kind": "argument", "argument": "SkipFinalSnapshot", "operator": "equals", "value": "false"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "skipping the final snapshot with no automated backups leaves nothing to restore from" , if: {"kind": "always"} },
     ],
   },
   {
@@ -175,7 +175,7 @@ const awsEntries: RegistryEntry[] = [
     summary: "Delete a database snapshot.",
     tags: ["database", "delete", "backup"],
     cases: [
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "deleting a backup is the one action that removes the ability to undo other actions" },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "deleting a backup is the one action that removes the ability to undo other actions" , if: {"kind": "always"} },
     ],
   },
   {
@@ -185,9 +185,9 @@ const awsEntries: RegistryEntry[] = [
     summary: "Write an item, replacing any item with the same key.",
     tags: ["database", "write", "overwrite"],
     cases: [
-      { when: "a before image was captured by the interceptor", tone: "r0", inverse: "dynamodb:PutItem with the captured image", window: "unbounded", note: "the interceptor reads the item before writing, which costs one extra RCU" },
-      { when: "point in time recovery is enabled", tone: "r1", inverse: "table level restore to a timestamp", window: "35 days", note: "PITR restores a whole table to a new name, it cannot restore one item in place" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "the replaced attributes are not retained anywhere" },
+      { when: "a before image was captured by the interceptor", tone: "r0", inverse: "dynamodb:PutItem with the captured image", window: "unbounded", note: "the interceptor reads the item before writing, which costs one extra RCU" , if: {"kind": "fact", "fact": "aws.dynamodb.capture.before_image", "is": "true"} },
+      { when: "point in time recovery is enabled", tone: "r1", inverse: "table level restore to a timestamp", window: "35 days", note: "PITR restores a whole table to a new name, it cannot restore one item in place" , if: {"kind": "fact", "fact": "aws.dynamodb.pitr.enabled", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "the replaced attributes are not retained anywhere" , if: {"kind": "always"} },
     ],
   },
   {
@@ -197,8 +197,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Delete a table.",
     tags: ["database", "delete"],
     cases: [
-      { when: "an on demand backup exists", tone: "r1", inverse: "dynamodb:RestoreTableFromBackup", window: "while the backup is retained", note: "restores under a new name, stream ARNs and triggers must be rebuilt" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "PITR is deleted with the table it belonged to" },
+      { when: "an on demand backup exists", tone: "r1", inverse: "dynamodb:RestoreTableFromBackup", window: "while the backup is retained", note: "restores under a new name, stream ARNs and triggers must be rebuilt" , if: {"kind": "fact", "fact": "aws.dynamodb.backup.exists", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "PITR is deleted with the table it belonged to" , if: {"kind": "always"} },
     ],
   },
   {
@@ -208,8 +208,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Create a long lived access key for a user.",
     tags: ["identity", "credential"],
     cases: [
-      { when: "the secret never left the interceptor process", tone: "r1", inverse: "iam:DeleteAccessKey", window: "unbounded", note: "the key existed, so it appears in the credential report" },
-      { when: "always", tone: "r2", inverse: "iam:DeleteAccessKey plus rotation notice", window: "unbounded", note: "once a secret reaches an agent transcript or a log it must be treated as disclosed, and deleting it does not un-disclose it" },
+      { when: "the secret never left the interceptor process", tone: "r1", inverse: "iam:DeleteAccessKey", window: "unbounded", note: "the key existed, so it appears in the credential report" , if: {"kind": "fact", "fact": "aws.iam.secret.disclosed", "is": "false"} },
+      { when: "always", tone: "r2", inverse: "iam:DeleteAccessKey plus rotation notice", window: "unbounded", note: "once a secret reaches an agent transcript or a log it must be treated as disclosed, and deleting it does not un-disclose it" , if: {"kind": "always"} },
     ],
   },
   {
@@ -219,8 +219,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Attach a managed policy to a role.",
     tags: ["identity", "access-control"],
     cases: [
-      { when: "the policy grants no write or credential action", tone: "r0", inverse: "iam:DetachRolePolicy", window: "unbounded", note: "read only widening is recoverable with no residue" },
-      { when: "always", tone: "r2", inverse: "iam:DetachRolePolicy", window: "unbounded", note: "anything the role did while over-permissioned is its own set of actions to compensate" },
+      { when: "the policy grants no write or credential action", tone: "r0", inverse: "iam:DetachRolePolicy", window: "unbounded", note: "read only widening is recoverable with no residue" , if: {"kind": "fact", "fact": "aws.iam.policy.write_or_credential", "is": "false"} },
+      { when: "always", tone: "r2", inverse: "iam:DetachRolePolicy", window: "unbounded", note: "anything the role did while over-permissioned is its own set of actions to compensate" , if: {"kind": "always"} },
     ],
   },
   {
@@ -230,8 +230,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Schedule a customer managed key for deletion.",
     tags: ["security", "delete", "deferred"],
     cases: [
-      { when: "the pending window has not elapsed", tone: "r0", inverse: "kms:CancelKeyDeletion", window: "7 to 30 days as configured", note: "AWS built the deferral in, which is exactly the pattern VOID generalises" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "everything encrypted under the key is permanently unreadable" },
+      { when: "the pending window has not elapsed", tone: "r0", inverse: "kms:CancelKeyDeletion", window: "7 to 30 days as configured", note: "AWS built the deferral in, which is exactly the pattern VOID generalises" , if: {"kind": "fact", "fact": "aws.kms.deletion.window_elapsed", "is": "false"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "everything encrypted under the key is permanently unreadable" , if: {"kind": "always"} },
     ],
   },
   {
@@ -241,8 +241,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Delete a secret.",
     tags: ["security", "delete", "deferred"],
     cases: [
-      { when: "ForceDeleteWithoutRecovery was not set", tone: "r0", inverse: "secretsmanager:RestoreSecret", window: "7 to 30 days as configured", note: "the default is a soft delete with a recovery window" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "the force flag skips the recovery window entirely" },
+      { when: "ForceDeleteWithoutRecovery was not set", tone: "r0", inverse: "secretsmanager:RestoreSecret", window: "7 to 30 days as configured", note: "the default is a soft delete with a recovery window" , if: {"kind": "argument", "argument": "ForceDeleteWithoutRecovery", "operator": "equals", "value": "false"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "the force flag skips the recovery window entirely" , if: {"kind": "always"} },
     ],
   },
   {
@@ -252,8 +252,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Send an email to a recipient.",
     tags: ["messaging", "external"],
     cases: [
-      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "a held send has not reached SES, so cancelling costs nothing" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "SMTP has no recall, and a follow up correction is a new message rather than an undo" },
+      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "a held send has not reached SES, so cancelling costs nothing" , if: {"kind": "fact", "fact": "hold.released", "is": "false"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "SMTP has no recall, and a follow up correction is a new message rather than an undo" , if: {"kind": "always"} },
     ],
   },
   {
@@ -263,8 +263,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Upsert a DNS record.",
     tags: ["network", "dns"],
     cases: [
-      { when: "the record TTL is 300 seconds or less", tone: "r1", inverse: "route53:ChangeResourceRecordSets with the prior value", window: "unbounded", note: "the record comes back but resolvers keep the old answer for up to one TTL" },
-      { when: "always", tone: "r2", inverse: "route53:ChangeResourceRecordSets with the prior value", window: "unbounded", note: "a long TTL means the wrong answer is cached far outside your control" },
+      { when: "the record TTL is 300 seconds or less", tone: "r1", inverse: "route53:ChangeResourceRecordSets with the prior value", window: "unbounded", note: "the record comes back but resolvers keep the old answer for up to one TTL" , if: {"kind": "fact", "fact": "aws.route53.record.ttl_lte_300", "is": "true"} },
+      { when: "always", tone: "r2", inverse: "route53:ChangeResourceRecordSets with the prior value", window: "unbounded", note: "a long TTL means the wrong answer is cached far outside your control" , if: {"kind": "always"} },
     ],
   },
   {
@@ -274,7 +274,7 @@ const awsEntries: RegistryEntry[] = [
     summary: "Stop logging on a trail.",
     tags: ["audit", "compliance"],
     cases: [
-      { when: "always", tone: "r2", inverse: "cloudtrail:StartLogging", window: "unbounded", note: "logging resumes but the gap in the record can never be filled, which is precisely what an auditor looks for" },
+      { when: "always", tone: "r2", inverse: "cloudtrail:StartLogging", window: "unbounded", note: "logging resumes but the gap in the record can never be filled, which is precisely what an auditor looks for" , if: {"kind": "always"} },
     ],
   },
   {
@@ -284,8 +284,8 @@ const awsEntries: RegistryEntry[] = [
     summary: "Delete a stack and every resource it owns.",
     tags: ["infrastructure", "delete", "fan-out"],
     cases: [
-      { when: "every resource carries a Retain deletion policy", tone: "r1", inverse: "redeploy the template and import the retained resources", window: "unbounded", note: "the resources survive but the stack identity and drift history do not" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "one call fans out into dozens of deletions, each with its own class, and the worst one wins" },
+      { when: "every resource carries a Retain deletion policy", tone: "r1", inverse: "redeploy the template and import the retained resources", window: "unbounded", note: "the resources survive but the stack identity and drift history do not" , if: {"kind": "fact", "fact": "aws.cloudformation.resources.retain_policy", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "one call fans out into dozens of deletions, each with its own class, and the worst one wins" , if: {"kind": "always"} },
     ],
   },
 ];
@@ -321,8 +321,8 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Move funds from the Stripe balance to a bank account.",
     tags: ["payments", "money", "external"],
     cases: [
-      { when: "the payout status is still pending", tone: "r0", inverse: "POST /v1/payouts/:id/cancel", window: "until the payout is submitted to the bank", note: "only manual payouts sit in pending long enough to be worth intercepting" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "once it settles the money is in a bank you do not control and recovery is a legal process, not an API call" },
+      { when: "the payout status is still pending", tone: "r0", inverse: "POST /v1/payouts/:id/cancel", window: "until the payout is submitted to the bank", note: "only manual payouts sit in pending long enough to be worth intercepting" , if: {"kind": "fact", "fact": "stripe.payout.status", "is": "pending"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "once it settles the money is in a bank you do not control and recovery is a legal process, not an API call" , if: {"kind": "always"} },
     ],
   },
   {
@@ -354,7 +354,7 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Delete a customer object.",
     tags: ["payments", "delete", "pii"],
     cases: [
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "the customer id is gone, saved payment methods are detached, and every subscription on it is cancelled in the same call" },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "the customer id is gone, saved payment methods are detached, and every subscription on it is cancelled in the same call" , if: {"kind": "always"} },
     ],
   },
   {
@@ -364,7 +364,7 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Accept a dispute rather than contesting it.",
     tags: ["payments", "money", "terminal"],
     cases: [
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "accepting is final, the funds and the dispute fee are gone, and evidence can no longer be submitted" },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "accepting is final, the funds and the dispute fee are gone, and evidence can no longer be submitted" , if: {"kind": "always"} },
     ],
   },
   {
@@ -374,8 +374,8 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Post a journal entry to the general ledger.",
     tags: ["accounting", "money"],
     cases: [
-      { when: "the accounting period is open", tone: "r1", inverse: "delete the entry", window: "until the period closes", note: "the audit log keeps the create and the delete, which is what an auditor expects to see" },
-      { when: "always", tone: "r2", inverse: "post a reversing entry", window: "unbounded", note: "a closed period must not be edited, so the only correct inverse is a new entry that offsets it" },
+      { when: "the accounting period is open", tone: "r1", inverse: "delete the entry", window: "until the period closes", note: "the audit log keeps the create and the delete, which is what an auditor expects to see" , if: {"kind": "fact", "fact": "quickbooks.period.open", "is": "true"} },
+      { when: "always", tone: "r2", inverse: "post a reversing entry", window: "unbounded", note: "a closed period must not be edited, so the only correct inverse is a new entry that offsets it" , if: {"kind": "always"} },
     ],
   },
   {
@@ -385,8 +385,8 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Cancel an order.",
     tags: ["commerce", "money", "fulfilment"],
     cases: [
-      { when: "no fulfilment has been created", tone: "r1", inverse: "create a new draft order from the captured line items", window: "unbounded", note: "the order number is consumed and the customer received a cancellation email" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "a cancelled order that was already handed to a carrier is a physical object moving through the world" },
+      { when: "no fulfilment has been created", tone: "r1", inverse: "create a new draft order from the captured line items", window: "unbounded", note: "the order number is consumed and the customer received a cancellation email" , if: {"kind": "fact", "fact": "shopify.order.fulfillment_created", "is": "false"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "a cancelled order that was already handed to a carrier is a physical object moving through the world" , if: {"kind": "always"} },
     ],
   },
   {
@@ -396,8 +396,8 @@ const moneyEntries: RegistryEntry[] = [
     summary: "Delete a product and its variants.",
     tags: ["commerce", "delete"],
     cases: [
-      { when: "a full product payload was captured before the call", tone: "r1", inverse: "productCreate from the captured payload", window: "unbounded", note: "new product and variant ids break every external reference, including live ad campaigns" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "variant ids, metafields and inventory history are not reconstructable" },
+      { when: "a full product payload was captured before the call", tone: "r1", inverse: "productCreate from the captured payload", window: "unbounded", note: "new product and variant ids break every external reference, including live ad campaigns" , if: {"kind": "fact", "fact": "shopify.product.capture.full_payload", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "variant ids, metafields and inventory history are not reconstructable" , if: {"kind": "always"} },
     ],
   },
 ];
@@ -422,7 +422,7 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Create a draft without sending it.",
     tags: ["messaging"],
     cases: [
-      { when: "always", tone: "r0", inverse: "users.drafts.delete", window: "unbounded", note: "the draft never left the account, which is why VOID rewrites risky sends into drafts under a strict policy" },
+      { when: "always", tone: "r0", inverse: "users.drafts.delete", window: "unbounded", note: "the draft never left the account, which is why VOID rewrites risky sends into drafts under a strict policy" , if: {"kind": "always"} },
     ],
   },
   {
@@ -432,8 +432,8 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Create an event and invite attendees.",
     tags: ["calendar", "external"],
     cases: [
-      { when: "the event has no attendees other than the organiser", tone: "r0", inverse: "events.delete", window: "unbounded", note: "a private hold that nobody was told about" },
-      { when: "always", tone: "r1", inverse: "events.delete with sendUpdates", window: "unbounded", note: "attendees get an invitation and then a cancellation, so two notifications for an event that should not have existed" },
+      { when: "the event has no attendees other than the organiser", tone: "r0", inverse: "events.delete", window: "unbounded", note: "a private hold that nobody was told about" , if: {"kind": "fact", "fact": "google.calendar.event.external_attendees", "is": "false"} },
+      { when: "always", tone: "r1", inverse: "events.delete with sendUpdates", window: "unbounded", note: "attendees get an invitation and then a cancellation, so two notifications for an event that should not have existed" , if: {"kind": "always"} },
     ],
   },
   {
@@ -454,8 +454,8 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Share a file with a person, group or the public.",
     tags: ["storage", "access-control"],
     cases: [
-      { when: "the grantee is inside the organisation", tone: "r0", inverse: "permissions.delete", window: "unbounded", note: "internal sharing is revocable with no residue outside the audit log" },
-      { when: "always", tone: "r2", inverse: "permissions.delete", window: "unbounded", note: "anyone-with-the-link means the content may already be copied, indexed or forwarded" },
+      { when: "the grantee is inside the organisation", tone: "r0", inverse: "permissions.delete", window: "unbounded", note: "internal sharing is revocable with no residue outside the audit log" , if: {"kind": "fact", "fact": "google.drive.grantee.internal", "is": "true"} },
+      { when: "always", tone: "r2", inverse: "permissions.delete", window: "unbounded", note: "anyone-with-the-link means the content may already be copied, indexed or forwarded" , if: {"kind": "always"} },
     ],
   },
   {
@@ -477,7 +477,7 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Archive a channel.",
     tags: ["messaging", "state"],
     cases: [
-      { when: "always", tone: "r1", inverse: "conversations.unarchive", window: "unbounded", note: "unarchiving restores history but members were removed and are not automatically re-added" },
+      { when: "always", tone: "r1", inverse: "conversations.unarchive", window: "unbounded", note: "unarchiving restores history but members were removed and are not automatically re-added" , if: {"kind": "always"} },
     ],
   },
   {
@@ -487,9 +487,9 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Send an SMS or WhatsApp message.",
     tags: ["messaging", "external", "deferred"],
     cases: [
-      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "the only reliable inverse for SMS is not sending it" },
-      { when: "the message is queued and not yet sent", tone: "r1", inverse: "POST to the message resource with status canceled", window: "seconds, and only while queued", note: "the window is real but far too short to depend on without a hold in front of it" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "delivered to a handset, outside every system you operate" },
+      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "the only reliable inverse for SMS is not sending it" , if: {"kind": "fact", "fact": "hold.released", "is": "false"} },
+      { when: "the message is queued and not yet sent", tone: "r1", inverse: "POST to the message resource with status canceled", window: "seconds, and only while queued", note: "the window is real but far too short to depend on without a hold in front of it" , if: {"kind": "fact", "fact": "twilio.message.status", "is": "queued"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "delivered to a handset, outside every system you operate" , if: {"kind": "always"} },
     ],
   },
   {
@@ -499,8 +499,8 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Post a message to a channel or chat.",
     tags: ["messaging"],
     cases: [
-      { when: "the interceptor holds the post and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "no notification was raised" },
-      { when: "always", tone: "r2", inverse: "soft delete via the Graph API", window: "unbounded with the right permission", note: "the message is hidden rather than erased and stays in the compliance copy, by design" },
+      { when: "the interceptor holds the post and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "no notification was raised" , if: {"kind": "fact", "fact": "hold.released", "is": "false"} },
+      { when: "always", tone: "r2", inverse: "soft delete via the Graph API", window: "unbounded with the right permission", note: "the message is hidden rather than erased and stays in the compliance copy, by design" , if: {"kind": "always"} },
     ],
   },
   {
@@ -510,9 +510,9 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Send a mail message.",
     tags: ["messaging", "external", "deferred"],
     cases: [
-      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "recall inside Exchange is unreliable and the hold is not" },
-      { when: "every recipient is on the same Exchange tenant and the mail is unread", tone: "r2", inverse: "message recall", window: "minutes, best effort", note: "recall fails silently in many client configurations, so it can never be treated as an undo" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "external SMTP delivery is final" },
+      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "recall inside Exchange is unreliable and the hold is not" , if: {"kind": "fact", "fact": "hold.released", "is": "false"} },
+      { when: "every recipient is on the same Exchange tenant and the mail is unread", tone: "r2", inverse: "message recall", window: "minutes, best effort", note: "recall fails silently in many client configurations, so it can never be treated as an undo" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "microsoft.outlook.recipients.same_tenant", "is": "true"}, {"kind": "fact", "fact": "microsoft.outlook.message.unread", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "external SMTP delivery is final" , if: {"kind": "always"} },
     ],
   },
   {
@@ -522,9 +522,9 @@ const messagingEntries: RegistryEntry[] = [
     summary: "Send a transactional or bulk email.",
     tags: ["messaging", "external", "fan-out", "deferred"],
     cases: [
-      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "a bulk send is the highest blast radius call most agents can reach, so the hold matters most here" },
-      { when: "the send is scheduled with a batch id and has not fired", tone: "r1", inverse: "POST /v3/user/scheduled_sends with status cancel", window: "until the scheduled time", note: "the vendor supports cancellation, but only for scheduled batches" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "one call can reach a hundred thousand inboxes and none of them can be recalled" },
+      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "a bulk send is the highest blast radius call most agents can reach, so the hold matters most here" , if: {"kind": "fact", "fact": "hold.released", "is": "false"} },
+      { when: "the send is scheduled with a batch id and has not fired", tone: "r1", inverse: "POST /v3/user/scheduled_sends with status cancel", window: "until the scheduled time", note: "the vendor supports cancellation, but only for scheduled batches" , if: {"kind": "all", "of": [{"kind": "argument", "argument": "batch_id", "operator": "present"}, {"kind": "fact", "fact": "sendgrid.send.fired", "is": "false"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "one call can reach a hundred thousand inboxes and none of them can be recalled" , if: {"kind": "always"} },
     ],
   },
 ];
@@ -561,8 +561,8 @@ const dataEntries: RegistryEntry[] = [
     summary: "DROP TABLE.",
     tags: ["database", "delete", "schema"],
     cases: [
-      { when: "the statement ran inside an open transaction VOID controls", tone: "r0", inverse: "ROLLBACK", window: "until commit", note: "DDL is transactional in Postgres, which is not true of MySQL and is the single biggest difference between them here" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "restoring from a backup is an out of band operation measured in hours, not an inverse" },
+      { when: "the statement ran inside an open transaction VOID controls", tone: "r0", inverse: "ROLLBACK", window: "until commit", note: "DDL is transactional in Postgres, which is not true of MySQL and is the single biggest difference between them here" , if: {"kind": "fact", "fact": "pg.transaction.void_controlled", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "restoring from a backup is an out of band operation measured in hours, not an inverse" , if: {"kind": "always"} },
     ],
   },
   {
@@ -593,8 +593,8 @@ const dataEntries: RegistryEntry[] = [
     summary: "Delete every document matching a filter.",
     tags: ["database", "delete"],
     cases: [
-      { when: "the interceptor captured the matched documents", tone: "r0", inverse: "insertMany with the captured documents", window: "unbounded", note: "ObjectIds are preserved because they are part of the captured document" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "an empty filter deletes the whole collection and there is nothing to replay from" },
+      { when: "the interceptor captured the matched documents", tone: "r0", inverse: "insertMany with the captured documents", window: "unbounded", note: "ObjectIds are preserved because they are part of the captured document" , if: {"kind": "fact", "fact": "mongodb.capture.before_image", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "an empty filter deletes the whole collection and there is nothing to replay from" , if: {"kind": "always"} },
     ],
   },
   {
@@ -604,8 +604,8 @@ const dataEntries: RegistryEntry[] = [
     summary: "Flush every key in the database.",
     tags: ["cache", "delete"],
     cases: [
-      { when: "the instance is a pure cache with a known warm path", tone: "r1", inverse: "re-warm from the source of truth", window: "unbounded", note: "correctness returns immediately, latency and load do not, and a cold cache can take a service down" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "Redis used as a primary store for sessions or queues loses real state" },
+      { when: "the instance is a pure cache with a known warm path", tone: "r1", inverse: "re-warm from the source of truth", window: "unbounded", note: "correctness returns immediately, latency and load do not, and a cold cache can take a service down" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "redis.instance.pure_cache", "is": "true"}, {"kind": "fact", "fact": "redis.warm_path.known", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "Redis used as a primary store for sessions or queues loses real state" , if: {"kind": "always"} },
     ],
   },
   {
@@ -615,8 +615,8 @@ const dataEntries: RegistryEntry[] = [
     summary: "Delete a table.",
     tags: ["analytics", "delete", "deferred"],
     cases: [
-      { when: "the table is not partitioned and was created within the time travel window", tone: "r0", inverse: "CREATE TABLE from a FOR SYSTEM_TIME AS OF snapshot", window: "7 days by default", note: "time travel is a deferral the vendor already built, and most teams do not know it exists" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "past the time travel window there is no copy" },
+      { when: "the table is not partitioned and was created within the time travel window", tone: "r0", inverse: "CREATE TABLE from a FOR SYSTEM_TIME AS OF snapshot", window: "7 days by default", note: "time travel is a deferral the vendor already built, and most teams do not know it exists" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "bigquery.table.partitioned", "is": "false"}, {"kind": "fact", "fact": "bigquery.table.within_time_travel", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "past the time travel window there is no copy" , if: {"kind": "always"} },
     ],
   },
   {
@@ -626,9 +626,9 @@ const dataEntries: RegistryEntry[] = [
     summary: "Delete an index.",
     tags: ["search", "delete"],
     cases: [
-      { when: "a snapshot repository holds a recent snapshot", tone: "r1", inverse: "restore from the snapshot", window: "while the snapshot is retained", note: "documents indexed since the snapshot are lost" },
-      { when: "the index is a derived view of a source of truth", tone: "r1", inverse: "reindex from the source", window: "unbounded", note: "correct but slow, and search is degraded for the whole rebuild" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "a primary index with no snapshot and no source is unrecoverable" },
+      { when: "a snapshot repository holds a recent snapshot", tone: "r1", inverse: "restore from the snapshot", window: "while the snapshot is retained", note: "documents indexed since the snapshot are lost" , if: {"kind": "fact", "fact": "elasticsearch.snapshot.recent", "is": "true"} },
+      { when: "the index is a derived view of a source of truth", tone: "r1", inverse: "reindex from the source", window: "unbounded", note: "correct but slow, and search is degraded for the whole rebuild" , if: {"kind": "fact", "fact": "elasticsearch.index.derived", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "a primary index with no snapshot and no source is unrecoverable" , if: {"kind": "always"} },
     ],
   },
   {
@@ -638,8 +638,8 @@ const dataEntries: RegistryEntry[] = [
     summary: "DROP TABLE.",
     tags: ["analytics", "delete", "deferred"],
     cases: [
-      { when: "the table is within its data retention period", tone: "r0", inverse: "UNDROP TABLE", window: "1 day on standard, up to 90 on enterprise", note: "one of the few vendors that ships a literal UNDROP, which is the primitive the rest of the industry is missing" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "past retention the micro-partitions are purged" },
+      { when: "the table is within its data retention period", tone: "r0", inverse: "UNDROP TABLE", window: "1 day on standard, up to 90 on enterprise", note: "one of the few vendors that ships a literal UNDROP, which is the primitive the rest of the industry is missing" , if: {"kind": "fact", "fact": "snowflake.table.within_retention", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "past retention the micro-partitions are purged" , if: {"kind": "always"} },
     ],
   },
 ];
@@ -663,8 +663,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Force push over a branch.",
     tags: ["source", "destructive"],
     cases: [
-      { when: "the overwritten commits are still reachable through the reflog or a PR ref", tone: "r1", inverse: "force push back to the captured SHA", window: "roughly 90 days for unreachable objects", note: "recoverable by someone who knows the old SHA, which is why the interceptor records it" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "every collaborator with the old history now has a diverged checkout" },
+      { when: "the overwritten commits are still reachable through the reflog or a PR ref", tone: "r1", inverse: "force push back to the captured SHA", window: "roughly 90 days for unreachable objects", note: "recoverable by someone who knows the old SHA, which is why the interceptor records it" , if: {"kind": "fact", "fact": "github.commits.reachable", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "every collaborator with the old history now has a diverged checkout" , if: {"kind": "always"} },
     ],
   },
   {
@@ -674,8 +674,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Delete a repository.",
     tags: ["source", "delete", "deferred"],
     cases: [
-      { when: "the deletion is within the restore window and the name is untaken", tone: "r1", inverse: "restore from the account settings", window: "90 days", note: "restore brings back code and issues but not forks or stars" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "the owner and name pair can be claimed by anyone, which makes it a supply chain problem as well as a data loss" },
+      { when: "the deletion is within the restore window and the name is untaken", tone: "r1", inverse: "restore from the account settings", window: "90 days", note: "restore brings back code and issues but not forks or stars" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "github.repository.within_restore_window", "is": "true"}, {"kind": "fact", "fact": "github.repository.name_untaken", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "the owner and name pair can be claimed by anyone, which makes it a supply chain problem as well as a data loss" , if: {"kind": "always"} },
     ],
   },
   {
@@ -696,8 +696,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Publish a package version.",
     tags: ["distribution", "supply-chain"],
     cases: [
-      { when: "the version was published under 72 hours ago and nothing depends on it", tone: "r1", inverse: "npm unpublish", window: "72 hours", note: "the version number is burned permanently and can never be reused" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "deprecation is the only remaining move, and mirrors keep the tarball regardless" },
+      { when: "the version was published under 72 hours ago and nothing depends on it", tone: "r1", inverse: "npm unpublish", window: "72 hours", note: "the version number is burned permanently and can never be reused" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "npm.version.within_unpublish_window", "is": "true"}, {"kind": "fact", "fact": "npm.version.has_dependents", "is": "false"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "deprecation is the only remaining move, and mirrors keep the tarball regardless" , if: {"kind": "always"} },
     ],
   },
   {
@@ -707,8 +707,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Apply a deployment manifest.",
     tags: ["infrastructure", "deploy"],
     cases: [
-      { when: "the previous ReplicaSet is inside the revision history limit", tone: "r0", inverse: "kubectl rollout undo", window: "10 revisions by default", note: "the cleanest rollback primitive in mainstream infrastructure" },
-      { when: "always", tone: "r1", inverse: "apply the captured prior manifest", window: "unbounded", note: "the manifest returns but anything the new version wrote to a database does not" },
+      { when: "the previous ReplicaSet is inside the revision history limit", tone: "r0", inverse: "kubectl rollout undo", window: "10 revisions by default", note: "the cleanest rollback primitive in mainstream infrastructure" , if: {"kind": "fact", "fact": "kubernetes.replicaset.in_revision_history", "is": "true"} },
+      { when: "always", tone: "r1", inverse: "apply the captured prior manifest", window: "unbounded", note: "the manifest returns but anything the new version wrote to a database does not" , if: {"kind": "always"} },
     ],
   },
   {
@@ -718,8 +718,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Delete a namespace and everything in it.",
     tags: ["infrastructure", "delete", "fan-out"],
     cases: [
-      { when: "every PersistentVolume uses a Retain reclaim policy and manifests are in git", tone: "r1", inverse: "re-apply from git and rebind the volumes", window: "unbounded", note: "a slow rebuild, and Secrets not stored in git are gone" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "Delete reclaim policy destroys the underlying disks along with the claims" },
+      { when: "every PersistentVolume uses a Retain reclaim policy and manifests are in git", tone: "r1", inverse: "re-apply from git and rebind the volumes", window: "unbounded", note: "a slow rebuild, and Secrets not stored in git are gone" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "kubernetes.pv.reclaim_policy", "is": "Retain"}, {"kind": "fact", "fact": "kubernetes.manifests.in_git", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "Delete reclaim policy destroys the underlying disks along with the claims" , if: {"kind": "always"} },
     ],
   },
   {
@@ -729,8 +729,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Destroy the resources in a state file.",
     tags: ["infrastructure", "delete", "fan-out"],
     cases: [
-      { when: "every resource in the plan is stateless and re-creatable from the configuration", tone: "r1", inverse: "terraform apply", window: "unbounded", note: "new identifiers throughout, so DNS, allowlists and anything pinned to an ARN breaks" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "one plan can destroy databases, buckets and keys together, and the plan output is the only warning you get" },
+      { when: "every resource in the plan is stateless and re-creatable from the configuration", tone: "r1", inverse: "terraform apply", window: "unbounded", note: "new identifiers throughout, so DNS, allowlists and anything pinned to an ARN breaks" , if: {"kind": "fact", "fact": "terraform.plan.stateless_recreatable", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "one plan can destroy databases, buckets and keys together, and the plan output is the only warning you get" , if: {"kind": "always"} },
     ],
   },
   {
@@ -740,8 +740,8 @@ const devEntries: RegistryEntry[] = [
     summary: "Update a DNS record.",
     tags: ["network", "dns"],
     cases: [
-      { when: "the record is proxied, which pins the TTL low", tone: "r1", inverse: "update back to the captured value", window: "unbounded", note: "proxied records propagate fast because resolvers only ever see Cloudflare addresses" },
-      { when: "always", tone: "r2", inverse: "update back to the captured value", window: "unbounded", note: "a high TTL on an unproxied record leaves stale answers cached worldwide" },
+      { when: "the record is proxied, which pins the TTL low", tone: "r1", inverse: "update back to the captured value", window: "unbounded", note: "proxied records propagate fast because resolvers only ever see Cloudflare addresses" , if: {"kind": "fact", "fact": "cloudflare.dns_record.proxied", "is": "true"} },
+      { when: "always", tone: "r2", inverse: "update back to the captured value", window: "unbounded", note: "a high TTL on an unproxied record leaves stale answers cached worldwide" , if: {"kind": "always"} },
     ],
   },
   {
@@ -751,7 +751,7 @@ const devEntries: RegistryEntry[] = [
     summary: "Delete a zone.",
     tags: ["network", "dns", "delete"],
     cases: [
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "every record goes at once and the domain stops resolving before anyone can react" },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "every record goes at once and the domain stops resolving before anyone can react" , if: {"kind": "always"} },
     ],
   },
   {
@@ -772,7 +772,7 @@ const devEntries: RegistryEntry[] = [
     summary: "Trigger an incident and page the on call rotation.",
     tags: ["operations", "external"],
     cases: [
-      { when: "always", tone: "r2", inverse: "resolve the incident with a false alarm note", window: "unbounded", note: "you cannot un-wake somebody at three in the morning, and repeated false pages cost real alert trust" },
+      { when: "always", tone: "r2", inverse: "resolve the incident with a false alarm note", window: "unbounded", note: "you cannot un-wake somebody at three in the morning, and repeated false pages cost real alert trust" , if: {"kind": "always"} },
     ],
   },
 ];
@@ -785,9 +785,9 @@ const recordEntries: RegistryEntry[] = [
     summary: "Update fields on a record.",
     tags: ["crm", "write"],
     cases: [
-      { when: "field history tracking is on for every touched field", tone: "r0", inverse: "update from field history", window: "18 to 24 months", note: "Salesforce keeps the before value itself, so the inverse needs no snapshot of ours" },
-      { when: "the interceptor captured a before image", tone: "r0", inverse: "update from the captured image", window: "unbounded", note: "the default path, because field history is rarely enabled on every field" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "an untracked field with no before image has no recoverable prior value" },
+      { when: "field history tracking is on for every touched field", tone: "r0", inverse: "update from field history", window: "18 to 24 months", note: "Salesforce keeps the before value itself, so the inverse needs no snapshot of ours" , if: {"kind": "fact", "fact": "salesforce.field_history.all_touched", "is": "true"} },
+      { when: "the interceptor captured a before image", tone: "r0", inverse: "update from the captured image", window: "unbounded", note: "the default path, because field history is rarely enabled on every field" , if: {"kind": "fact", "fact": "salesforce.capture.before_image", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "an untracked field with no before image has no recoverable prior value" , if: {"kind": "always"} },
     ],
   },
   {
@@ -797,8 +797,8 @@ const recordEntries: RegistryEntry[] = [
     summary: "Delete a record.",
     tags: ["crm", "delete", "deferred"],
     cases: [
-      { when: "the record went to the recycle bin", tone: "r0", inverse: "undelete", window: "15 days", note: "another vendor built deferral, and again most teams do not rely on it" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "a hard delete or an emptied recycle bin leaves nothing, and cascade deletes take children with it" },
+      { when: "the record went to the recycle bin", tone: "r0", inverse: "undelete", window: "15 days", note: "another vendor built deferral, and again most teams do not rely on it" , if: {"kind": "fact", "fact": "salesforce.record.recycle_bin", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "a hard delete or an emptied recycle bin leaves nothing, and cascade deletes take children with it" , if: {"kind": "always"} },
     ],
   },
   {
@@ -808,8 +808,8 @@ const recordEntries: RegistryEntry[] = [
     summary: "Send a mass email to a list view.",
     tags: ["messaging", "external", "fan-out", "deferred"],
     cases: [
-      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "an agent with a wrong list filter is the classic case, and the hold is the only thing between it and every customer" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "unsubscribes and spam complaints from a bad send damage domain reputation for months" },
+      { when: "the interceptor holds the send and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "an agent with a wrong list filter is the classic case, and the hold is the only thing between it and every customer" , if: {"kind": "fact", "fact": "hold.released", "is": "false"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "unsubscribes and spam complaints from a bad send damage domain reputation for months" , if: {"kind": "always"} },
     ],
   },
   {
@@ -819,7 +819,7 @@ const recordEntries: RegistryEntry[] = [
     summary: "Merge two contact records.",
     tags: ["crm", "destructive"],
     cases: [
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "merges are explicitly one way, the secondary record is absorbed and field level provenance is lost" },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "merges are explicitly one way, the secondary record is absorbed and field level provenance is lost" , if: {"kind": "always"} },
     ],
   },
   {
@@ -829,8 +829,8 @@ const recordEntries: RegistryEntry[] = [
     summary: "Enrol contacts into a workflow.",
     tags: ["marketing", "fan-out"],
     cases: [
-      { when: "the workflow has no external action and enrolment has not advanced a step", tone: "r1", inverse: "unenroll", window: "until the first step fires", note: "the race here is measured in seconds, which is why enrolment is a hold candidate" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "unenrolling stops future steps but every email already sent stays sent" },
+      { when: "the workflow has no external action and enrolment has not advanced a step", tone: "r1", inverse: "unenroll", window: "until the first step fires", note: "the race here is measured in seconds, which is why enrolment is a hold candidate" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "hubspot.workflow.external_action", "is": "false"}, {"kind": "fact", "fact": "hubspot.workflow.step_advanced", "is": "false"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "unenrolling stops future steps but every email already sent stays sent" , if: {"kind": "always"} },
     ],
   },
   {
@@ -840,8 +840,8 @@ const recordEntries: RegistryEntry[] = [
     summary: "Create a ticket.",
     tags: ["support", "external"],
     cases: [
-      { when: "the ticket is created without a requester notification", tone: "r1", inverse: "delete the ticket", window: "unbounded", note: "the ticket id is consumed and reporting counts it" },
-      { when: "always", tone: "r2", inverse: "delete the ticket plus a correction to the requester", window: "unbounded", note: "the requester already received a confirmation email for a ticket that should not exist" },
+      { when: "the ticket is created without a requester notification", tone: "r1", inverse: "delete the ticket", window: "unbounded", note: "the ticket id is consumed and reporting counts it" , if: {"kind": "fact", "fact": "zendesk.ticket.requester_notified", "is": "false"} },
+      { when: "always", tone: "r2", inverse: "delete the ticket plus a correction to the requester", window: "unbounded", note: "the requester already received a confirmation email for a ticket that should not exist" , if: {"kind": "always"} },
     ],
   },
   {
@@ -851,7 +851,7 @@ const recordEntries: RegistryEntry[] = [
     summary: "Merge one ticket into another.",
     tags: ["support", "destructive"],
     cases: [
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "the source ticket is closed and its comments are copied, and there is no unmerge" },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "the source ticket is closed and its comments are copied, and there is no unmerge" , if: {"kind": "always"} },
     ],
   },
   {
@@ -861,8 +861,8 @@ const recordEntries: RegistryEntry[] = [
     summary: "Reply to a customer conversation.",
     tags: ["messaging", "external", "deferred"],
     cases: [
-      { when: "the interceptor holds the reply and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "the highest value hold for a support agent, because a wrong reply is seen instantly" },
-      { when: "always", tone: "r2", inverse: "delete the part plus a correction reply", window: "unbounded", note: "deleting removes it from the thread but the customer already got the email or push" },
+      { when: "the interceptor holds the reply and it has not been released", tone: "r0", inverse: "drop from the hold queue", window: "the configured hold, 30 to 900 seconds", note: "the highest value hold for a support agent, because a wrong reply is seen instantly" , if: {"kind": "fact", "fact": "hold.released", "is": "false"} },
+      { when: "always", tone: "r2", inverse: "delete the part plus a correction reply", window: "unbounded", note: "deleting removes it from the thread but the customer already got the email or push" , if: {"kind": "always"} },
     ],
   },
   {
@@ -872,8 +872,8 @@ const recordEntries: RegistryEntry[] = [
     summary: "Transition an issue to another status.",
     tags: ["project", "workflow"],
     cases: [
-      { when: "no post function on the transition fires an external action", tone: "r0", inverse: "transition back to the captured status", window: "unbounded", note: "the change history keeps both transitions" },
-      { when: "always", tone: "r1", inverse: "transition back plus compensations for each post function", window: "unbounded", note: "post functions are the hidden fan-out here, a status change can send mail or trigger a release" },
+      { when: "no post function on the transition fires an external action", tone: "r0", inverse: "transition back to the captured status", window: "unbounded", note: "the change history keeps both transitions" , if: {"kind": "fact", "fact": "jira.transition.external_post_function", "is": "false"} },
+      { when: "always", tone: "r1", inverse: "transition back plus compensations for each post function", window: "unbounded", note: "post functions are the hidden fan-out here, a status change can send mail or trigger a release" , if: {"kind": "always"} },
     ],
   },
   {
@@ -883,8 +883,8 @@ const recordEntries: RegistryEntry[] = [
     summary: "Delete an issue.",
     tags: ["project", "delete"],
     cases: [
-      { when: "the interceptor captured the issue with its comments and attachments", tone: "r1", inverse: "recreate from the captured payload", window: "unbounded", note: "the issue key is permanently burned, so every link and commit message pointing at it is dead" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "Jira has no recycle bin for issues" },
+      { when: "the interceptor captured the issue with its comments and attachments", tone: "r1", inverse: "recreate from the captured payload", window: "unbounded", note: "the issue key is permanently burned, so every link and commit message pointing at it is dead" , if: {"kind": "fact", "fact": "jira.issue.capture.full_payload", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "Jira has no recycle bin for issues" , if: {"kind": "always"} },
     ],
   },
   {
@@ -894,7 +894,7 @@ const recordEntries: RegistryEntry[] = [
     summary: "Archive an issue.",
     tags: ["project", "state"],
     cases: [
-      { when: "always", tone: "r0", inverse: "unarchive", window: "unbounded", note: "archiving is a reversible state flag, which is why it is the right default for an agent doing triage" },
+      { when: "always", tone: "r0", inverse: "unarchive", window: "unbounded", note: "archiving is a reversible state flag, which is why it is the right default for an agent doing triage" , if: {"kind": "always"} },
     ],
   },
   {
@@ -904,8 +904,8 @@ const recordEntries: RegistryEntry[] = [
     summary: "Move a page to trash.",
     tags: ["docs", "delete", "deferred"],
     cases: [
-      { when: "the page was trashed rather than permanently deleted", tone: "r0", inverse: "restore from trash", window: "30 days on paid plans", note: "the API archive flag is a trash operation, not a destruction" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "a permanent delete takes every child block with it" },
+      { when: "the page was trashed rather than permanently deleted", tone: "r0", inverse: "restore from trash", window: "30 days on paid plans", note: "the API archive flag is a trash operation, not a destruction" , if: {"kind": "fact", "fact": "notion.page.trashed", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "a permanent delete takes every child block with it" , if: {"kind": "always"} },
     ],
   },
   {
@@ -915,8 +915,8 @@ const recordEntries: RegistryEntry[] = [
     summary: "Rewrite the content of a block.",
     tags: ["docs", "write"],
     cases: [
-      { when: "the workspace has page history and the edit is within the window", tone: "r0", inverse: "restore the prior page version", window: "7 to 90 days by plan", note: "restore is page level, so it also reverts edits a human made in between" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "free workspaces keep no version history at all" },
+      { when: "the workspace has page history and the edit is within the window", tone: "r0", inverse: "restore the prior page version", window: "7 to 90 days by plan", note: "restore is page level, so it also reverts edits a human made in between" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "notion.workspace.page_history", "is": "true"}, {"kind": "fact", "fact": "notion.edit.within_history_window", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "free workspaces keep no version history at all" , if: {"kind": "always"} },
     ],
   },
   {
@@ -926,9 +926,9 @@ const recordEntries: RegistryEntry[] = [
     summary: "Delete records from a table.",
     tags: ["database", "delete", "deferred"],
     cases: [
-      { when: "the base snapshot history covers the moment before the call", tone: "r0", inverse: "restore the base snapshot", window: "2 weeks to 1 year by plan", note: "restore is whole base, which is heavy handed but real" },
-      { when: "the interceptor captured the records", tone: "r1", inverse: "create records from the captured payload", window: "unbounded", note: "record ids change, so every linked record and external reference breaks" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "attachments hosted by Airtable expire from their URLs and are not part of a record payload" },
+      { when: "the base snapshot history covers the moment before the call", tone: "r0", inverse: "restore the base snapshot", window: "2 weeks to 1 year by plan", note: "restore is whole base, which is heavy handed but real" , if: {"kind": "fact", "fact": "airtable.base.snapshot_covers_call", "is": "true"} },
+      { when: "the interceptor captured the records", tone: "r1", inverse: "create records from the captured payload", window: "unbounded", note: "record ids change, so every linked record and external reference breaks" , if: {"kind": "fact", "fact": "airtable.capture.records", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "attachments hosted by Airtable expire from their URLs and are not part of a record payload" , if: {"kind": "always"} },
     ],
   },
 ];
@@ -941,7 +941,7 @@ const identityEntries: RegistryEntry[] = [
     summary: "Deactivate a user.",
     tags: ["identity", "access-control"],
     cases: [
-      { when: "always", tone: "r1", inverse: "reactivate the user", window: "unbounded", note: "the account comes back but every session was killed and MFA factors need re-enrolment, so the human is locked out for real time" },
+      { when: "always", tone: "r1", inverse: "reactivate the user", window: "unbounded", note: "the account comes back but every session was killed and MFA factors need re-enrolment, so the human is locked out for real time" , if: {"kind": "always"} },
     ],
   },
   {
@@ -951,7 +951,7 @@ const identityEntries: RegistryEntry[] = [
     summary: "Delete a deactivated user.",
     tags: ["identity", "delete"],
     cases: [
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "the user id is gone, and every downstream system that keyed off it now has an orphan" },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "the user id is gone, and every downstream system that keyed off it now has an orphan" , if: {"kind": "always"} },
     ],
   },
   {
@@ -961,8 +961,8 @@ const identityEntries: RegistryEntry[] = [
     summary: "Add a member to a group.",
     tags: ["identity", "access-control"],
     cases: [
-      { when: "the group grants no privileged role and no data access", tone: "r0", inverse: "remove the member", window: "unbounded", note: "clean removal, the membership change is in the audit log" },
-      { when: "always", tone: "r2", inverse: "remove the member", window: "unbounded", note: "group membership can grant access to years of files, and the removal does not un-read them" },
+      { when: "the group grants no privileged role and no data access", tone: "r0", inverse: "remove the member", window: "unbounded", note: "clean removal, the membership change is in the audit log" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "entra.group.privileged_role", "is": "false"}, {"kind": "fact", "fact": "entra.group.data_access", "is": "false"}]} },
+      { when: "always", tone: "r2", inverse: "remove the member", window: "unbounded", note: "group membership can grant access to years of files, and the removal does not un-read them" , if: {"kind": "always"} },
     ],
   },
   {
@@ -972,8 +972,8 @@ const identityEntries: RegistryEntry[] = [
     summary: "Rotate an application client secret.",
     tags: ["identity", "credential", "outage"],
     cases: [
-      { when: "the prior secret was captured and the application supports two active secrets", tone: "r0", inverse: "restore the prior secret", window: "unbounded", note: "rotation with an overlap window is safe, rotation without one is an outage" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "the old secret is not retrievable after rotation, so every service still holding it fails until redeployed" },
+      { when: "the prior secret was captured and the application supports two active secrets", tone: "r0", inverse: "restore the prior secret", window: "unbounded", note: "rotation with an overlap window is safe, rotation without one is an outage" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "auth0.secret.prior_captured", "is": "true"}, {"kind": "fact", "fact": "auth0.application.two_active_secrets", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "the old secret is not retrievable after rotation, so every service still holding it fails until redeployed" , if: {"kind": "always"} },
     ],
   },
 ];
@@ -986,8 +986,8 @@ const aiEntries: RegistryEntry[] = [
     summary: "Delete an uploaded file.",
     tags: ["ai", "delete"],
     cases: [
-      { when: "the original artifact still exists in the source system", tone: "r1", inverse: "re-upload from the source", window: "unbounded", note: "the file id changes, so every assistant and batch job referencing it breaks" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "an uploaded file is not retrievable in full once deleted" },
+      { when: "the original artifact still exists in the source system", tone: "r1", inverse: "re-upload from the source", window: "unbounded", note: "the file id changes, so every assistant and batch job referencing it breaks" , if: {"kind": "fact", "fact": "openai.file.source_exists", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "an uploaded file is not retrievable in full once deleted" , if: {"kind": "always"} },
     ],
   },
   {
@@ -997,8 +997,8 @@ const aiEntries: RegistryEntry[] = [
     summary: "Start a fine tuning job.",
     tags: ["ai", "money", "compute"],
     cases: [
-      { when: "the job is queued and has not started", tone: "r0", inverse: "cancel the job", window: "until the job starts", note: "queued jobs are free to cancel" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "compute spent is billed whether the resulting model is used or not, and cancellation does not refund it" },
+      { when: "the job is queued and has not started", tone: "r0", inverse: "cancel the job", window: "until the job starts", note: "queued jobs are free to cancel" , if: {"kind": "fact", "fact": "openai.fine_tune.status", "is": "queued"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "compute spent is billed whether the resulting model is used or not, and cancellation does not refund it" , if: {"kind": "always"} },
     ],
   },
   {
@@ -1008,8 +1008,8 @@ const aiEntries: RegistryEntry[] = [
     summary: "Delete a namespace of embeddings.",
     tags: ["ai", "delete"],
     cases: [
-      { when: "the source documents and the embedding model version are both pinned", tone: "r1", inverse: "re-embed and re-upsert", window: "unbounded", note: "correct but expensive, and retrieval quality is degraded for the whole rebuild" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "if the embedding model has moved on, the vectors cannot be reproduced identically" },
+      { when: "the source documents and the embedding model version are both pinned", tone: "r1", inverse: "re-embed and re-upsert", window: "unbounded", note: "correct but expensive, and retrieval quality is degraded for the whole rebuild" , if: {"kind": "all", "of": [{"kind": "fact", "fact": "vectordb.source_documents.pinned", "is": "true"}, {"kind": "fact", "fact": "vectordb.embedding_model.pinned", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "if the embedding model has moved on, the vectors cannot be reproduced identically" , if: {"kind": "always"} },
     ],
   },
 ];
@@ -1034,8 +1034,8 @@ const localEntries: RegistryEntry[] = [
     summary: "Delete a directory tree.",
     tags: ["filesystem", "delete", "fan-out"],
     cases: [
-      { when: "every path in the tree is committed and unmodified in git", tone: "r0", inverse: "git checkout of the tree", window: "unbounded", note: "the interceptor checks git status before classifying, which is why the class differs per invocation" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "untracked files, build outputs and local environment files are not in any history" },
+      { when: "every path in the tree is committed and unmodified in git", tone: "r0", inverse: "git checkout of the tree", window: "unbounded", note: "the interceptor checks git status before classifying, which is why the class differs per invocation" , if: {"kind": "fact", "fact": "fs.tree.git_clean", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "untracked files, build outputs and local environment files are not in any history" , if: {"kind": "always"} },
     ],
   },
   {
@@ -1045,8 +1045,8 @@ const localEntries: RegistryEntry[] = [
     summary: "Delete a branch.",
     tags: ["source", "delete"],
     cases: [
-      { when: "the tip commit is merged or recorded by the interceptor", tone: "r0", inverse: "git branch from the captured SHA", window: "roughly 90 days before garbage collection", note: "a branch is only a pointer, so the inverse is exact as long as the SHA is known" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "an unmerged branch whose SHA nobody recorded is gone once the objects are collected" },
+      { when: "the tip commit is merged or recorded by the interceptor", tone: "r0", inverse: "git branch from the captured SHA", window: "roughly 90 days before garbage collection", note: "a branch is only a pointer, so the inverse is exact as long as the SHA is known" , if: {"kind": "any", "of": [{"kind": "fact", "fact": "git.branch.tip_merged", "is": "true"}, {"kind": "fact", "fact": "git.branch.tip_recorded", "is": "true"}]} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "an unmerged branch whose SHA nobody recorded is gone once the objects are collected" , if: {"kind": "always"} },
     ],
   },
   {
@@ -1056,8 +1056,8 @@ const localEntries: RegistryEntry[] = [
     summary: "Rebase, amend or filter published history.",
     tags: ["source", "destructive"],
     cases: [
-      { when: "the branch has not been pushed", tone: "r0", inverse: "reset to the captured SHA", window: "until push", note: "local history is private, so rewriting it costs nothing" },
-      { when: "always", tone: "r2", inverse: "force push the captured SHA", window: "until collaborators rebase onto the rewritten history", note: "restoring the old history breaks anyone who already rebased onto the new one, so the inverse has its own blast radius" },
+      { when: "the branch has not been pushed", tone: "r0", inverse: "reset to the captured SHA", window: "until push", note: "local history is private, so rewriting it costs nothing" , if: {"kind": "fact", "fact": "git.branch.pushed", "is": "false"} },
+      { when: "always", tone: "r2", inverse: "force push the captured SHA", window: "until collaborators rebase onto the rewritten history", note: "restoring the old history breaks anyone who already rebased onto the new one, so the inverse has its own blast radius" , if: {"kind": "always"} },
     ],
   },
   {
@@ -1067,8 +1067,8 @@ const localEntries: RegistryEntry[] = [
     summary: "Execute an arbitrary shell command.",
     tags: ["shell", "unbounded"],
     cases: [
-      { when: "the command matches the read only allowlist", tone: "r0", inverse: "none needed", window: "unbounded", note: "the allowlist is the only reason a shell call can ever be classified better than R3" },
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "an arbitrary command cannot be classified before it runs, so it is the worst case by definition, and this is why VOID intercepts at the tool boundary rather than the shell" },
+      { when: "the command matches the read only allowlist", tone: "r0", inverse: "none needed", window: "unbounded", note: "the allowlist is the only reason a shell call can ever be classified better than R3" , if: {"kind": "fact", "fact": "shell.command.read_only_allowlist", "is": "true"} },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "an arbitrary command cannot be classified before it runs, so it is the worst case by definition, and this is why VOID intercepts at the tool boundary rather than the shell" , if: {"kind": "always"} },
     ],
   },
 ];
