@@ -167,6 +167,13 @@ describe("holds, the precondition evaluator", () => {
     assert.equal(holds({ kind: "argument", argument: "mode", operator: "equals", value: "dry" }, facts, { mode: "wet" }), false);
   });
 
+  test("the terminal kind matches everything and rejects company", () => {
+    assert.equal(holds({ kind: "always" }, {}, {}), true);
+    assert.equal(holds({ kind: "not", of: { kind: "always" } }, {}, {}), false);
+    assert.deepEqual(validatePrecondition({ kind: "always", of: { kind: "fact", fact: "f" } }, "p"),
+      ["p: unknown key of"]);
+  });
+
   test("not, all and any compose", () => {
     const facts = { a: "1", b: "2" };
     assert.equal(holds({ kind: "not", of: { kind: "fact", fact: "a" } }, facts, {}), false);
