@@ -20,10 +20,22 @@ import { relayNotification } from "./relay/notifications.ts";
 import { relayServerRequest, relayServerResponse } from "./relay/requests.ts";
 import type { JsonRpcResponse } from "./relay/requests.ts";
 import { Session } from "./session.ts";
+import { DEFAULT_INBOUND_MAX_BYTES, JsonRpcInputError, assertInboundLineCeiling, assertSingleJsonRpcMessage } from "./hardening.ts";
 import { spawnUpstream } from "./transport/stdio.ts";
+import { upstreamHttp } from "./transport/http.ts";
 import type { UpstreamProcess } from "./transport/stdio.ts";
 
 export type ProxyPosture = "fail-closed" | "observe" | "observe-only";
+export type ProxyTransport = "stdio" | "http";
+export type ProxyShutdownSignal = "SIGINT" | "SIGTERM";
+
+export type ProxyShutdownSignals = {
+  readonly on: (signal: ProxyShutdownSignal, handler: () => void) => void;
+  readonly off: (signal: ProxyShutdownSignal, handler: () => void) => void;
+  readonly setExitCode?: (code: number) => void;
+};
+
+export const SUPPORTED_TRANSPORTS: readonly ProxyTransport[] = ["stdio", "http"];
 
 export type UpstreamEvents = {
   readonly onMessage: (line: string) => void;
@@ -32,12 +44,14 @@ export type UpstreamEvents = {
 };
 
 export type ProxyOptions = {
-  readonly upstreamCommand: readonly string[];
+  readonly upstreamCommand?: readonly string[];
   readonly upstreamEnv?: Record<string, string>;
+  readonly transport?: ProxyTransport;
+  readonly upstreamUrl?: string;
   readonly policyPath: string;
   readonly factsPath?: string;
   readonly posture: ProxyPosture;
-  readonly onHold?: (queue: HoldQueue) => void;
+  readonly onHold?: (queue: HoldQueue) => void | (() => void);
   /** Ledger directory for the dev tier store. Required for the fail-closed posture. */
   readonly ledgerDir?: string;
   readonly workspace?: string;
@@ -45,6 +59,8 @@ export type ProxyOptions = {
   readonly input?: AsyncIterable<string>;
   readonly output?: (line: string) => void;
   readonly error?: (line: string) => void;
+  readonly inboundMaxBytes?: number;
+  readonly shutdownSignals?: ProxyShutdownSignals | false;
 };
 
 type InitializeRequest = {
@@ -59,6 +75,8 @@ const INTERNAL_ERROR = -32603;
 export async function runProxy(options: ProxyOptions): Promise<void> {
   const write = options.output ?? ((line: string) => { process.stdout.write(`${line}\n`); });
   const writeError = options.error ?? ((line: string) => { process.stderr.write(`${line}\n`); });
+  const inboundMaxBytes = options.inboundMaxBytes ?? DEFAULT_INBOUND_MAX_BYTES;
+  const startup = validateStartup(options, writeError);
   let policy: LoadedPolicy;
   let facts: FactsReport;
   try {
@@ -76,7 +94,7 @@ export async function runProxy(options: ProxyOptions): Promise<void> {
   }
   const session = new Session();
   const queue = new HoldQueue();
-  options.onHold?.(queue);
+  const stopHold = options.onHold?.(queue);
   // The dev tier ledger is a JSONL file store with a local ed25519 signer. In the
   // fail-closed posture the store must open before the first call routes, because
   // the posture promises that a call without a ledger record never forwards.
@@ -86,12 +104,13 @@ export async function runProxy(options: ProxyOptions): Promise<void> {
   const upstreamClosed = new Promise<void>((resolve) => { resolveUpstreamClosed = resolve; });
 
   const initializeByUpstream = new Map<JsonRpcId, InitializeRequest>();
-  let upstream: UpstreamProcess;
+  let upstream: UpstreamProcess | null = null;
 
   const sendJson = (message: unknown): void => {
     write(JSON.stringify(message));
   };
   const sendUpstream = (message: unknown): void => {
+    if (upstream === null) throw new Error("upstream is not open");
     upstream.send(JSON.stringify(message));
   };
 
@@ -104,9 +123,9 @@ export async function runProxy(options: ProxyOptions): Promise<void> {
   const handleUpstreamLine = (line: string): void => {
     let message: JsonRpcMessage;
     try {
-      message = parseMessage(line);
-    } catch (error) {
-      writeError(`upstream sent malformed JSON: ${errorMessage(error)}`);
+      message = parseMessage(line, inboundMaxBytes);
+    } catch {
+      writeError("upstream sent malformed JSON-RPC message");
       return;
     }
 
@@ -133,35 +152,60 @@ export async function runProxy(options: ProxyOptions): Promise<void> {
     if (translated !== null) sendJson(translated);
   };
 
-  const handleUpstreamClose = (): void => {
+  let drained = false;
+  let upstreamClosedFlag = false;
+  const drainHolds = (): void => {
+    if (drained) return;
+    drained = true;
+    if (typeof stopHold === "function") stopHold();
     queue.close();
+  };
+  const shutdown = (): void => {
+    drainHolds();
+    if (!upstreamClosedFlag) upstream?.close();
+    resolveUpstreamClosed();
+  };
+
+  const handleUpstreamClose = (): void => {
+    upstreamClosedFlag = true;
+    drainHolds();
     resolveUpstreamClosed();
   };
 
   try {
-    upstream = options.upstreamSpawn === undefined
-      ? spawnUpstream(options.upstreamCommand, options.upstreamEnv ?? cleanEnv(process.env), {
-          events: {
-            onMessage: handleUpstreamLine,
-            onClose: handleUpstreamClose,
-            onError(error) { writeError(`upstream error: ${error.message}`); },
-          },
-        })
-      : options.upstreamSpawn({
-          onMessage: handleUpstreamLine,
-          onClose: handleUpstreamClose,
-          onError(error) { writeError(`upstream error: ${error.message}`); },
-        });
+    const upstreamEvents: UpstreamEvents = {
+      onMessage: handleUpstreamLine,
+      onClose: handleUpstreamClose,
+      onError(error) { writeError(`upstream error: ${error.message}`); },
+    };
+    upstream = startup.transport === "http"
+      ? upstreamHttp(startup.url, { events: upstreamEvents })
+      : options.upstreamSpawn === undefined
+        ? spawnUpstream(startup.command, options.upstreamEnv ?? cleanEnv(process.env), { events: upstreamEvents })
+        : options.upstreamSpawn(upstreamEvents);
   } catch (error) {
     throw new UpstreamStartError(errorMessage(error));
   }
 
+  const shutdownSignals = options.shutdownSignals === false ? null : options.shutdownSignals ?? processShutdownSignals();
+  const sigint = (): void => {
+    shutdownSignals?.setExitCode?.(130);
+    shutdown();
+  };
+  const sigterm = (): void => {
+    shutdownSignals?.setExitCode?.(143);
+    shutdown();
+  };
+  shutdownSignals?.on("SIGINT", sigint);
+  shutdownSignals?.on("SIGTERM", sigterm);
+
   const handleAgentLine = async (line: string): Promise<void> => {
     let message: JsonRpcMessage;
     try {
-      message = parseMessage(line);
+      message = parseMessage(line, inboundMaxBytes);
     } catch (error) {
-      sendJson(jsonRpcError(null, PARSE_ERROR, `Parse error: ${errorMessage(error)}`));
+      const failure = parseFailure(error);
+      sendJson(jsonRpcError(null, failure.code, failure.message));
       return;
     }
 
@@ -209,7 +253,8 @@ export async function runProxy(options: ProxyOptions): Promise<void> {
 
       sendUpstream(relayServerResponse(message as JsonRpcResponse, session));
     } catch (error) {
-      sendJson(jsonRpcError(responseId, INTERNAL_ERROR, errorMessage(error)));
+      writeError(`request failed: ${errorMessage(error)}`);
+      sendJson(jsonRpcError(responseId, INTERNAL_ERROR, "Internal error"));
     }
   };
 
@@ -224,14 +269,60 @@ export async function runProxy(options: ProxyOptions): Promise<void> {
       await handleAgentLine(next.value);
     }
   } finally {
+    shutdownSignals?.off("SIGINT", sigint);
+    shutdownSignals?.off("SIGTERM", sigterm);
     await input.return?.();
-    upstream.close();
-    queue.close();
+    shutdown();
   }
 }
 
 export class PolicyStartupError extends Error {}
+export class ProxyStartupError extends Error {}
 export class UpstreamStartError extends Error {}
+
+type StartupConfig =
+  | { readonly transport: "stdio"; readonly command: readonly string[] }
+  | { readonly transport: "http"; readonly url: URL };
+
+function validateStartup(options: ProxyOptions, writeError: (line: string) => void): StartupConfig {
+  const transport = options.transport ?? "stdio";
+  if (!isSupportedProxyTransport(transport)) {
+    throw new ProxyStartupError(`transport must be one of ${SUPPORTED_TRANSPORTS.join(", ")}`);
+  }
+
+  if (transport === "http") {
+    if (options.upstreamUrl === undefined || options.upstreamUrl === "") {
+      const error = new ProxyStartupError("http transport requires upstreamUrl");
+      writeError(`startup failed: ${error.message}`);
+      throw error;
+    }
+    try {
+      return { transport, url: new URL(options.upstreamUrl) };
+    } catch (error) {
+      throw new ProxyStartupError(`invalid upstreamUrl: ${errorMessage(error)}`);
+    }
+  }
+
+  if (options.upstreamUrl !== undefined) {
+    writeError("startup warning: upstreamUrl is ignored for stdio transport");
+  }
+  if (options.upstreamSpawn === undefined && (options.upstreamCommand === undefined || options.upstreamCommand.length === 0)) {
+    throw new UpstreamStartError("stdio transport requires an upstream command");
+  }
+  return { transport, command: options.upstreamCommand ?? [] };
+}
+
+function isSupportedProxyTransport(value: string): value is ProxyTransport {
+  return (SUPPORTED_TRANSPORTS as readonly string[]).includes(value);
+}
+
+function processShutdownSignals(): ProxyShutdownSignals {
+  return {
+    on(signal, handler) { process.on(signal, handler); },
+    off(signal, handler) { process.off(signal, handler); },
+    setExitCode(code) { process.exitCode = code; },
+  };
+}
 
 async function readPolicy(path: string): Promise<LoadedPolicy> {
   const text = await readFile(path, "utf8");
@@ -367,10 +458,23 @@ async function* stdinLines(): AsyncIterable<string> {
   for await (const line of rl) yield line;
 }
 
-function parseMessage(line: string): JsonRpcMessage {
-  const parsed = JSON.parse(line) as unknown;
-  if (!isObject(parsed) || parsed.jsonrpc !== "2.0") throw new TypeError("message must be a JSON-RPC 2.0 object");
-  return parsed as JsonRpcMessage;
+function parseMessage(line: string, maxBytes = DEFAULT_INBOUND_MAX_BYTES): JsonRpcMessage {
+  assertInboundLineCeiling(line, maxBytes);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line) as unknown;
+  } catch {
+    throw new JsonRpcInputError("parse", "Parse error");
+  }
+  assertSingleJsonRpcMessage(parsed);
+  return parsed;
+}
+
+function parseFailure(error: unknown): { readonly code: number; readonly message: string } {
+  if (error instanceof JsonRpcInputError) {
+    return { code: error.kind === "parse" ? PARSE_ERROR : INVALID_REQUEST, message: error.kind === "parse" ? "Parse error" : "Invalid Request" };
+  }
+  return { code: INVALID_REQUEST, message: "Invalid Request" };
 }
 
 function jsonRpcError(id: JsonRpcId | null, code: number, message: string, data?: unknown): { readonly jsonrpc: "2.0"; readonly id: JsonRpcId | null; readonly error: JsonRpcErrorBody } {

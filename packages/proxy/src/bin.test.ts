@@ -1,10 +1,13 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { AddressInfo } from "node:net";
+import type { IncomingMessage, Server, ServerResponse } from "node:http";
 
-import { runProxy } from "./bin.ts";
+import { ProxyStartupError, runProxy } from "./bin.ts";
 import type { ProxyOptions, UpstreamEvents } from "./bin.ts";
 import type { HoldQueue } from "../../policy/src/index.ts";
 import type { UpstreamProcess } from "./transport/stdio.ts";
@@ -102,7 +105,7 @@ describe("runProxy", () => {
 
     assert.deepEqual(harness.upstreamMessages, []);
     assert.deepEqual(harness.outputMessages, [
-      { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error: Unexpected token 'o', \"not json\" is not valid JSON" } },
+      { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } },
     ]);
   });
 
@@ -124,6 +127,118 @@ describe("runProxy", () => {
     assert.equal(error.id, 26);
     assert.match(error.error.message, /expired without a human decision/);
     assert.equal(error.error.data.result, "expired");
+  });
+
+  test("http transport initialize forwards through the upstream URL", async () => {
+    const server = await startHttpUpstream();
+    const harness = await makeHttpHarness(server, "allow");
+    const run = harness.start();
+
+    harness.input.push(JSON.stringify({ jsonrpc: "2.0", id: 31, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {} } }));
+    await waitFor(() => harness.outputMessages.length === 1, "http initialize response");
+    harness.input.close();
+    await run;
+    await server.close();
+
+    assert.equal(server.messages[0]?.method, "initialize");
+    assert.deepEqual(harness.outputMessages, [
+      { jsonrpc: "2.0", id: 31, result: { protocolVersion: "2025-03-26", capabilities: { tools: {} }, serverInfo: { name: "fake-http", version: "1" } } },
+    ]);
+  });
+
+  test("http transport tools call allow forwards and maps result", async () => {
+    const server = await startHttpUpstream();
+    const harness = await makeHttpHarness(server, "allow");
+    const run = harness.start();
+
+    harness.input.push(JSON.stringify(toolCall(32, "aws.s3.bucket.delete")));
+    await waitFor(() => harness.outputMessages.length === 1, "http allow response");
+    harness.input.close();
+    await run;
+    await server.close();
+
+    assert.equal(server.messages.length, 1);
+    assert.equal(server.messages[0]?.id, 1);
+    assert.deepEqual(harness.outputMessages, [
+      { jsonrpc: "2.0", id: 32, result: { called: "aws.s3.bucket.delete" } },
+    ]);
+  });
+
+  test("http transport held call parks until approval and records the ledger", async () => {
+    const server = await startHttpUpstream();
+    const harness = await makeHttpHarness(server, "hold");
+    let queue: HoldQueue | null = null;
+    harness.onHold = (q) => { queue = q; };
+    const run = harness.start();
+
+    harness.input.push(JSON.stringify(toolCall(33, "aws.s3.bucket.delete")));
+    const q = await waitForQueue(() => queue);
+    assert.equal(server.messages.length, 0);
+    q.resolve(q.list()[0]!.id, { kind: "approved" });
+    await waitFor(() => harness.outputMessages.length === 1, "http held response");
+    harness.input.close();
+    await run;
+    await server.close();
+
+    assert.equal(server.messages.length, 1);
+    assert.deepEqual(harness.outputMessages, [
+      { jsonrpc: "2.0", id: 33, result: { called: "aws.s3.bucket.delete" } },
+    ]);
+    const ledger = await readLedgerDecisions(harness.ledgerDir, "test-http");
+    assert.ok(ledger.includes("hold"));
+    assert.ok(ledger.includes("hold:approved"));
+  });
+
+  test("http transport deny answers locally", async () => {
+    const server = await startHttpUpstream();
+    const harness = await makeHttpHarness(server, "deny");
+    const run = harness.start();
+
+    harness.input.push(JSON.stringify(toolCall(34, "aws.s3.bucket.delete")));
+    await waitFor(() => harness.outputMessages.length === 1, "http deny response");
+    harness.input.close();
+    await run;
+    await server.close();
+
+    assert.deepEqual(server.messages, []);
+    const error = harness.outputMessages[0] as { readonly id: number; readonly error: { readonly message: string } };
+    assert.equal(error.id, 34);
+    assert.match(error.error.message, /denied/);
+  });
+
+  test("stdio transport warns when upstreamUrl is supplied", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "void-proxy-"));
+    const policyPath = join(dir, "policy.yml");
+    await writeFile(policyPath, policyText("allow"));
+    const errors: string[] = [];
+
+    await runProxy({
+      upstreamCommand: ["fake"],
+      upstreamUrl: "http://127.0.0.1:1/mcp",
+      policyPath,
+      posture: "fail-closed",
+      ledgerDir: await mkdtemp(join(tmpdir(), "void-bin-test-")),
+      input: fromLines([]),
+      output() {},
+      error(line) { errors.push(line); },
+      upstreamSpawn(events) { return fakeUpstream(events, []); },
+    });
+
+    assert.match(errors.join("\n"), /upstreamUrl is ignored for stdio transport/);
+  });
+
+  test("http transport without upstreamUrl throws a startup error", async () => {
+    await assert.rejects(
+      () => runProxy({
+        transport: "http",
+        policyPath: "unused.yml",
+        posture: "observe",
+        input: fromLines([]),
+        output() {},
+        error() {},
+      }),
+      ProxyStartupError,
+    );
   });
 });
 
@@ -225,4 +340,190 @@ async function waitForQueue(getQueue: () => HoldQueue | null): Promise<HoldQueue
     await new Promise<void>((resolve) => setTimeout(resolve, 5));
   }
   throw new Error("queue was not populated");
+}
+
+
+type HttpHarness = {
+  readonly input: LineQueue;
+  readonly outputMessages: unknown[];
+  readonly errors: string[];
+  readonly ledgerDir: string;
+  onHold?: (queue: HoldQueue) => void;
+  readonly start: () => Promise<void>;
+};
+
+type HttpUpstreamHarness = {
+  readonly url: string;
+  readonly messages: Array<Record<string, unknown>>;
+  readonly close: () => Promise<void>;
+};
+
+type LineQueue = AsyncIterable<string> & {
+  readonly push: (line: string) => void;
+  readonly close: () => void;
+};
+
+async function makeHttpHarness(server: HttpUpstreamHarness, decision: Decision): Promise<HttpHarness> {
+  const dir = await mkdtemp(join(tmpdir(), "void-proxy-"));
+  const policyPath = join(dir, "policy.yml");
+  await writeFile(policyPath, policyText(decision));
+  const input = lineQueue();
+  const outputMessages: unknown[] = [];
+  const errors: string[] = [];
+  const ledgerDir = await mkdtemp(join(tmpdir(), "void-bin-http-test-"));
+  const harness: HttpHarness = {
+    input,
+    outputMessages,
+    errors,
+    ledgerDir,
+    start() {
+      return runProxy({
+        transport: "http",
+        upstreamUrl: server.url,
+        policyPath,
+        posture: "fail-closed",
+        ledgerDir,
+        workspace: "test-http",
+        input,
+        output(line) { outputMessages.push(JSON.parse(line) as unknown); },
+        error(line) { errors.push(line); },
+        onHold: (queue) => harness.onHold?.(queue),
+      });
+    },
+  };
+  return harness;
+}
+
+async function startHttpUpstream(): Promise<HttpUpstreamHarness> {
+  const messages: Array<Record<string, unknown>> = [];
+  const streams = new Set<ServerResponse>();
+  const server: Server = createServer((request, response) => {
+    void handleHttpUpstreamRequest(request, response, messages, streams);
+  });
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address() as AddressInfo;
+  return {
+    url: `http://127.0.0.1:${address.port}/mcp`,
+    messages,
+    async close() {
+      for (const stream of streams) {
+        stream.end();
+      }
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error !== undefined) reject(error);
+          else resolve();
+        });
+      });
+    },
+  };
+}
+
+async function handleHttpUpstreamRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  messages: Array<Record<string, unknown>>,
+  streams: Set<ServerResponse>,
+): Promise<void> {
+  if (request.method === "GET") {
+    streams.add(response);
+    response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+    request.on("close", () => { streams.delete(response); });
+    return;
+  }
+
+  if (request.method !== "POST") {
+    response.writeHead(405, { allow: "GET, POST" });
+    response.end();
+    return;
+  }
+
+  const message = JSON.parse(await requestText(request)) as { readonly id?: number; readonly method?: string; readonly params?: { readonly name?: string } };
+  messages.push(message as Record<string, unknown>);
+  response.writeHead(200, { "content-type": "application/json" });
+  if (message.method === "initialize") {
+    response.end(JSON.stringify({
+      jsonrpc: "2.0",
+      id: message.id,
+      result: { protocolVersion: "2025-11-25", capabilities: { tools: {} }, serverInfo: { name: "fake-http", version: "1" } },
+    }));
+    return;
+  }
+  if (message.method === "tools/call") {
+    response.end(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: { called: message.params?.name } }));
+    return;
+  }
+  response.end(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: {} }));
+}
+
+async function requestText(request: IncomingMessage): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function lineQueue(): LineQueue {
+  const values: string[] = [];
+  const waiters: Array<(result: IteratorResult<string>) => void> = [];
+  let closed = false;
+
+  const finish = (): void => {
+    while (waiters.length > 0) {
+      waiters.shift()?.({ done: true, value: undefined });
+    }
+  };
+
+  const next = async (): Promise<IteratorResult<string>> => {
+    const value = values.shift();
+    if (value !== undefined) return { done: false, value };
+    if (closed) return { done: true, value: undefined };
+    return new Promise<IteratorResult<string>>((resolve) => { waiters.push(resolve); });
+  };
+
+  return {
+    push(line) {
+      if (closed) throw new Error("input queue is closed");
+      const waiter = waiters.shift();
+      if (waiter === undefined) {
+        values.push(line);
+        return;
+      }
+      waiter({ done: false, value: line });
+    },
+    close() {
+      closed = true;
+      finish();
+    },
+    [Symbol.asyncIterator]() {
+      return {
+        next,
+        async return() {
+          closed = true;
+          finish();
+          return { done: true, value: undefined };
+        },
+      };
+    },
+  };
+}
+
+async function readLedgerDecisions(ledgerDir: string, workspace: string): Promise<string[]> {
+  const text = await readFile(join(ledgerDir, `${workspace}.jsonl`), "utf8");
+  return text.split("\n").filter((line) => line !== "").map((line) => {
+    const entry = JSON.parse(line) as { readonly body: { readonly decision: string } };
+    return entry.body.decision;
+  });
+}
+
+async function waitFor(predicate: () => boolean, label: string): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise<void>((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`timed out waiting for ${label}`);
 }
