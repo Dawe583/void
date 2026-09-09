@@ -53,10 +53,14 @@ describe("classifyCall", () => {
     if (result.outcome === "classified") assert.equal(result.tone, "r3");
   });
 
-  test("an unmigrated entry stays unclassified with no assumption", () => {
-    const result = classifyCall({ tool: "mysql.table.truncate", facts: {} });
-    assert.equal(result.outcome, "unclassified");
-    if (result.outcome === "unclassified") assert.equal(result.assume, null);
+  test("a tool outside the registry is unknown, never guessed", () => {
+    // The audit pass migrated the last real unmigrated registry entry, so the
+    // CLI-level specimen for unmigrated prose no longer exists. The honest
+    // remaining CLI assertion is that an absent tool is a distinct outcome
+    // from an undecided one, with no assumed class either way.
+    const result = classifyCall({ tool: "specimen.never.migrated", facts: {} });
+    assert.equal(result.outcome, "unknown-tool");
+    if (result.outcome === "unknown-tool") assert.equal(result.assume, undefined);
   });
 });
 

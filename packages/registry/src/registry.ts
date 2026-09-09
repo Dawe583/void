@@ -333,7 +333,7 @@ const moneyEntries: RegistryEntry[] = [
     tags: ["payments", "billing"],
     cases: [
       { when: "cancel_at_period_end was used", tone: "r0", inverse: "POST /v1/subscriptions/:id with cancel_at_period_end false", window: "until the period ends", note: "the subscription is still active, only the renewal flag changed", if: { kind: "argument", argument: "cancel_at_period_end", operator: "equals", value: "true" } },
-      { when: "always", tone: "r1", inverse: "create a new subscription on the same price", window: "unbounded", note: "billing anchors, trial state and the subscription id do not survive, so proration and revenue reporting shift" , if: { kind: "always" } },
+      { when: "always", tone: "r2", inverse: "create a new subscription on the same price", window: "unbounded", note: "billing anchors, trial state and the subscription id do not survive, so proration and revenue reporting shift; recreating is a mitigation, not an undo" , if: { kind: "always" } },
     ],
   },
   {
@@ -726,7 +726,7 @@ const dataEntries: RegistryEntry[] = [
     summary: "TRUNCATE TABLE.",
     tags: ["database", "delete"],
     cases: [
-      { when: "always", tone: "r3", inverse: null, window: "none", note: "TRUNCATE is DDL in MySQL, so it commits implicitly and cannot be rolled back, which catches out anyone reasoning from Postgres" },
+      { when: "always", tone: "r3", inverse: null, window: "none", note: "TRUNCATE is DDL in MySQL, so it commits implicitly and cannot be rolled back, which catches out anyone reasoning from Postgres" , if: {"kind": "always"} },
     ],
   },
   {

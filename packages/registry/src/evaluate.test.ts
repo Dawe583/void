@@ -73,9 +73,17 @@ describe("evaluate, the classified path", () => {
   });
 
   test("an entry without structured cases is unclassified with no assumption", () => {
-    // s3Delete itself is migrated now, so the honest fixture for the
-    // unmigrated path is an entry the pilot batch has not touched.
-    const unmigrated = findEntry("mysql.table.truncate") as RegistryEntry;
+    // The audit pass migrated the last real unmigrated entry (mysql.table.truncate), so the
+    // unmigrated path is exercised by a local specimen rather than by finding drift in the
+    // live registry.
+    const unmigrated: RegistryEntry = {
+      id: "specimen.unmigrated.delete",
+      vendor: "specimen",
+      surface: "Specimens",
+      summary: "Test fixture for the unmigrated path.",
+      tags: ["test"],
+      cases: [{ when: "always", tone: "r3", inverse: null, window: "none", note: "specimen" }],
+    };
     const result = evaluate(unmigrated, versioningOn);
     assert.equal(result.outcome, "unclassified");
     if (result.outcome !== "unclassified") return;
