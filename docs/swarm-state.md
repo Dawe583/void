@@ -35,6 +35,13 @@ Workspace: 346 package checks + 26 e2e checks green. Registry: 163 entries. HEAD
 4. Never edit another track's files. Ownership: approve-command owns approvals.ts + approval-loop.ts; replay-registry owns replay.ts; ui-wiring owns web/ + one server.ts line; adversarial-2 owns security-notes.md + unowned files only.
 
 
-## Wave 5 commits
+## Wave 5 (CLOSED, 8 tracks committed)
 
-packaging 9d4948de, ui-wiring 72fec897, bench a72e0ee3, adversarial-2 (pending), policy-packs (pending), replay-registry (pending), registry-batch3 (pending), approve-command (fixing watcher race).
+packaging 9d4948de, ui-wiring 72fec897, bench a72e0ee3, adversarial-2 5b88062d,
+policy-packs 284de440, replay-registry 5b47ba20, registry-batch3 7bb7d77e,
+approve-command 0d1655b9, e2e notes closed 50f5e8be (root).
+
+Final state: registry 270 entries; both e2e-final NOTEs closed with real approve
+and drift moments; 8/8 moments pass; full package suites green (registry 32,
+ledger 49, policy 73, proxy 79, connectors 57, cli 95, sdk 6, control-plane 23,
+scripts 30 from repo root).
