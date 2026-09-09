@@ -25,7 +25,10 @@ gui-web/
   styles.css       Apple tokens from docs/GUI-RULES.md plus chat layer
   fixtures.js      MOCK session, calls, holds, ledger, registry, policy,
                    providers, models, routing, usage, keys
-  app.js           hash router, sidebar, palette, shortcuts, status line
+  app.js           hash router, sidebar, palette, shortcuts, status line,
+                   theme init, boot sequence, service worker
+  manifest.json  PWA shell (installable, standalone, dark chrome)
+  sw.js            offline cache for the app shell, network first rest
   js/api.js        real OpenAI compatible client (streaming, models, test)
   views/           one file per view, registered on window.VOID_VIEWS
     chat.js        agent session: streaming, tool cards, plan mode,
@@ -47,6 +50,7 @@ gui-web/
     taint.js       read to write edges plus scope query
     audit.js       period export, frame map, verifier, forgers
     cli.js         command builder with copy and exit codes
+    github.js      token login, profile, repos, open PRs (real API)
     settings.js    posture, keys, policy source, channels
     shortcuts.js   cheatsheet, press ?
 ```

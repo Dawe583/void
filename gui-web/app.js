@@ -10,14 +10,14 @@ window.VOID_TOAST = function (msg) {
   setTimeout(function () { el.remove(); }, 3200);
 };
 
-var VIEWS = ["chat", "overview", "intercept", "live", "holds", "ledger", "registry", "policy", "providers", "models", "replay", "sessions", "connectors", "facts", "taint", "audit", "cli", "settings", "shortcuts"];
+var VIEWS = ["chat", "overview", "intercept", "live", "holds", "ledger", "registry", "policy", "providers", "models", "replay", "sessions", "connectors", "facts", "taint", "audit", "cli", "github", "settings", "shortcuts"];
 
-var VIEW_LABELS = { chat: "Chat", overview: "Overview", intercept: "Intercept simulator", live: "Live feed", holds: "Holds", ledger: "Ledger", registry: "Registry", policy: "Policy", providers: "Providers", models: "Models and spend", replay: "Replay", sessions: "Sessions", connectors: "Connectors", facts: "Facts and probes", taint: "Taint graph", audit: "Audit", cli: "CLI builder", settings: "Settings", shortcuts: "Shortcuts" };
+var VIEW_LABELS = { chat: "Chat", overview: "Overview", intercept: "Intercept simulator", live: "Live feed", holds: "Holds", ledger: "Ledger", registry: "Registry", policy: "Policy", providers: "Providers", models: "Models and spend", replay: "Replay", sessions: "Sessions", connectors: "Connectors", facts: "Facts and probes", taint: "Taint graph", audit: "Audit", cli: "CLI builder", github: "GitHub", settings: "Settings", shortcuts: "Shortcuts" };
 
 var NAV_GROUPS = {
   "nav-workbench": ["chat", "overview", "intercept", "live", "holds"],
   "nav-govern": ["ledger", "registry", "policy", "replay", "taint", "audit"],
-  "nav-setup": ["providers", "models", "sessions", "connectors", "facts", "cli", "settings"]
+  "nav-setup": ["providers", "models", "sessions", "connectors", "facts", "cli", "github", "settings"]
 };
 
 // Sidebar group titles, keyed by the same ids as NAV_GROUPS.
@@ -69,6 +69,9 @@ function render() {
   if (window.VOID_PAINT_SIDEBAR) window.VOID_PAINT_SIDEBAR();
   var root = document.getElementById("view-root");
   root.innerHTML = "";
+  root.classList.remove("view-in");
+  void root.offsetWidth;
+  root.classList.add("view-in");
   if (!name) {
     root.innerHTML = "<div class='section'><div class='card'><h2>Unknown view</h2>" +
       "<p>This link points nowhere. Pick a view from the sidebar.</p>" +
@@ -103,12 +106,14 @@ function updateStatus() {
 function boot() {
   var el = document.getElementById("boot");
   if (!el) return;
+  document.body.classList.add("booting");
   var pre = document.getElementById("boot-lines");
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var seen = null;
   try { seen = localStorage.getItem("void.booted"); } catch (e) { /* storage blocked */ }
   function done() {
     el.remove();
+    document.body.classList.remove("booting");
     try { localStorage.setItem("void.booted", "1"); } catch (e) { /* storage blocked */ }
   }
   el.addEventListener("click", done);
@@ -233,6 +238,10 @@ document.addEventListener("input", function (e) {
 window.addEventListener("hashchange", render);
 document.addEventListener("DOMContentLoaded", function () {
   boot();
+  if ("serviceWorker" in navigator) {
+    try { navigator.serviceWorker.register("sw.js").catch(function () { /* offline shell optional */ }); }
+    catch (e) { /* unsupported */ }
+  }
   render();
   var po = document.getElementById("palette-open");
   if (po) po.onclick = openPalette;

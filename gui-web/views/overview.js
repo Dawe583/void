@@ -16,10 +16,26 @@ window.VOID_VIEWS.overview = function (root) {
   var grid = document.createElement("div");
   grid.className = "grid grid-3 section";
   grid.innerHTML =
-    "<div class='card'><div class='stat-num'>" + F.calls.length + "</div><div class='muted'>intercepts this session</div></div>" +
-    "<div class='card'><div class='stat-num'>" + pending + "</div><div class='muted'>holds waiting for a human</div></div>" +
+    "<div class='card'><div class='stat-num' data-count='" + F.calls.length + "'>" + F.calls.length + "</div><div class='muted'>intercepts this session</div></div>" +
+    "<div class='card'><div class='stat-num' data-count='" + pending + "'>" + pending + "</div><div class='muted'>holds waiting for a human</div></div>" +
     "<div class='card'><div class='stat-num'>OK</div><div class='muted'>chain verify, height " + F.ledgerEntries.length + "</div></div>";
   root.appendChild(grid);
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduce) {
+    grid.querySelectorAll("[data-count]").forEach(function (el) {
+      var target = parseInt(el.getAttribute("data-count"), 10) || 0;
+      var t0 = null;
+      function step(ts) {
+        if (!document.body.contains(el)) return;
+        if (!t0) t0 = ts;
+        var p = Math.min(1, (ts - t0) / 600);
+        el.textContent = Math.round(target * p);
+        if (p < 1) requestAnimationFrame(step);
+      }
+      el.textContent = "0";
+      requestAnimationFrame(step);
+    });
+  }
 
   var dist = document.createElement("div");
   dist.className = "card section";

@@ -29,6 +29,7 @@ window.VOID_VIEWS.shortcuts = function (root) {
     { title: "Files", rows: [
       ["Download on code block", "Generate a file with matching extension"],
       ["Download in artifact drawer", "Save the artifact with its own name"],
+      ["Lines, Wrap in drawer", "Toggle line numbers and soft wrap"],
       ["Save file on reply", "Download the reply as markdown"]
     ]}
   ];
