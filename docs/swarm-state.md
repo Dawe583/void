@@ -45,3 +45,11 @@ Final state: registry 270 entries; both e2e-final NOTEs closed with real approve
 and drift moments; 8/8 moments pass; full package suites green (registry 32,
 ledger 49, policy 73, proxy 79, connectors 57, cli 95, sdk 6, control-plane 23,
 scripts 30 from repo root).
+
+
+## Wave 6 (parent-solo: delegation providers down)
+
+openai-codex (gpt-5.5/gpt-6-astra) expired mid-session; opencode models spawn but
+return empty assistant text (6 probes, 5 models, thinking on/off). Wave 6 runs
+in the parent session: system-e2e arc moment, docs sync, registry quality audit,
+adversarial pass 3. Same verify-and-commit discipline, one commit per track.
