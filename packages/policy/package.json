@@ -1,6 +1,6 @@
 {
   "name": "@void/policy",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -16,5 +16,21 @@
   },
   "dependencies": {
     "yaml": "^2.8.0"
-  }
+  },
+  "description": "Evaluate ordered policy rules and hold tool calls for human approval.",
+  "keywords": [
+    "void",
+    "ai-safety",
+    "policy",
+    "approvals"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "packages/policy"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/packages/policy"
 }

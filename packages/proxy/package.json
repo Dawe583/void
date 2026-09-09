@@ -1,6 +1,6 @@
 {
   "name": "@void/proxy",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -19,5 +19,22 @@
     "@void/ledger": "workspace:*",
     "@void/policy": "workspace:*",
     "@void/registry": "workspace:*"
-  }
+  },
+  "description": "Intercept MCP tool calls over stdio or HTTP upstreams with policy and ledger checks.",
+  "keywords": [
+    "void",
+    "ai-safety",
+    "mcp",
+    "proxy",
+    "approvals"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "packages/proxy"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/packages/proxy"
 }

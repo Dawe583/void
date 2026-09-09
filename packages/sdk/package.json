@@ -1,6 +1,6 @@
 {
   "name": "@void/sdk",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -19,5 +19,22 @@
     "@void/ledger": "workspace:*",
     "@void/policy": "workspace:*",
     "@void/proxy": "workspace:*"
-  }
+  },
+  "description": "Wrap VOID interception and held call decisions in an in-process client.",
+  "keywords": [
+    "void",
+    "ai-safety",
+    "sdk",
+    "mcp",
+    "approvals"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/packages/sdk"
 }

@@ -1,6 +1,6 @@
 {
   "name": "@void/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -17,5 +17,22 @@
   },
   "dependencies": {
     "@void/registry": "workspace:*"
-  }
+  },
+  "description": "Inspect classifications, verify ledgers, and plan replay from the VOID command line.",
+  "keywords": [
+    "void",
+    "ai-safety",
+    "cli",
+    "replay",
+    "verification"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/packages/cli"
 }

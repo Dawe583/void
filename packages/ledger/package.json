@@ -1,6 +1,6 @@
 {
   "name": "@void/ledger",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -13,5 +13,22 @@
   },
   "devDependencies": {
     "@types/node": "catalog:"
-  }
+  },
+  "description": "Persist signed, hash chained audit records and verify their integrity.",
+  "keywords": [
+    "void",
+    "ai-safety",
+    "audit",
+    "ed25519",
+    "verification"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "packages/ledger"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/packages/ledger"
 }

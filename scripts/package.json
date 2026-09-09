@@ -1,9 +1,25 @@
 {
   "name": "@void/scripts",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "devDependencies": {
     "@types/node": "catalog:"
-  }
+  },
+  "description": "Run VOID workspace checks, local end-to-end scenarios, and benchmarks.",
+  "keywords": [
+    "void",
+    "testing",
+    "benchmarks"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "scripts"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/scripts",
+  "license": "Apache-2.0"
 }

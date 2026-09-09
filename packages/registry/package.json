@@ -1,6 +1,6 @@
 {
   "name": "@void/registry",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -13,5 +13,21 @@
   },
   "devDependencies": {
     "@types/node": "catalog:"
-  }
+  },
+  "description": "Classify tool calls against draft reversibility cases and declared target facts.",
+  "keywords": [
+    "void",
+    "ai-safety",
+    "registry",
+    "reversibility"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "packages/registry"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/packages/registry"
 }

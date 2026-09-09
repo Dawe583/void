@@ -1,6 +1,6 @@
 {
   "name": "@void/connectors",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -16,5 +16,22 @@
   },
   "dependencies": {
     "node-sql-parser": "^5.4.0"
-  }
+  },
+  "description": "Capture snapshots and build guarded inverses for Postgres and S3 tool calls.",
+  "keywords": [
+    "void",
+    "ai-safety",
+    "postgres",
+    "s3",
+    "snapshots"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "packages/connectors"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/packages/connectors"
 }

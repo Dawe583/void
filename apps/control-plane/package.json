@@ -1,11 +1,26 @@
 {
   "name": "@void/control-plane-api",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "test": "node --test",
     "typecheck": "tsc -p tsconfig.json"
-  }
+  },
+  "description": "Serve local development approvals, ledger views, and VOID control plane pages.",
+  "keywords": [
+    "void",
+    "approvals",
+    "control-plane"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "apps/control-plane"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/apps/control-plane"
 }

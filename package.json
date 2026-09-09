@@ -1,6 +1,6 @@
 {
-  "name": "void",
-  "version": "0.0.0",
+  "name": "@void/workspace",
+  "version": "0.1.0",
   "license": "Apache-2.0",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
@@ -18,6 +18,18 @@
   },
   "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": "22.x"
-  }
+    "node": ">=26"
+  },
+  "description": "VOID development workspace for accountable AI tool calls, signed ledgers, and guarded replay.",
+  "bin": {
+    "void": "packages/cli/bin/void.mjs",
+    "void-proxy": "packages/proxy/bin/void-proxy.mjs"
+  },
+  "keywords": [
+    "void",
+    "mcp",
+    "ai-safety",
+    "audit",
+    "reversibility"
+  ]
 }
