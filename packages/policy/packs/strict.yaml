@@ -1,0 +1,9 @@
+version: 1
+rules:
+  - match:
+      class: r0
+    decision: allow
+    rationale: Only fully reversible calls fit this safety boundary.
+  - match: {}
+    decision: deny
+    rationale: Calls with traces, mitigations or no proven inverse are not permitted.

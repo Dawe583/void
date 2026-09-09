@@ -1,0 +1,15 @@
+version: 1
+rules:
+  - match:
+      class: [r0, r1, r2]
+    decision: allow
+    rationale: Non-production development accepts traces and mitigable effects.
+  - match:
+      class: r3
+    decision: hold
+    seconds: 60
+    notify: [cli]
+    rationale: An irreversible call needs a human decision in the terminal.
+  - match: {}
+    decision: deny
+    rationale: A call outside the named classes has no permission to proceed.

@@ -1,0 +1,15 @@
+version: 1
+rules:
+  - match:
+      class: [r0, r1]
+    decision: allow
+    rationale: Reversible calls can proceed after the proxy records them.
+  - match:
+      class: r2
+    decision: hold
+    seconds: 300
+    notify: [cli, slack]
+    rationale: Compensation cannot restore the prior state, so a human must decide.
+  - match: {}
+    decision: deny
+    rationale: Irreversible or unclassified calls exceed this policy's safety boundary.

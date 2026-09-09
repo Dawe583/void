@@ -42,6 +42,7 @@ export function isMatchKey(name: string): name is MatchKey {
 }
 
 export * from "./rules.ts";
+export * from "./packs.ts";
 export * from "./decide.ts";
 export * from "./hold.ts";
 export * from "./channels/cli.ts";
