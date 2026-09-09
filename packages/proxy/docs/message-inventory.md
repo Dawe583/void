@@ -82,7 +82,7 @@ Request params and result bodies below omit the `_meta?: RequestMeta` common fie
 
 `CreateMessageResult` (no tools in request): `{ model: string, stopReason?: 'endTurn' \| 'stopSequence' \| 'maxTokens' \| string, role: 'user' \| 'assistant', content: TextContent \| ImageContent \| AudioContent }` (`sdk/types.js:1565-1586`).
 `CreateMessageResultWithTools` (tools present): content may also be an array and may include `ToolUseContent` (`sdk/types.js:1591-1613`); stopReason may be `'toolUse'` (`sdk/types.js:1607`).
-Which schema applies is chosen by `params.tools \|\| params.toolChoice` (`sdk/server/index.js:327-331`, `sdk/client/index.js:253-256`).
+Which schema applies depends on the request contents: the server helper chooses `CreateMessageResultWithToolsSchema` when `params.tools` is set (`sdk/server/index.js:327-331`), and the client-side response validation uses the with-tools schema when `params.tools \|\| params.toolChoice` (`sdk/client/index.js:253-256`).
 `SamplingMessage` = `{ role, content: block \| block[] }` where block is text, image, audio, `tool_use` (`{ type: 'tool_use', name, id, input: Record<string, unknown> }`, `sdk/types.js:1081-1103`) or `tool_result` (`{ type: 'tool_result', toolUseId, content: ContentBlock[] (default []), structuredContent?, isError? }`, `sdk/types.js:1468-1479`).
 
 ### Task object shape (shared)
