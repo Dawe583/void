@@ -7,6 +7,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
+import { parseStatement } from "../../packages/connectors/src/postgres/parse.ts";
+import { captureBeforeImage } from "../../packages/connectors/src/postgres/capture.ts";
+import { LocalSnapshotStore } from "../../packages/connectors/src/snapshot/local.ts";
+import { sha256Digest } from "../../packages/connectors/src/snapshot/store.ts";
+import { jsonlStore } from "../../packages/ledger/src/store.ts";
+import { devKeyProvider } from "../../packages/ledger/src/sign.ts";
 
 const root = new URL("../..", import.meta.url);
 const rootPath = fileURLToPath(root);
@@ -190,15 +196,13 @@ async function readLedgerRecords(ledgerFile) {
 async function runStdioProductMoment() {
   const base = await mkdtemp(join(tmpdir(), "void-e2e-final-"));
   const ledgerDir = join(base, "ledger");
+  const approvalsDir = join(base, "approvals");
   const home = join(base, "home");
   const workspace = "e2e-final";
   const env = { ...process.env, HOME: home, VOID_WORKSPACE: workspace };
   const facts = await strictFactsPath(base);
   const policy = await policyPath(base);
-  const approvalAvailable = hasApproveSurface();
-  if (!approvalAvailable) {
-    note("approval command", "void approve is not exposed; the stdio hold is allowed to expire instead of faking an approval");
-  }
+  assert.ok(hasApproveSurface(), "void approve is a real command in this tree");
 
   const proxy = spawnProxy([
     "--upstream", process.execPath,
@@ -207,6 +211,7 @@ async function runStdioProductMoment() {
     "--facts", facts,
     "--posture", "fail-closed",
     "--ledger-dir", ledgerDir,
+    "--approvals-dir", approvalsDir,
     "--workspace", workspace,
   ], env);
 
@@ -223,30 +228,46 @@ async function runStdioProductMoment() {
     await waitFor(() => proxy.output.length >= 3 && proxy.output[2], "echo response");
     assert.equal(textFrom(proxy.output[2]), "hello void");
 
+    // First held call: approved through the real void approve command and the state dir.
     send(proxy.child, { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "orders_delete", arguments: { where: "status = stale", rows: 2 } } });
-    await waitFor(async () => {
+    const firstHoldId = await waitFor(async () => {
       try {
-        const records = await readLedgerRecords(join(ledgerDir, `${workspace}.jsonl`));
-        return records.find((entry) => entry.body?.tool === "orders_delete" && entry.body?.decision === "hold");
+        const pending = JSON.parse(await readFile(join(approvalsDir, "pending.json"), "utf8"));
+        return Array.isArray(pending) && pending.length > 0 && typeof pending[0].holdId === "string" ? pending[0].holdId : false;
       } catch {
         return false;
       }
-    }, "held ledger record");
-    await delay(80);
-    assert.equal(proxy.output.length, 3);
+    }, "pending hold in the approvals state dir");
+    const approve = await runCli(["approve", firstHoldId, "--by", "e2e-final", "--reason", "moment", "--dir", approvalsDir], env);
+    assert.equal(approve.code, 0, `${approve.stdout}\n${approve.stderr}`);
+    await waitFor(() => proxy.output.length >= 4 && proxy.output[3], "approved response", 300, 10);
+    // Approval releases the held call and the proxy forwards it upstream for real.
+    assert.equal(textFrom(proxy.output[3]), "deleted 2");
 
-    await waitFor(() => proxy.output.length >= 4 && proxy.output[3], "hold expiry response", 300, 10);
-    assert.equal(proxy.output[3].error?.data?.result, "expired");
+    // Second held call: no decision is written, so the hold expires on its own.
+    send(proxy.child, { jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "orders_delete", arguments: { where: "status = stale", rows: 2 } } });
+    await waitFor(async () => {
+      try {
+        const records = await readLedgerRecords(join(ledgerDir, `${workspace}.jsonl`));
+        return records.filter((entry) => entry.body?.tool === "orders_delete" && entry.body?.decision === "hold").length >= 2;
+      } catch {
+        return false;
+      }
+    }, "second held ledger record");
+    await waitFor(() => proxy.output.length >= 5 && proxy.output[4], "hold expiry response", 300, 10);
+    assert.equal(proxy.output[4].error?.data?.result, "expired");
     const exit = await closeProxy(proxy.child);
     assert.equal(exit, 0);
     assert.deepEqual(proxy.errors, []);
 
     const ledgerFile = join(ledgerDir, `${workspace}.jsonl`);
     const records = await readLedgerRecords(ledgerFile);
-    assert.ok(records.length >= 4, `expected at least 4 ledger records, got ${records.length}`);
+    assert.ok(records.length >= 5, `expected at least 5 ledger records, got ${records.length}`);
     assert.ok(records.every((entry) => entry.body?.argsDigest?.length === 64));
     assert.ok(records.every((entry) => entry.body?.args === undefined));
-    const deleteSeq = records.find((entry) => entry.body?.tool === "orders_delete" && entry.body?.decision === "hold")?.seq;
+    assert.ok(records.some((entry) => entry.body?.tool === "orders_delete" && entry.body?.decision === "hold:approved"));
+    assert.ok(records.some((entry) => entry.body?.tool === "orders_delete" && entry.body?.decision === "hold:expired"));
+    const deleteSeq = records.find((entry) => entry.body?.tool === "orders_delete" && entry.body?.decision === "hold:approved")?.seq;
     assert.equal(typeof deleteSeq, "number");
     return { base, ledgerDir, ledgerFile, workspace, env, deleteSeq };
   } catch (error) {
@@ -318,13 +339,55 @@ async function runTamperMoment(state) {
 }
 
 async function runDriftMoment() {
-  const replaySource = readFileSyncText("packages/cli/src/replay.ts");
-  const binSource = readFileSyncText("packages/cli/bin/void.mjs");
-  if (replaySource.includes("options.connectors ?? {}") && !binSource.includes("@void/connectors")) {
-    note("drift moment", "void replay has no binary connector registry and dry-run prints a plan before apply, so drift cannot be checked through the CLI yet");
-    return;
+  // Real binary, real ledger, real manifest and real snapshot bytes: the dry-run plan comes
+  // from the binary's static connector set, and apply without an executor fails with the
+  // typed not-configured error instead of guessing a driver.
+  const dir = await mkdtemp(join(tmpdir(), "void-e2e-final-drift-"));
+  try {
+    const sql = "update public.orders set status = 'paid' where id = 1";
+    const statement = parseStatement(sql);
+    const schema = { tables: [{ table: "public.orders", primaryKey: ["id"], columns: ["id", "status", "total"] }] };
+    // The library contract: hosts inject the executor. One before-row through the real capture path.
+    const exec = {
+      async query(sqlText) {
+        if (sqlText.toLowerCase().includes("public") && sqlText.toLowerCase().includes("orders")) {
+          return [{ id: 1, status: "draft", total: 42 }];
+        }
+        throw new Error("unexpected query");
+      },
+    };
+    const image = await captureBeforeImage(exec, statement, schema);
+    const store = LocalSnapshotStore(join(dir, "snapshots"));
+    const bytes = new TextEncoder().encode(JSON.stringify(image));
+    // Slash is not a legal namespace character in the snapshot store, so the moment uses a dash.
+    const snapshot = await store.put("e2e-final-postgres", bytes, { tool: "postgres.row.update" });
+    const signer = await devKeyProvider({ dir: join(dir, "keys"), env: {} });
+    const ledger = jsonlStore(signer, { dir: join(dir, "ledger") });
+    const workspace = "e2e-final";
+    const digest = sha256Digest(new TextEncoder().encode(JSON.stringify({ sql })));
+    await ledger.append({
+      workspace,
+      at: "2026-09-08T00:00:00.000Z",
+      tool: "postgres.row.update",
+      klass: "r1",
+      decision: "allow:resolved",
+      argsDigest: digest,
+    });
+    const manifest = { digest, reference: snapshot.reference, tool: "postgres.row.update" };
+    await writeFile(join(dir, "snapshots", "manifest.jsonl"), `${JSON.stringify(manifest)}\n`);
+
+    const dry = await runCli(["replay", "--ledger", join(dir, "ledger", `${workspace}.jsonl`), "--snapshot-dir", join(dir, "snapshots"), "--seq", "1", "--dry-run"], {});
+    assert.equal(dry.code, 0, `${dry.stdout}\n${dry.stderr}`);
+    assert.match(dry.stdout, /tool: postgres\.row\.update/);
+    assert.match(dry.stdout, /step .*: update public\.orders/);
+
+    const apply = await runCli(["replay", "--ledger", join(dir, "ledger", `${workspace}.jsonl`), "--snapshot-dir", join(dir, "snapshots"), "--seq", "1"], {});
+    assert.equal(apply.code, 1);
+    assert.match(`${apply.stdout}\n${apply.stderr}`, /ExecutorNotConfigured: postgres executor not configured: VOID_PG_URL is absent/);
+    return { dry, apply };
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
-  note("drift moment", "surface changed; this script needs the new replay drift contract before it can assert the scenario");
 }
 
 async function runHttpMoment() {
@@ -395,7 +458,7 @@ export async function runAllChecks() {
   await check("feed moment", () => runFeedMoment(state));
   await check("attestation moment", () => runAttestationMoment(state));
   await check("tamper moment", () => runTamperMoment(state));
-  await runDriftMoment();
+  await check("drift moment", runDriftMoment);
   await check("HTTP moment", runHttpMoment);
   return { passLines: [...passLines], failures: [...failures], notes: [...notes] };
 }
