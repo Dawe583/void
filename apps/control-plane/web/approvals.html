@@ -24,6 +24,10 @@
   --r1: #ff9500;
   --r2: #ff3b30;
   --r3: #af52de;
+  --ok: var(--r0);
+  --info: var(--action);
+  --warn: var(--r1);
+  --bad: var(--r2);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -149,9 +153,9 @@ select { min-height: 44px; border: 1px solid var(--hairline); border-radius: 8px
   border-radius: 9999px;
   background: var(--r1);
   margin-right: 8px;
-  animation: pulse 1.2s ease-in-out infinite;
+  animation: v-pulse 1.2s ease-in-out infinite;
 }
-@keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes v-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
 .inbox { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px; }
 .rule { margin-top: 17px; padding: 17px; background: var(--pearl); border: 3px solid var(--divider); border-radius: 11px; color: var(--muted); }
@@ -163,18 +167,35 @@ footer { background: var(--parchment); padding: 64px 0; color: #7a7a7a; font-siz
 @media (max-width: 734px) { .global-nav .inner, .sub-nav .inner, main, footer .inner { padding-left: 17px; padding-right: 17px; } .hero, .section { padding: 48px 17px; } h1 { font-size: 34px; } h2 { font-size: 34px; } .lead { font-size: 21px; } .grid, .strip, .inbox { grid-template-columns: 1fr; } .nav-links { gap: 12px; } }
 @media (max-width: 419px) { h1 { font-size: 28px; } }
 
+.error, [data-tone="bad"] { color: var(--bad); }
+[data-tone="ok"] { color: var(--ok); }
+[data-tone="info"] { color: var(--info); }
+[data-tone="warn"] { color: var(--warn); }
+.chip[data-tone] { background: var(--pearl); }
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+input { min-height: 44px; font: inherit; color: var(--ink); background: var(--canvas); border: 1px solid var(--hairline); padding: 8px 12px; max-width: 100%; }
+input:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+#last-updated { display: block; margin-bottom: 24px; }
+#decision-status { margin: 16px 0; }
+.card, td, .verify-line { overflow-wrap: anywhere; }
+.inbox h2 { font-size: 21px; margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) { button { transition: none; } .pending td:first-child:before { animation: none; } }
 </style>
 </head>
 <body>
 <div class="global-nav"><div class="inner"><a href="index.html" aria-label="VOID home">VOID</a><nav class="nav-links" aria-label="Primary"><a href="feed.html">Feed</a><a href="approvals.html">Approvals</a><a href="ledger.html">Ledger</a></nav></div></div>
 <div class="sub-nav"><div class="inner"><a class="brand" href="index.html">Control Plane</a><a class="primary" href="approvals.html">Review holds</a></div></div>
 <main>
-<section class="hero"><p class="eyebrow">Approval inbox</p><h1>Held calls need a clear yes or no.</h1><p class="lead">Each hold shows the registry class, measured scope, and the policy reason before any action button.</p></section>
-<section class="section parchment"><div class="section-inner"><div class="inbox"><article class="card"><span class="chip r1">R1</span><h3>aws.s3.object.delete</h3><p><strong>Blast radius:</strong> 143 objects</p><div class="rule">Bucket versioning is enabled, so the delete marker can be reversed. The batch still touches many customer files, so policy holds it for approval.</div><p class="muted" style="margin-top:17px">Countdown: expires in 01:18</p><div class="actions"><button class="primary" type="button" aria-label="Approve aws.s3.object.delete">Approve</button><button class="secondary" type="button" aria-label="Deny aws.s3.object.delete">Deny</button></div></article>
-<article class="card"><span class="chip r2">R2</span><h3>postgres.row.delete</h3><p><strong>Blast radius:</strong> 28 rows</p><div class="rule">The transaction counted matching rows before abort. There is no exact inverse for downstream side effects, only restore and notify.</div><p class="muted" style="margin-top:17px">Countdown: expires in 00:52</p><div class="actions"><button class="primary" type="button" aria-label="Approve postgres.row.delete">Approve</button><button class="secondary" type="button" aria-label="Deny postgres.row.delete">Deny</button></div></article>
-<article class="card"><span class="chip r1">R1</span><h3>github.pull_request.merge</h3><p><strong>Blast radius:</strong> 1 branch</p><div class="rule">The merge can be reverted, but deploy automation may use the result before replay catches up.</div><p class="muted" style="margin-top:17px">Countdown: expires in 02:04</p><div class="actions"><button class="primary" type="button" aria-label="Approve github.pull_request.merge">Approve</button><button class="secondary" type="button" aria-label="Deny github.pull_request.merge">Deny</button></div></article></div><div class="empty" aria-label="Empty approval state"><h3>No held calls</h3><p class="muted">When every pending hold is resolved, this inbox shows a quiet empty state.</p></div></div></section>
+<section class="hero"><p class="eyebrow">Approval inbox</p><h1>Held calls need a clear yes or no.</h1><p class="lead">Review the class and measured blast radius before deciding. This server must share the proxy ApprovalBroker to resolve its holds.</p></section>
+<section class="section parchment"><div class="section-inner">
+<form class="filters" method="get" aria-label="Workspace selection"><div class="filter"><label for="workspace">Workspace (blank uses server default)</label><input id="workspace" name="workspace" pattern="[A-Za-z0-9_.-]+" placeholder="Server default"></div><button class="secondary" type="submit">Load workspace</button></form>
+<div class="verify-line"><strong id="verify-status" role="status">Verification not checked.</strong><button class="secondary" type="button" id="verify-button">Refresh now</button></div>
+<p id="last-updated" role="status">Not updated yet. Connecting to the API.</p>
+<p id="decision-status" role="status" aria-live="polite"></p><div id="approvals-list" class="inbox" aria-live="polite"><p>Loading pending holds from the API.</p></div>
+</div></section>
 </main>
-<footer><div class="inner">VOID control plane preview. Static HTML, no external assets, and no framework runtime.</div></footer>
-
+<footer><div class="inner">VOID control plane. Live API data, no external assets. A blank workspace uses the server default. Without an explicit workspace, the approval inbox lists all broker holds.</div></footer>
+<noscript><p>JavaScript is required to load current API data. No live status is available without it.</p></noscript>
+<script type="module" src="app.js" data-page="approvals"></script>
 </body>
 </html>

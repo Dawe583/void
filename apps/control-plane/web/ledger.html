@@ -24,6 +24,10 @@
   --r1: #ff9500;
   --r2: #ff3b30;
   --r3: #af52de;
+  --ok: var(--r0);
+  --info: var(--action);
+  --warn: var(--r1);
+  --bad: var(--r2);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -149,9 +153,9 @@ select { min-height: 44px; border: 1px solid var(--hairline); border-radius: 8px
   border-radius: 9999px;
   background: var(--r1);
   margin-right: 8px;
-  animation: pulse 1.2s ease-in-out infinite;
+  animation: v-pulse 1.2s ease-in-out infinite;
 }
-@keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes v-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
 .inbox { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px; }
 .rule { margin-top: 17px; padding: 17px; background: var(--pearl); border: 3px solid var(--divider); border-radius: 11px; color: var(--muted); }
@@ -163,29 +167,35 @@ footer { background: var(--parchment); padding: 64px 0; color: #7a7a7a; font-siz
 @media (max-width: 734px) { .global-nav .inner, .sub-nav .inner, main, footer .inner { padding-left: 17px; padding-right: 17px; } .hero, .section { padding: 48px 17px; } h1 { font-size: 34px; } h2 { font-size: 34px; } .lead { font-size: 21px; } .grid, .strip, .inbox { grid-template-columns: 1fr; } .nav-links { gap: 12px; } }
 @media (max-width: 419px) { h1 { font-size: 28px; } }
 
+.error, [data-tone="bad"] { color: var(--bad); }
+[data-tone="ok"] { color: var(--ok); }
+[data-tone="info"] { color: var(--info); }
+[data-tone="warn"] { color: var(--warn); }
+.chip[data-tone] { background: var(--pearl); }
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+input { min-height: 44px; font: inherit; color: var(--ink); background: var(--canvas); border: 1px solid var(--hairline); padding: 8px 12px; max-width: 100%; }
+input:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+#last-updated { display: block; margin-bottom: 24px; }
+#decision-status { margin: 16px 0; }
+.card, td, .verify-line { overflow-wrap: anywhere; }
+.inbox h2 { font-size: 21px; margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) { button { transition: none; } .pending td:first-child:before { animation: none; } }
 </style>
 </head>
 <body>
 <div class="global-nav"><div class="inner"><a href="index.html" aria-label="VOID home">VOID</a><nav class="nav-links" aria-label="Primary"><a href="feed.html">Feed</a><a href="approvals.html">Approvals</a><a href="ledger.html">Ledger</a></nav></div></div>
 <div class="sub-nav"><div class="inner"><a class="brand" href="index.html">Control Plane</a><a class="primary" href="approvals.html">Review holds</a></div></div>
 <main>
-<section class="hero"><p class="eyebrow">Ledger browser</p><h1>A signed chain for every decision.</h1><p class="lead">Each ledger entry includes the previous digest, so any deletion, reorder, or edit breaks verification.</p></section>
-<section class="section parchment"><div class="section-inner"><div class="verify-line"><strong id="verify-status">Verify status: not checked</strong><button class="primary" type="button" id="verify-button">Verify chain</button></div><div class="table-wrap"><table><thead><tr><th>Seq</th><th>At</th><th>Tool</th><th>Digest</th><th>Prev digest</th><th>Decision</th></tr></thead><tbody><tr><td>1201</td><td>2026-09-08T09:40:01Z</td><td>aws.ec2.instance.stop</td><td class="digest">9f3a1c7d2b90...</td><td class="digest">000000000000...</td><td><span class="pill allow">allow</span></td></tr>
-<tr><td>1202</td><td>2026-09-08T09:40:14Z</td><td>slack.chat.post_message</td><td class="digest">4d91a802ce43...</td><td class="digest">9f3a1c7d2b90...</td><td><span class="pill allow">allow</span></td></tr>
-<tr><td>1203</td><td>2026-09-08T09:40:33Z</td><td>cloudflare.dns_record.update</td><td class="digest">e20b8f91ab77...</td><td class="digest">4d91a802ce43...</td><td><span class="pill allow">allow</span></td></tr>
-<tr><td>1204</td><td>2026-09-08T09:41:02Z</td><td>aws.s3.object.delete</td><td class="digest">b7c4420aa18e...</td><td class="digest">e20b8f91ab77...</td><td><span class="pill hold">hold</span></td></tr>
-<tr><td>1205</td><td>2026-09-08T09:41:08Z</td><td>postgres.row.delete</td><td class="digest">a8fd1026c0b1...</td><td class="digest">b7c4420aa18e...</td><td><span class="pill hold">hold</span></td></tr>
-<tr><td>1206</td><td>2026-09-08T09:41:13Z</td><td>stripe.payment_intent.create</td><td class="digest">f32bca908e10...</td><td class="digest">a8fd1026c0b1...</td><td><span class="pill hold">hold</span></td></tr>
-<tr><td>1207</td><td>2026-09-08T09:41:29Z</td><td>gmail.message.send</td><td class="digest">67abef190c22...</td><td class="digest">f32bca908e10...</td><td><span class="pill deny">deny</span></td></tr>
-<tr><td>1208</td><td>2026-09-08T09:41:37Z</td><td>github.pull_request.merge</td><td class="digest">ca0e91381db4...</td><td class="digest">67abef190c22...</td><td><span class="pill hold">hold</span></td></tr>
-<tr><td>1209</td><td>2026-09-08T09:42:03Z</td><td>github.repository.delete</td><td class="digest">084fc77d9a50...</td><td class="digest">ca0e91381db4...</td><td><span class="pill deny">deny</span></td></tr>
-<tr><td>1210</td><td>2026-09-08T09:42:27Z</td><td>notion.block.update</td><td class="digest">7ee91b0ac334...</td><td class="digest">084fc77d9a50...</td><td><span class="pill allow">allow</span></td></tr></tbody></table></div></div></section>
+<section class="hero"><p class="eyebrow">Ledger browser</p><h1>A signed chain for every decision.</h1><p class="lead">The API checks the ledger chain. This is tamper evident, not tamper proof. This view does not replace offline signature verification.</p></section>
+<section class="section parchment"><div class="section-inner">
+<form class="filters" method="get" aria-label="Workspace selection"><div class="filter"><label for="workspace">Workspace (blank uses server default)</label><input id="workspace" name="workspace" pattern="[A-Za-z0-9_.-]+" placeholder="Server default"></div><button class="secondary" type="submit">Load workspace</button></form>
+<div class="verify-line"><strong id="verify-status" role="status">Verification not checked.</strong><button class="secondary" type="button" id="verify-button">Refresh now</button></div>
+<p id="last-updated" role="status">Not updated yet. Connecting to the API.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Ledger entries"><table><caption>Latest 50 verified entries in the selected workspace</caption><thead><tr><th scope="col">Seq</th><th scope="col">At</th><th scope="col">Tool</th><th scope="col">Class</th><th scope="col">Decision</th><th scope="col">Digest</th></tr></thead><tbody id="feed-list" aria-live="polite"><tr><td colspan="6">Loading ledger entries from the API.</td></tr></tbody></table></div>
+</div></section>
 </main>
-<footer><div class="inner">VOID control plane preview. Static HTML, no external assets, and no framework runtime.</div></footer>
-<script>
-document.getElementById("verify-button").addEventListener("click", function () {
-  document.getElementById("verify-status").textContent = "Verify status: verified, 10 records linked";
-});
-</script>
+<footer><div class="inner">VOID control plane. Live API data, no external assets. A blank workspace uses the server default. Without an explicit workspace, the approval inbox lists all broker holds.</div></footer>
+<noscript><p>JavaScript is required to load current API data. No live status is available without it.</p></noscript>
+<script type="module" src="app.js" data-page="ledger"></script>
 </body>
 </html>

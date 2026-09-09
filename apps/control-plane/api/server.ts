@@ -54,6 +54,7 @@ type RouteOptions = {
 const here = fileURLToPath(new URL(".", import.meta.url));
 const defaultWebRoot = resolve(here, "../web");
 const maxBodyBytes = 64 * 1024;
+const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js"]);
 
 export function createControlPlaneServer(options: ControlPlaneOptions = {}): Server {
   const env = options.env ?? process.env;
@@ -278,7 +279,7 @@ function staticPath(webRoot: string, pathname: string): string | null {
   } catch {
     return null;
   }
-  if (!normalized.endsWith(".html")) return null;
+  if (!normalized.endsWith(".html") && !publicScriptPaths.has(normalized)) return null;
   const target = resolve(join(webRoot, normalized));
   const inside = relative(webRoot, target);
   if (inside.startsWith("..") || inside === "" || inside.includes(":") || resolve(webRoot, inside) !== target) return null;
@@ -287,6 +288,7 @@ function staticPath(webRoot: string, pathname: string): string | null {
 
 function contentType(filePath: string): string {
   if (extname(filePath) === ".html") return "text/html; charset=utf-8";
+  if (extname(filePath) === ".js") return "application/javascript; charset=utf-8";
   return "application/octet-stream";
 }
 

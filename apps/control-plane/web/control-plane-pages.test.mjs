@@ -34,36 +34,38 @@ test("navigation links every page to the other control plane pages", () => {
   }
 });
 
-test("feed uses real registry ids and has twelve calls", () => {
+test("feed starts without fabricated calls and loads the live module", () => {
   const html = readPage("feed.html");
-  const required = [
-    "aws.s3.object.delete",
-    "postgres.row.delete",
-    "stripe.payment_intent.create",
-    "slack.chat.post_message",
-    "gmail.message.send",
-    "github.pull_request.merge"
-  ];
-  for (const id of required) {
-    assert.match(html, new RegExp(id.replaceAll(".", "\\.")), id);
-  }
-  assert.equal((html.match(/<tbody>[\s\S]*?<\/tbody>/)?.[0].match(/<tr/g) ?? []).length, 12);
-  assert.match(html, /class="pending"/);
+  const rows = html.match(/<tbody id="feed-list"[^>]*>([\s\S]*?)<\/tbody>/)?.[1];
+  assert.ok(rows, "feed has a live rendering target");
+  assert.equal((rows.match(/<tr>/g) ?? []).length, 1);
+  assert.match(rows, /<td colspan="6">Loading ledger entries from the API\.<\/td>/);
+  assert.doesNotMatch(rows, /<td>\d|postgres\.|aws\.|stripe\./);
+  assert.match(html, /<script type="module" src="app\.js" data-page="feed"><\/script>/);
+  assert.match(html, /id="last-updated"[^>]*>Not updated yet\. Connecting to the API\./);
 });
 
-test("approvals expose labelled actions and the empty state", () => {
+test("approvals start without actionable holds until the API responds", () => {
   const html = readPage("approvals.html");
-  assert.equal((html.match(/aria-label="Approve /g) ?? []).length, 3);
-  assert.equal((html.match(/aria-label="Deny /g) ?? []).length, 3);
-  assert.match(html, /No held calls/);
+  assert.match(html, /id="approvals-list"[^>]*><p>Loading pending holds from the API\.<\/p><\/div>/);
+  assert.equal((html.match(/aria-label="Approve /g) ?? []).length, 0);
+  assert.equal((html.match(/aria-label="Deny /g) ?? []).length, 0);
+  assert.doesNotMatch(html, /data-hold-id=|Countdown: expires/);
+  assert.match(html, /id="decision-status" role="status" aria-live="polite"/);
+  assert.match(html, /<script type="module" src="app\.js" data-page="approvals"><\/script>/);
 });
 
-test("ledger includes ten records and a verification interaction", () => {
+test("ledger starts unverified without fabricated records and loads live verification", () => {
   const html = readPage("ledger.html");
-  assert.equal((html.match(/<tbody>[\s\S]*?<\/tbody>/)?.[0].match(/<tr/g) ?? []).length, 10);
-  assert.match(html, /Verify status: not checked/);
-  assert.match(html, /Verify status: verified, 10 records linked/);
-  assert.match(html, /addEventListener\("click"/);
+  const rows = html.match(/<tbody id="feed-list"[^>]*>([\s\S]*?)<\/tbody>/)?.[1];
+  assert.ok(rows, "ledger has a live rendering target");
+  assert.equal((rows.match(/<tr>/g) ?? []).length, 1);
+  assert.match(rows, /<td colspan="6">Loading ledger entries from the API\.<\/td>/);
+  assert.doesNotMatch(rows, /<td>\d/);
+  assert.match(html, /id="verify-status" role="status">Verification not checked\./);
+  assert.match(html, /id="verify-button">Refresh now<\/button>/);
+  assert.match(html, /<script type="module" src="app\.js" data-page="ledger"><\/script>/);
+  assert.doesNotMatch(html, /verified, 10 records linked|addEventListener/);
 });
 
 test("filenames are the assigned page set", () => {
