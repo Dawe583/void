@@ -88,7 +88,7 @@ export async function interceptCall(
     });
     void heldCall;
     return { kind: "hold", promise };
-  } catch (error) {
+  } catch {
     const policyCall = {
       tool: call.tool,
       connector: call.connector,
@@ -96,7 +96,7 @@ export async function interceptCall(
       klass: UNCLASSIFIED_CLASS,
       blastRadius: extractBlastRadius(call.args),
     };
-    return { kind: "deny", error: denyError(call, policyCall, -1, error instanceof Error ? error.message : String(error)) };
+    return { kind: "deny", error: denyError(call, policyCall, -1, "internal dependency failure; operator review required") };
   }
 }
 
@@ -118,7 +118,7 @@ function buildPolicyCall(
 function extractBlastRadius(args: Readonly<Record<string, unknown>>): number | undefined {
   for (const key of BLAST_KEYS) {
     const value = args[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return value;
   }
   return undefined;
 }

@@ -155,6 +155,9 @@ export function jsonlStore(
       const publicKeys = new Map<string, Uint8Array>();
       for await (const entry of this.read(workspace)) {
         checked += 1;
+        if (entry.workspace !== workspace || typeof entry.body !== "object" || entry.body === null ||
+            !("workspace" in entry.body) || entry.body.workspace !== workspace)
+          return { ok: false, checked, reason: `workspace: entry ${entry.seq} does not belong to ${workspace}` };
         if (entry.prev_hash !== prev)
           return { ok: false, checked, reason: `link: entry ${entry.seq} points at ${entry.prev_hash.slice(0, 8)} but the chain is at ${prev.slice(0, 8)}` };
         const recomputed = await entryHash(entry.body, prev, sha256Hex);
@@ -203,8 +206,9 @@ function throwNoWorkspace(): string {
 async function readOrEmpty(file: string): Promise<string> {
   try {
     return await readFile(file, "utf8");
-  } catch {
-    return "";
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
+    throw error;
   }
 }
 

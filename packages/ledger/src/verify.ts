@@ -51,6 +51,9 @@ export async function verifyChain(
       return { ok: false, checked, head: prev, lines, reason };
     };
 
+    if (typeof entry.body !== "object" || entry.body === null ||
+        !("workspace" in entry.body) || entry.body.workspace !== entry.workspace)
+      return fail(`entry ${entry.seq} workspace does not match its signed body`);
     if (entry.seq !== checked)
       return fail(`expected seq ${checked}, found ${entry.seq}`);
     if (entry.prev_hash !== prev)

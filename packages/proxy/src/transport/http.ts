@@ -236,7 +236,14 @@ async function readSse(response: Response, maxBufferSize: number, onMessage: (li
   let dataLines: string[] = [];
   let eventSize = 0;
 
+  const assertSize = (size: number): void => {
+    if (size > maxBufferSize) {
+      throw new HttpUpstreamError(response.status, `HTTP upstream response exceeded ${maxBufferSize} bytes`);
+    }
+  };
+
   const acceptLine = (line: string): void => {
+    assertSize(Buffer.byteLength(line, "utf8"));
     if (line === "") {
       if (dataLines.length > 0) {
         onMessage(dataLines.join("\n"));
@@ -248,39 +255,47 @@ async function readSse(response: Response, maxBufferSize: number, onMessage: (li
 
     if (line.startsWith("data:")) {
       const value = line.startsWith("data: ") ? line.slice(6) : line.slice(5);
-      eventSize += Buffer.byteLength(value, "utf8");
-      if (eventSize > maxBufferSize) {
-        throw new HttpUpstreamError(response.status, `HTTP upstream response exceeded ${maxBufferSize} bytes`);
-      }
+      // Empty data lines still occupy array slots and output separators.
+      eventSize += Buffer.byteLength(value, "utf8") + 1;
+      assertSize(eventSize);
       dataLines.push(value);
     }
   };
 
-  for (;;) {
-    const next = await reader.read();
-    if (next.done === true) {
-      break;
-    }
-    buffer += decoder.decode(next.value, { stream: true });
+  try {
     for (;;) {
-      const newline = buffer.indexOf("\n");
-      if (newline === -1) {
+      const next = await reader.read();
+      if (next.done === true) {
         break;
       }
-      let line = buffer.slice(0, newline);
-      if (line.endsWith("\r")) {
-        line = line.slice(0, -1);
+      buffer += decoder.decode(next.value, { stream: true });
+      for (;;) {
+        const newline = buffer.indexOf("\n");
+        if (newline === -1) {
+          break;
+        }
+        let line = buffer.slice(0, newline);
+        if (line.endsWith("\r")) {
+          line = line.slice(0, -1);
+        }
+        buffer = buffer.slice(newline + 1);
+        acceptLine(line);
       }
-      buffer = buffer.slice(newline + 1);
-      acceptLine(line);
+      assertSize(Buffer.byteLength(buffer, "utf8"));
     }
-  }
 
-  buffer += decoder.decode();
-  if (buffer !== "") {
-    acceptLine(buffer.endsWith("\r") ? buffer.slice(0, -1) : buffer);
+    buffer += decoder.decode();
+    if (buffer !== "") {
+      acceptLine(buffer.endsWith("\r") ? buffer.slice(0, -1) : buffer);
+    }
+    acceptLine("");
+  } catch (error) {
+    // A hostile source must not keep supplying bytes after the parser refuses it.
+    void reader.cancel().catch(() => {});
+    throw error;
+  } finally {
+    reader.releaseLock();
   }
-  acceptLine("");
 }
 
 function isAbortError(error: unknown): boolean {

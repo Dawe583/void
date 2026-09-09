@@ -39,6 +39,8 @@ export async function attestLedger(
   const signer = key ?? await devKeyProvider();
   const file = join(dir, `${workspace}.jsonl`);
   const entries = await readLedgerEntries(file);
+  if (entries.some((entry) => entry.workspace !== workspace))
+    throw new Error("cannot attest ledger from another workspace");
   const verified = await verifyChain(entries, { publicKey: (keyId) => signer.publicKey(keyId) });
   if (!verified.ok) throw new Error(`cannot attest invalid ledger: ${verified.reason}`);
   const keyId = await signer.currentKeyId();
