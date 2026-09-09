@@ -1,6 +1,9 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -12,6 +15,12 @@ import {
   type SnapshotReference,
 } from "./replay.ts";
 import type { FeedPage } from "../../ledger/src/feed.ts";
+import { jsonlStore } from "../../ledger/src/store.ts";
+import { devKeyProvider } from "../../ledger/src/sign.ts";
+import { LocalSnapshotStore } from "../../connectors/src/snapshot/local.ts";
+import { parseStatement } from "../../connectors/src/postgres/parse.ts";
+import type { QueryExecutor } from "../../connectors/src/postgres/capture.ts";
+import type { ReplayExecutor } from "../../connectors/src/postgres/replay.ts";
 
 const argsDigest = "sha256:" + "a".repeat(64);
 const snapshotDigest = "sha256:" + "b".repeat(64) as `sha256:${string}`;
@@ -237,4 +246,216 @@ function fakeConnector(overrides: Partial<ReplayConnector> = {}): ReplayConnecto
     apply: async () => ({ applied: ["restore-row"], refused: [] }),
     ...overrides,
   };
+}
+
+
+describe("persisted connector replay", () => {
+  test("binary lists static connectors without needing a ledger or snapshot", async () => {
+    const result = await binaryReplay(["--list-connectors"]);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /postgres: executor absent.*VOID_PG_URL/);
+    assert.match(result.stdout, /s3: executor absent/);
+  });
+
+  test("connector listing does not confuse a URL with a working executor", async () => {
+    const result = await binaryReplay(["--list-connectors"], { VOID_PG_URL: "postgres://test:private-credential@localhost/example" });
+    assert.equal(result.code, 0);
+    assert.match(result.stdout, /postgres: executor absent.*adapter unavailable/);
+    assert.doesNotMatch(result.stdout, /private-credential/);
+  });
+
+  test("connector listing reports an injected executor without calling it", async () => {
+    const query: QueryExecutor["query"] = async () => { throw new Error("must not query"); };
+    const out: string[] = [];
+    const code = await runReplayCommand(["--list-connectors"], {
+      stdout: (line) => out.push(line), stderr: () => {}, env: {},
+    }, { exec: { query } });
+    assert.equal(code, 0);
+    assert.match(out.join("\n"), /postgres: executor configured/);
+  });
+
+  test("connector listing rejects extra replay flags", async () => {
+    const result = await binaryReplay(["--list-connectors", "--seq", "1"]);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /--list-connectors must be used alone/);
+  });
+
+  test("binary dry-run rebuilds postgres inverse steps from local snapshot bytes", async (t) => {
+    const fixture = await persistedFixture();
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    const result = await binaryReplay([...fixture.argv, "--dry-run"]);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /inverse plan: postgres/);
+    assert.match(result.stdout, /step update-0-public.accounts: update public.accounts/);
+    assert.doesNotMatch(result.stdout, /private-before-value|private-after-value/);
+  });
+
+  test("binary apply without postgres configuration fails closed", async (t) => {
+    const fixture = await persistedFixture();
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    const result = await binaryReplay(fixture.argv);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /ExecutorNotConfigured: postgres executor not configured/);
+    assert.match(result.stderr, /VOID_PG_URL/);
+    assert.doesNotMatch(result.stdout, /applied:/);
+  });
+
+  test("a URL alone cannot pretend an executor adapter exists or echo credentials", async (t) => {
+    const fixture = await persistedFixture();
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    const result = await binaryReplay(fixture.argv, { VOID_PG_URL: "postgres://test:private-credential@localhost/example" });
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /postgres executor adapter is not available/);
+    assert.doesNotMatch(result.stderr, /private-credential/);
+  });
+
+  test("malformed snapshot JSON cannot leak its contents through parser errors", async (t) => {
+    const fixture = await persistedFixture("postgres.row.update", new TextEncoder().encode('private-snapshot-content'));
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    const result = await binaryReplay([...fixture.argv, "--dry-run"]);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /postgres inverse planning failed/);
+    assert.doesNotMatch(result.stderr, /private-snapshot-content/);
+  });
+
+  test("snapshot corruption refuses before any executor query", async (t) => {
+    const fixture = await persistedFixture();
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    await writeFile(fixture.snapshotPath, "{}");
+    let queries = 0;
+    const query: QueryExecutor["query"] = async <T>(): Promise<T[]> => { queries += 1; return []; };
+    const err: string[] = [];
+    const code = await runReplayCommand(fixture.argv, {
+      stdout: () => {}, stderr: (line) => err.push(line), env: {},
+    }, { exec: { query } });
+    assert.equal(code, 1);
+    assert.equal(queries, 0);
+    assert.match(err.join("\n"), /snapshot digest mismatch/);
+  });
+
+  test("dry-run never calls even an injected executor", async (t) => {
+    const fixture = await persistedFixture();
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    const query: QueryExecutor["query"] = async () => { throw new Error("must not query"); };
+    const code = await runReplayCommand([...fixture.argv, "--dry-run"], {
+      stdout: () => {}, stderr: () => {}, env: {},
+    }, { exec: { query } });
+    assert.equal(code, 0);
+  });
+
+  test("S3 apply without an adapter names the configuration failure", async (t) => {
+    const fixture = await persistedFixture("s3.object.delete");
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    const result = await binaryReplay(fixture.argv);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /ExecutorNotConfigured: s3 executor not configured/);
+  });
+
+  test("unknown vendors still fail rather than guessing a connector", async (t) => {
+    const fixture = await persistedFixture("unknown.row.update");
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    const result = await binaryReplay([...fixture.argv, "--dry-run"]);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /no connector for tool vendor unknown/);
+  });
+
+  test("the library executor seam applies a persisted inverse without a fake environment mode", async (t) => {
+    const fixture = await persistedFixture();
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    const statements: string[] = [];
+    const events: string[] = [];
+    const query: QueryExecutor["query"] = async <T>(sql: string, params?: readonly unknown[]): Promise<T[]> => {
+      statements.push(sql);
+      if (sql.startsWith("select")) return [{ id: 42, status: "private-after-value" }] as T[];
+      assert.deepEqual(params, ["private-before-value", "42"]);
+      return [];
+    };
+    const exec: ReplayExecutor = {
+      query,
+      begin: async () => { events.push("begin"); },
+      commit: async () => { events.push("commit"); },
+      rollback: async () => { events.push("rollback"); },
+    };
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = await runReplayCommand(fixture.argv, {
+      stdout: (line) => out.push(line), stderr: (line) => err.push(line), env: {},
+    }, { exec });
+    assert.equal(code, 0, err.join("\n"));
+    assert.deepEqual(events, ["begin", "commit"]);
+    assert.equal(statements.length, 2);
+    assert.match(statements[1]!, /^update "public"."accounts"/);
+    assert.match(out.join("\n"), /applied: update-0-public.accounts/);
+  });
+
+  test("native executor errors never expose service payloads", async (t) => {
+    const fixture = await persistedFixture();
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    for (const phase of ["query", "begin"] as const) {
+      const fail = async (): Promise<never> => { throw new Error("private-driver-credential"); };
+      const exec: ReplayExecutor = { query: fail, ...(phase === "begin" ? { begin: fail } : {}) };
+      const out: string[] = [];
+      const err: string[] = [];
+      const code = await runReplayCommand(fixture.argv, {
+        stdout: (line) => out.push(line), stderr: (line) => err.push(line), env: {},
+      }, { exec });
+      assert.equal(code, 1);
+      assert.match(out.join("\n"), /refused transaction: internal_error/);
+      assert.doesNotMatch([...out, ...err].join("\n"), /private-driver-credential/);
+    }
+  });
+
+  test("persisted inverse refuses human drift and reports the changed field", async (t) => {
+    const fixture = await persistedFixture();
+    t.after(() => rm(fixture.root, { recursive: true, force: true }));
+    const statements: string[] = [];
+    const query: QueryExecutor["query"] = async <T>(sql: string): Promise<T[]> => {
+      statements.push(sql);
+      return [{ id: 42, status: "private-human-value" }] as T[];
+    };
+    const out: string[] = [];
+    const code = await runReplayCommand(fixture.argv, {
+      stdout: (line) => out.push(line), stderr: () => {}, env: {},
+    }, { exec: { query } });
+    assert.equal(code, 1);
+    assert.equal(statements.length, 1);
+    assert.match(out.join("\n"), /refused update-0-public.accounts: drift/);
+    assert.match(out.join("\n"), /column status changed/);
+    assert.doesNotMatch(out.join("\n"), /private-human-value|private-before-value/);
+  });
+});
+
+async function persistedFixture(tool = "postgres.row.update", snapshotBytes?: Uint8Array) {
+  const root = await mkdtemp(join(tmpdir(), "void-replay-persisted-"));
+  const snapshotDir = join(root, "snapshots");
+  const statement = parseStatement("update public.accounts set status = 'private-after-value' where id = 42");
+  const image = {
+    statement,
+    rows: [{ table: "public.accounts", key: { id: "42" }, row: { id: 42, status: "private-before-value" }, dependencies: [] }],
+    cascadeTables: [],
+    capturedAt: "2026-09-01T00:00:00.000Z",
+  };
+  const captured = await LocalSnapshotStore(snapshotDir).put("postgres", snapshotBytes ?? new TextEncoder().encode(JSON.stringify(image)));
+  await writeFile(join(snapshotDir, "manifest.jsonl"), JSON.stringify({ digest: argsDigest, reference: captured.reference, tool }) + "\n");
+  const signer = await devKeyProvider({ dir: join(root, "keys"), env: {} });
+  const ledgerDir = join(root, "ledger");
+  await jsonlStore(signer, { dir: ledgerDir }).append({
+    workspace: "test", at: image.capturedAt, tool, klass: "r1", decision: "allow:resolved", argsDigest,
+  });
+  return {
+    root,
+    snapshotPath: fileURLToPath(captured.reference.uri),
+    argv: ["--ledger", join(ledgerDir, "test.jsonl"), "--snapshot-dir", snapshotDir, "--seq", "1"],
+  };
+}
+
+async function binaryReplay(argv: readonly string[], env: NodeJS.ProcessEnv = {}) {
+  const binary = fileURLToPath(new URL("../bin/void.mjs", import.meta.url));
+  try {
+    const result = await promisify(execFile)(process.execPath, [binary, "replay", ...argv], { env, timeout: 10000 });
+    return { ...result, code: 0 };
+  } catch (error) {
+    const failure = error as Error & { code: number; stdout: string; stderr: string };
+    return { code: failure.code, stdout: failure.stdout, stderr: failure.stderr };
+  }
 }

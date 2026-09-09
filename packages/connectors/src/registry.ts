@@ -67,6 +67,7 @@ export type ReplayRefusal = {
   readonly stepId: string;
   readonly reason: "drift" | "missing_target" | "permission_denied" | "internal_error";
   readonly changed: readonly DriftChange[];
+  readonly report?: string;
 };
 
 export type ApplyReport = {
@@ -183,7 +184,13 @@ function makePostgresConnector(deps: ConnectorDeps, captures: Map<string, Stored
     },
     apply: async (plan) => {
       const exec = requireDependency(deps.exec, "postgres exec");
-      return postgresApplyReport(await applyInverse(exec, postgresPlan(plan).postgres.steps, postgresPlan(plan).postgres.image));
+      const stored = postgresPlan(plan).postgres;
+      try {
+        return postgresApplyReport(await applyInverse(exec, stored.steps, stored.image));
+      } catch {
+        // Driver exceptions can contain SQL values or connection credentials.
+        return { applied: [], refused: [{ stepId: "transaction", reason: "internal_error", changed: [] }] };
+      }
     },
   };
 }
@@ -299,6 +306,7 @@ function postgresApplyReport(report: ApplyInverseReport): ApplyReport {
       stepId: refusal.stepId,
       reason: refusal.reason,
       changed: [],
+      ...(refusal.reason === "drift" ? { report: refusal.report } : {}),
     })),
   };
 }

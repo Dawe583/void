@@ -3,6 +3,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { readLedgerFeed, type FeedPage, type LedgerFeedRecord } from "../../ledger/src/feed.ts";
+import { connectorFor, makeConnector } from "../../connectors/src/registry.ts";
+import type { ConnectorId, InversePlan as ConnectorInversePlan, QueryExecutor, S3Client } from "../../connectors/src/registry.ts";
+import { LocalSnapshotStore } from "../../connectors/src/snapshot/local.ts";
 
 export type SnapshotReference = {
   readonly namespace: string;
@@ -45,6 +48,7 @@ export type ReplayRefusal = {
   readonly stepId: string;
   readonly reason: "drift" | "missing_target" | "permission_denied" | "internal_error";
   readonly changed: readonly DriftChange[];
+  readonly report?: string;
 };
 
 export type ApplyReport = {
@@ -71,7 +75,21 @@ export type ReplayCommandOptions = {
   readonly readFeed?: typeof readLedgerFeed;
   readonly readManifest?: (snapshotDir: string) => Promise<readonly SnapshotManifestRecord[]>;
   readonly connectors?: ReplayConnectorRegistry;
+  readonly exec?: QueryExecutor;
+  readonly s3?: S3Client;
 };
+
+export class ReplayConfigurationError extends Error {
+  readonly kind: "ExecutorNotConfigured" | "ExecutorAdapterUnavailable";
+  readonly connector: ConnectorId;
+
+  constructor(connector: ConnectorId, message: string, kind: ReplayConfigurationError["kind"] = "ExecutorNotConfigured") {
+    super(message);
+    this.name = kind;
+    this.kind = kind;
+    this.connector = connector;
+  }
+}
 
 export type SnapshotManifestRecord = {
   readonly digest: string;
@@ -86,7 +104,7 @@ type ReplayArgs = {
   readonly dryRun: boolean;
 };
 
-const USAGE = "usage: void replay --ledger <path> --snapshot-dir <dir> --seq <n> [--dry-run]";
+const USAGE = "usage: void replay --ledger <path> --snapshot-dir <dir> --seq <n> [--dry-run], or void replay --list-connectors";
 
 export async function runReplayCommand(
   argv: readonly string[],
@@ -94,12 +112,20 @@ export async function runReplayCommand(
   options: ReplayCommandOptions = {},
 ): Promise<number> {
   try {
-    const parsed = await parseReplayArgs(argv, io.env ?? process.env);
+    const env = io.env ?? process.env;
+    if (argv.includes("--list-connectors")) {
+      if (argv.length !== 1) throw new Error("--list-connectors must be used alone");
+      printConnectors(options, env, io.stdout);
+      return 0;
+    }
+    const parsed = await parseReplayArgs(argv, env);
     const page = await (options.readFeed ?? readLedgerFeed)(parsed.ledger);
     const record = findRecord(page, parsed.seq);
     const manifest = await (options.readManifest ?? readSnapshotManifest)(parsed.snapshotDir);
     const snapshot = findSnapshot(manifest, record);
-    const connector = findConnector(options.connectors ?? {}, record.tool);
+    const connector = options.connectors === undefined
+      ? configuredConnector(record.tool, parsed, env, options)
+      : findConnector(options.connectors, record.tool);
     const plan = await connector.inverse(snapshot.reference);
 
     printReplayHeader(record, snapshot, io.stdout);
@@ -112,9 +138,76 @@ export async function runReplayCommand(
     printApplyReport(report, io.stdout);
     return report.refused.length === 0 ? 0 : 1;
   } catch (error) {
-    io.stderr(`void replay failed: ${error instanceof Error ? error.message : String(error)}`);
+    const reason = error instanceof ReplayConfigurationError
+      ? `${error.kind}: ${error.message}`
+      : error instanceof Error ? error.message : String(error);
+    io.stderr(`void replay failed: ${reason}`);
     return 1;
   }
+}
+
+function printConnectors(
+  options: ReplayCommandOptions,
+  env: Readonly<NodeJS.ProcessEnv>,
+  stdout: (line: string) => void,
+): void {
+  if (options.connectors !== undefined) {
+    for (const connector of Object.values(options.connectors)) {
+      stdout(`${connector.id}: host connector supplied; executor state is host managed`);
+    }
+    return;
+  }
+  stdout(options.exec !== undefined
+    ? "postgres: executor configured (host injected)"
+    : env.VOID_PG_URL
+      ? "postgres: executor absent (VOID_PG_URL set; adapter unavailable in this binary)"
+      : "postgres: executor absent (VOID_PG_URL unset; host adapter required)");
+  stdout(options.s3 !== undefined
+    ? "s3: executor configured (host injected); persisted replay metadata unavailable"
+    : "s3: executor absent (host adapter required); persisted replay metadata unavailable");
+}
+
+// No service can be assumed present. The environment is supplied at the binary
+// boundary, but a URL is not an executor. Hosts with service adapters compose
+// the library with exec or s3; replay must never substitute local fake services.
+function configuredConnector(
+  tool: string,
+  args: ReplayArgs,
+  env: Readonly<NodeJS.ProcessEnv>,
+  options: ReplayCommandOptions,
+): ReplayConnector {
+  const resolved = connectorFor(tool);
+  if (resolved === null) throw new Error(`no connector for tool vendor ${toolVendor(tool)}`);
+  const id = resolved.connectorId;
+  if (!args.dryRun && id === "postgres" && options.exec === undefined) {
+    throw new ReplayConfigurationError(id, env.VOID_PG_URL
+      ? "postgres executor adapter is not available in this binary; inject exec through runReplayCommand"
+      : "postgres executor not configured: VOID_PG_URL is absent; hosts must inject exec through runReplayCommand",
+    env.VOID_PG_URL ? "ExecutorAdapterUnavailable" : "ExecutorNotConfigured");
+  }
+  if (!args.dryRun && id === "s3" && options.s3 === undefined) {
+    throw new ReplayConfigurationError(id, "s3 executor not configured: this binary has no S3 adapter; hosts must inject s3 through runReplayCommand");
+  }
+  const connector = makeConnector({
+    store: LocalSnapshotStore(args.snapshotDir),
+    ...(options.exec === undefined ? {} : { exec: options.exec }),
+    ...(options.s3 === undefined ? {} : { s3: options.s3 }),
+  })[id];
+  return {
+    id: connector.id,
+    surface: connector.surface,
+    inverse: async (capture) => {
+      try {
+        return await connector.inverse(capture);
+      } catch (error) {
+        // JSON parser errors can quote customer snapshot bytes.
+        if (error instanceof SyntaxError) throw new Error(`${id} inverse planning failed: invalid snapshot JSON`);
+        throw error;
+      }
+    },
+    // The native inverse carries private connector data that apply validates.
+    apply: (plan) => connector.apply(plan as ConnectorInversePlan),
+  };
 }
 
 async function parseReplayArgs(argv: readonly string[], env: Readonly<NodeJS.ProcessEnv>): Promise<ReplayArgs> {
@@ -258,6 +351,7 @@ function printApplyReport(report: ApplyReport, stdout: (line: string) => void): 
   stdout(`applied: ${report.applied.length === 0 ? "none" : report.applied.join(",")}`);
   for (const refusal of report.refused) {
     stdout(`refused ${refusal.stepId}: ${refusal.reason}`);
+    if (refusal.reason === "drift" && refusal.report !== undefined) stdout(refusal.report);
     for (const change of refusal.changed) {
       stdout(`drift ${change.target} ${JSON.stringify(change.key)} ${change.field} ${change.capturedDigest} -> ${change.currentDigest}`);
     }
