@@ -198,3 +198,115 @@ returns carries the stale list so the CLI can show it.
 | `stripe.intent.captured` | the payment intent moved funds, not only held them | true / false |
 | `stripe.charge.settled` | the charge settled, so a refund moves real money back | true / false |
 | `stripe.refund.pending` | the refund has not been submitted to the payment method yet | true / false |
+
+
+## Batch 3: cloud and web administration
+
+These facts describe only the target and the exact scope of the intercepted call.
+A recovery-copy assertion covers every affected object, value and required
+configuration, not an arbitrary recent backup. Copies and secret values stay in
+operator-controlled storage; VOID records declarations and references, not payloads.
+Every string comparison is exact. Missing or boolean values do not satisfy a guard
+that requires the strings `true` or `false`.
+
+A declared recovery capability is not a shipped connector. Manual administration
+surfaces say so in their entry summaries. Enterprise API access, permissions and
+vendor-plan eligibility still apply. A compensation never appears as an inverse
+in this batch. Scope-wide recovery requires a complete copy outside that deletion
+scope and a usable restore path.
+
+| Fact name | Type | Meaning |
+| --------- | ---- | ------- |
+| airtable.base.recovery_copy_verified | string | Whether the entire base, attachments, automations and access configuration have a verified independent recovery copy, true or false. |
+| airtable.record.recovery_copy_verified | string | Whether every selected record, attachment and relationship has a verified independent recovery copy, true or false. |
+| airtable.user.previously_active | string | Whether the enterprise user was active before deactivation, true or false. |
+| airtable.user.reactivation_preserves_access | string | Whether same-account reactivation is supported and preserves every prior permission and ownership, true or false. |
+| airtable.workspace.recovery_copy_verified | string | Whether every affected base, attachment and workspace setting has a verified independent recovery copy, true or false. |
+| azure.aks.cluster.recovery_copy_verified | string | Whether cluster configuration and every affected persistent volume have verified recovery copies, true or false. |
+| azure.appservice.site.recovery_copy_verified | string | Whether app content, configuration and required secret references have a verified recovery copy, true or false. |
+| azure.cosmosdb.account.recovery_copy_verified | string | Whether all account data and configuration have a verified complete recovery copy outside the deletion scope, true or false. |
+| azure.managed_disk.recovery_copy_verified | string | Whether a retained complete disk recovery copy has a verified restore path, true or false. |
+| azure.resource_group.empty | string | Whether the targeted resource group contains no resources, true or false. |
+| azure.resource_group.metadata_captured | string | Whether the resource group name, location, tags and applicable access configuration were captured, true or false. |
+| azure.sql.database.recovery_copy_verified | string | Whether a complete Azure SQL recovery copy covers the database before deletion and has a verified restore path, true or false. |
+| azure.storage.account.recovery_copy_verified | string | Whether every affected storage service and account setting has a verified independent recovery copy, true or false. |
+| azure.storage.container.recovery_copy_verified | string | Whether all container blobs, versions and metadata have a verified recovery copy outside the deletion scope, true or false. |
+| azure.vm.recovery_copy_verified | string | Whether VM configuration and every affected disk have complete verified recovery copies, true or false. |
+| basecamp.project.member.access_captured | string | Whether the person project role and every project access grant were captured, true or false. |
+| basecamp.project.member.regrant_supported | string | Whether the same existing principal can be granted every captured membership and permission again, true or false. |
+| basecamp.project.previously_active | string | Whether the project was active immediately before the intercepted status change, true or false. |
+| basecamp.project.restore_capacity_available | string | Whether the account has project capacity and permission to reactivate the same archived or trashed project, true or false. |
+| basecamp.project.trash_restorable | string | Whether the same project and all its contents remain in trash and available for restoration, true or false. |
+| cloudflare.d1.database.recovery_copy_verified | string | Whether a complete D1 export outside the deletion scope has a verified restore path, true or false. |
+| cloudflare.kv.namespace.recovery_copy_verified | string | Whether all namespace keys, values, metadata and expiration information have verified independent recovery copies, true or false. |
+| cloudflare.pages.project.recovery_copy_verified | string | Whether Pages source, settings, domains and secret references have verified independent recovery copies, true or false. |
+| cloudflare.r2.bucket.recovery_copy_verified | string | Whether bucket configuration and every affected object have complete verified independent recovery copies, true or false. |
+| cloudflare.workers.script.recovery_copy_verified | string | Whether Worker source, bindings and secret references have a verified complete recovery copy, true or false. |
+| coda.doc.recovery_copy_verified | string | Whether the complete document content, automations and access settings have verified independent recovery copies, true or false. |
+| coda.row.recovery_copy_verified | string | Whether the full row values and relationships were captured in a verified independent recovery copy, true or false. |
+| coda.rows.recovery_copy_verified | string | Whether every selected row value and relationship has a verified independent recovery copy, true or false. |
+| datadog.dashboard.recovery_copy_verified | string | Whether the complete dashboard definition and access configuration were captured, true or false. |
+| datadog.downtime.recovery_copy_verified | string | Whether the complete downtime schedule, scope and notification settings were captured, true or false. |
+| datadog.monitor.recovery_copy_verified | string | Whether the complete monitor definition and notification bindings were captured before deletion, true or false. |
+| datadog.slo.recovery_copy_verified | string | Whether the complete SLO definition and monitor references were captured, true or false. |
+| datadog.synthetics.test.recovery_copy_verified | string | Whether the test definition, locations and secret references were completely captured, true or false. |
+| gcp.bigquery.dataset.recovery_copy_verified | string | Whether dataset tables, models, routines and access settings have complete verified recovery copies, true or false. |
+| gcp.compute.disk.recovery_copy_verified | string | Whether a complete retained disk recovery copy has a verified restore path, true or false. |
+| gcp.compute.instance.recovery_copy_verified | string | Whether VM configuration and every affected disk have verified recovery copies, true or false. |
+| gcp.gcs.bucket.recovery_copy_verified | string | Whether bucket configuration and every affected object have a verified recovery copy outside the deletion scope, true or false. |
+| gcp.gke.cluster.recovery_copy_verified | string | Whether cluster configuration and every affected volume have verified recovery copies, true or false. |
+| gcp.iam.role.within_undelete_window | string | Whether the custom IAM role is still within 7 days of deletion and has not been permanently deleted, true or false. |
+| gcp.project.services_recoverable | string | Whether every affected service has a verified usable recovery path after project shutdown, true or false. |
+| gcp.project.within_soft_delete_window | string | Whether the targeted project is still inside its current vendor project restoration window, true or false. |
+| gcp.secretmanager.version.delayed_destruction | string | Whether the secret has a configured destruction delay that retains the targeted version after a destroy call, true or false. |
+| gcp.secretmanager.version.within_restore_window | string | Whether the targeted delayed-destruction version remains before its scheduled irreversible destruction time, true or false. |
+| gcp.sql.instance.recovery_copy_verified | string | Whether a complete database recovery copy exists outside the instance deletion scope with a verified restore path, true or false. |
+| netlify.build_hook.recovery_copy_verified | string | Whether the hook configuration and every caller update path were verified before deletion, true or false. |
+| netlify.form.recovery_copy_verified | string | Whether form definition and every affected submission and upload have a complete verified independent export, true or false. |
+| netlify.form.submission.recovery_copy_verified | string | Whether the selected submission and every uploaded file has a complete verified export outside the site, true or false. |
+| netlify.site.recovery_copy_verified | string | Whether site source, settings and all affected stored data have complete verified independent recovery copies, true or false. |
+| notion.block.previously_trashed | string | Whether the block was in trash before the intercepted call, true or false. |
+| notion.block.restore_supported | string | Whether the same block remains addressable for restoration with its retained contents, true or false. |
+| notion.teamspace.member.access_captured | string | Whether the teamspace member role and every direct teamspace grant were captured, true or false. |
+| notion.teamspace.member.regrant_supported | string | Whether the same existing principal can be granted every captured membership and permission again, true or false. |
+| notion.teamspace.previously_active | string | Whether the teamspace was active immediately before archival, true or false. |
+| notion.teamspace.restore_supported | string | Whether the same teamspace and memberships can be restored by an operator who is both workspace owner and teamspace owner, true or false. |
+| opsgenie.escalation.recovery_copy_verified | string | Whether escalation rules, recipients and delays were fully captured, true or false. |
+| opsgenie.integration.recovery_copy_verified | string | Whether integration configuration and all consumer update paths were verified before deletion, true or false. |
+| opsgenie.schedule.recovery_copy_verified | string | Whether all rotations, overrides, participants and time zones were captured, true or false. |
+| opsgenie.team.recovery_copy_verified | string | Whether all team members, roles and routing configuration were captured, true or false. |
+| pagerduty.escalation_policy.recovery_copy_verified | string | Whether every escalation rule, target, delay and service binding was captured, true or false. |
+| pagerduty.integration.recovery_copy_verified | string | Whether integration settings and every consumer update path were verified before deletion, true or false. |
+| pagerduty.schedule.recovery_copy_verified | string | Whether all schedule layers, overrides, users and time zones were captured, true or false. |
+| pagerduty.service.recovery_copy_verified | string | Whether service settings, integrations and escalation bindings were completely captured, true or false. |
+| pagerduty.team.member.access_captured | string | Whether the user team role and all team access grants were captured, true or false. |
+| pagerduty.team.member.regrant_supported | string | Whether the same existing principal can be granted every captured membership and permission again, true or false. |
+| slack.admin.user.access_captured | string | Whether the user workspace role, channels and all direct access grants were captured, true or false. |
+| slack.admin.user.regrant_supported | string | Whether the same existing principal can be granted every captured membership and permission again, true or false. |
+| slack.channel.previously_active | string | Whether the channel was active immediately before the administrative archive call, true or false. |
+| slack.channel.restore_supported | string | Whether the same channel and all its memberships can still be restored by the operator, true or false. |
+| slack.channel.template_workflows_present | string | Whether template workflows are attached to the target channel, true or false. |
+| vercel.environment.recovery_copy_verified | string | Whether every selected variable value, target environment and branch binding was captured in the operator vault, true or false. |
+| vercel.project.recovery_copy_verified | string | Whether project source, settings, domains and secret references have complete verified recovery copies, true or false. |
+| vercel.webhook.recovery_copy_verified | string | Whether the webhook configuration and consumer update path have been verified before deletion, true or false. |
+
+### Source and review notes
+
+`fixtures/registry/wp04b-batch3.json` includes a public official source URL for
+all 107 entries, rejected candidate explanations, and the registry disclaimer.
+Two vendor-group reviewers checked these sources. This was not two independent
+reviews per entry and did not run actions against vendor accounts.
+
+The Basecamp API says trashed projects last 30 days, while its current help says
+25 days or until trash is emptied. The guards therefore require actual retained
+contents and restore eligibility instead of assuming either duration:
+https://raw.githubusercontent.com/basecamp/bc3-api/master/sections/projects.md
+and https://5.basecamp-help.com/article/1133-archiving-trash-and-restoring .
+
+Opsgenie human API pages returned HTTP 429. Public official SDK source verified
+the included operations instead. These entries target existing Opsgenie accounts;
+they do not claim that new account signup is available.
+
+Stripe file deletion was excluded because its public OpenAPI has no file DELETE
+operation. Cloudflare zone deletion already existed and was not counted again.
+The batch does not add unused zone-active facts for that unchanged entry.

@@ -1,0 +1,3435 @@
+{
+  "batch": "wp-04b-batch-3",
+  "disclaimer": "Draft classifications, reviewed against public vendor documentation and not certified by any vendor. Verify preconditions against your own account configuration before relying on a class.",
+  "entries": [
+    {
+      "id": "airtable.base.delete",
+      "vendor": "airtable",
+      "surface": "Base Administration",
+      "summary": "Delete an Airtable base through the Enterprise administration API.",
+      "tags": [
+        "airtable",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Rebuild from the copy; record identifiers, automation history and integrations may differ.",
+          "if": {
+            "kind": "fact",
+            "fact": "airtable.base.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Base deletion can remove tables, automations, attachments and access configuration.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "airtable.base.member.remove",
+      "vendor": "airtable",
+      "surface": "Base Collaborators",
+      "summary": "Remove a base collaborator.",
+      "tags": [
+        "airtable",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinvite or regrant access to reduce disruption; required acceptance, missed activity and original access state cannot be restored exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "airtable.record.bulk_delete",
+      "vendor": "airtable",
+      "surface": "Records",
+      "summary": "Delete a batch of Airtable records.",
+      "tags": [
+        "airtable",
+        "bulk_delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Reinsert captured records and reconnect links; record IDs and automation side effects may change.",
+          "if": {
+            "kind": "fact",
+            "fact": "airtable.record.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleted records and attachments are unavailable without a retained recovery path.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "airtable.token.revoke",
+      "vendor": "airtable",
+      "surface": "Token Administration",
+      "summary": "Revoke an Airtable personal access token through developer settings.",
+      "tags": [
+        "airtable",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Issue a replacement credential and update consumers to reduce disruption; the revoked credential cannot be reactivated.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "airtable.user.deactivate",
+      "vendor": "airtable",
+      "surface": "Enterprise Users",
+      "summary": "Deactivate a user in a supported Airtable Enterprise account.",
+      "tags": [
+        "airtable",
+        "deactivate"
+      ],
+      "cases": [
+        {
+          "when": "the user was active and same-account reactivation preserves all access",
+          "tone": "r1",
+          "inverse": "Reactivate the same enterprise user.",
+          "window": "while the same account remains available for reactivation",
+          "note": "Reactivation preserves the account, but access interruption and audit events remain.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "airtable.user.previously_active",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "airtable.user.reactivation_preserves_access",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reactivate the user to mitigate disruption; uncaptured permissions and reassigned content can prevent full recovery.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "airtable.workspace.delete",
+      "vendor": "airtable",
+      "surface": "Workspace Administration",
+      "summary": "Delete an Airtable workspace through the Enterprise administration API.",
+      "tags": [
+        "airtable",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Rebuild a replacement workspace and bases; workspace identity, billing state and history differ.",
+          "if": {
+            "kind": "fact",
+            "fact": "airtable.workspace.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Workspace deletion can cascade to bases and destroy their content.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "airtable.workspace.member.remove",
+      "vendor": "airtable",
+      "surface": "Workspace Collaborators",
+      "summary": "Remove a workspace collaborator.",
+      "tags": [
+        "airtable",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinvite or regrant access to reduce disruption; required acceptance, missed activity and original access state cannot be restored exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.aks.cluster.delete",
+      "vendor": "azure",
+      "surface": "AKS",
+      "summary": "Delete an AKS cluster.",
+      "tags": [
+        "azure",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Rebuild the cluster and restore volumes; cluster identity, event history and running workloads do not return.",
+          "if": {
+            "kind": "fact",
+            "fact": "azure.aks.cluster.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Cluster deletion can destroy workloads, node resources and volume data.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.appservice.site.delete",
+      "vendor": "azure",
+      "surface": "App Service",
+      "summary": "Delete an App Service web app.",
+      "tags": [
+        "azure",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the app from the copy; identity, host bindings and service continuity may change.",
+          "if": {
+            "kind": "fact",
+            "fact": "azure.appservice.site.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting the app can remove unique content, configuration and credentials.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.cosmosdb.account.delete",
+      "vendor": "azure",
+      "surface": "Cosmos DB",
+      "summary": "Delete a Cosmos DB account.",
+      "tags": [
+        "azure",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Restore the account data into replacement resources; account identity and subsequent writes may not return.",
+          "if": {
+            "kind": "fact",
+            "fact": "azure.cosmosdb.account.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting the account can remove every database and container.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.keyvault.purge",
+      "vendor": "azure",
+      "surface": "Key Vault",
+      "summary": "Permanently purge a soft deleted Key Vault.",
+      "tags": [
+        "azure",
+        "purge"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Purge removes the recovery path for the vault and its remaining keys, secrets and certificates.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.keyvault.secret.purge",
+      "vendor": "azure",
+      "surface": "Key Vault",
+      "summary": "Permanently purge a soft deleted secret.",
+      "tags": [
+        "azure",
+        "purge"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The retained secret versions are permanently removed from Key Vault.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.managed_disk.delete",
+      "vendor": "azure",
+      "surface": "Managed Disks",
+      "summary": "Delete a managed disk.",
+      "tags": [
+        "azure",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement disk from the copy; attachments and writes after the recovery point require repair.",
+          "if": {
+            "kind": "fact",
+            "fact": "azure.managed_disk.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The disk bytes cannot be recovered without a retained recovery copy.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.resource_group.delete",
+      "vendor": "azure",
+      "surface": "Resource Manager",
+      "summary": "Delete a resource group and cascade deletion to its resources.",
+      "tags": [
+        "azure",
+        "delete",
+        "cascade"
+      ],
+      "cases": [
+        {
+          "when": "the resource group is empty and its complete metadata was captured",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the name and captured access remain available",
+          "note": "Recreate the empty group from captured metadata to reduce disruption; resource identity, inherited access and activity history cannot be restored exactly.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "azure.resource_group.empty",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "azure.resource_group.metadata_captured",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Cascade deletion can permanently remove independent resources and their data.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.snapshot.delete",
+      "vendor": "azure",
+      "surface": "Managed Disks",
+      "summary": "Delete a managed disk snapshot.",
+      "tags": [
+        "azure",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The snapshot recovery point is destroyed; another snapshot is not the same recovery point.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.sql.database.drop",
+      "vendor": "azure",
+      "surface": "Azure SQL",
+      "summary": "Drop an Azure SQL database.",
+      "tags": [
+        "azure",
+        "drop"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Restore a database from the recovery copy; endpoint bindings and writes after the recovery point require repair.",
+          "if": {
+            "kind": "fact",
+            "fact": "azure.sql.database.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Without a usable restore path the deleted database contents are lost.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.storage.account.delete",
+      "vendor": "azure",
+      "surface": "Storage",
+      "summary": "Delete a storage account and its data services.",
+      "tags": [
+        "azure",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create replacement storage and import the recovery copies; URLs and account identity may change.",
+          "if": {
+            "kind": "fact",
+            "fact": "azure.storage.account.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting the account can destroy blobs, queues, tables and files.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.storage.container.delete",
+      "vendor": "azure",
+      "surface": "Blob Storage",
+      "summary": "Delete a blob container.",
+      "tags": [
+        "azure",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Restore contents into a replacement container; identity and access history may differ.",
+          "if": {
+            "kind": "fact",
+            "fact": "azure.storage.container.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Without retained recoverable data the container contents cannot be restored.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "azure.vm.delete",
+      "vendor": "azure",
+      "surface": "Virtual Machines",
+      "summary": "Delete a virtual machine.",
+      "tags": [
+        "azure",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Rebuild the VM from the recovery copies; VM identity, runtime state and downtime cannot be undone.",
+          "if": {
+            "kind": "fact",
+            "fact": "azure.vm.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "VM deletion can also delete attached disks and unique runtime state.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "basecamp.project.archive",
+      "vendor": "basecamp",
+      "surface": "Projects",
+      "summary": "Archive a Basecamp project.",
+      "tags": [
+        "basecamp",
+        "archive"
+      ],
+      "cases": [
+        {
+          "when": "the project was active before this call and account project capacity permits restoration",
+          "tone": "r1",
+          "inverse": "Set the same project status to active.",
+          "window": "while the project remains archived",
+          "note": "The same project can return to active status with archive history retained.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "basecamp.project.previously_active",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "basecamp.project.restore_capacity_available",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Unarchive to reduce disruption; an unknown prior state prevents a reliable inverse.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "basecamp.project.member.remove",
+      "vendor": "basecamp",
+      "surface": "Project Access",
+      "summary": "Remove a person from a Basecamp project.",
+      "tags": [
+        "basecamp",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "all prior access was captured and regrant to the same principal is supported",
+          "tone": "r1",
+          "inverse": "Regrant all captured access to the same principal.",
+          "window": "while the principal and captured grants remain valid",
+          "note": "Access can be restored, but removal, missed activity and audit events remain.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "basecamp.project.member.access_captured",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "basecamp.project.member.regrant_supported",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinviting a user may reduce disruption but does not restore uncaptured access or undo missed activity.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "basecamp.project.trash",
+      "vendor": "basecamp",
+      "surface": "Projects",
+      "summary": "Move a Basecamp project to trash.",
+      "tags": [
+        "basecamp",
+        "trash"
+      ],
+      "cases": [
+        {
+          "when": "the project was active and its complete contents remain restorable from trash and account project capacity permits restoration",
+          "tone": "r1",
+          "inverse": "Set the same project status to active.",
+          "window": "while the original project remains in trash and restorable",
+          "note": "Restoring preserves the project, but deletion history and notification gaps remain.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "basecamp.project.previously_active",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "basecamp.project.trash_restorable",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "basecamp.project.restore_capacity_available",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Without a supported restore path the deleted project data cannot be recovered.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "basecamp.recording.trash",
+      "vendor": "basecamp",
+      "surface": "Recordings",
+      "summary": "Move a Basecamp recording to trash.",
+      "tags": [
+        "basecamp",
+        "trash"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Trashing hides the original recording; without a verified retained recovery path VOID cannot promise restoration.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloudflare.api_token.revoke",
+      "vendor": "cloudflare",
+      "surface": "API Tokens",
+      "summary": "Revoke a Cloudflare API token.",
+      "tags": [
+        "cloudflare",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Issue a replacement credential and update consumers to reduce disruption; the revoked credential cannot be reactivated.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloudflare.d1.database.delete",
+      "vendor": "cloudflare",
+      "surface": "D1",
+      "summary": "Delete a D1 database.",
+      "tags": [
+        "cloudflare",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Import into a replacement D1 database and update bindings; database identity and later writes differ.",
+          "if": {
+            "kind": "fact",
+            "fact": "cloudflare.d1.database.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Database deletion can remove the last usable database recovery path.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloudflare.dns_record.delete",
+      "vendor": "cloudflare",
+      "surface": "DNS",
+      "summary": "Delete a DNS record.",
+      "tags": [
+        "cloudflare",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Recreating a record can reduce outage but cannot undo cached negative responses or failed traffic.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloudflare.kv.namespace.delete",
+      "vendor": "cloudflare",
+      "surface": "Workers KV",
+      "summary": "Delete a KV namespace and every stored key.",
+      "tags": [
+        "cloudflare",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Import into a replacement namespace and update bindings; namespace identity and expired data differ.",
+          "if": {
+            "kind": "fact",
+            "fact": "cloudflare.kv.namespace.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Namespace deletion destroys the stored values and their original namespace identity.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloudflare.pages.project.delete",
+      "vendor": "cloudflare",
+      "surface": "Pages",
+      "summary": "Delete a Pages project.",
+      "tags": [
+        "cloudflare",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the project and deploy source; deployment URLs and history do not return.",
+          "if": {
+            "kind": "fact",
+            "fact": "cloudflare.pages.project.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Project deletion removes deployment history and can remove unique settings.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloudflare.r2.bucket.delete",
+      "vendor": "cloudflare",
+      "surface": "R2",
+      "summary": "Delete an R2 bucket.",
+      "tags": [
+        "cloudflare",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the bucket and import copies; name availability and subsequent writes may prevent full recovery.",
+          "if": {
+            "kind": "fact",
+            "fact": "cloudflare.r2.bucket.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Bucket contents and configuration have no exact inverse when recovery data is absent.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloudflare.worker.route.delete",
+      "vendor": "cloudflare",
+      "surface": "Workers Routes",
+      "summary": "Delete a Worker route.",
+      "tags": [
+        "cloudflare",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Recreate the route to restore routing; requests handled during the gap cannot be replayed exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloudflare.workers.script.delete",
+      "vendor": "cloudflare",
+      "surface": "Workers",
+      "summary": "Delete a Worker script.",
+      "tags": [
+        "cloudflare",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Deploy a replacement Worker from the copy; running state and missed requests cannot be recovered.",
+          "if": {
+            "kind": "fact",
+            "fact": "cloudflare.workers.script.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting the script can discard the only copy of deployed code and bindings.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coda.doc.delete",
+      "vendor": "coda",
+      "surface": "Docs",
+      "summary": "Delete a Coda document.",
+      "tags": [
+        "coda",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Rebuild a document from the copies; document and row identities and automation history may differ.",
+          "if": {
+            "kind": "fact",
+            "fact": "coda.doc.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Document deletion can remove tables, pages, automations and access configuration.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coda.doc.permission.delete",
+      "vendor": "coda",
+      "surface": "Doc Permissions",
+      "summary": "Delete a document access permission.",
+      "tags": [
+        "coda",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Regrant captured access to reduce disruption; the original permission identity is not guaranteed, and intervening access changes remain.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coda.folder.delete",
+      "vendor": "coda",
+      "surface": "Folders",
+      "summary": "Delete an empty Coda folder.",
+      "tags": [
+        "coda",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Recreate the folder to reduce organization disruption; original folder identity and links cannot be restored.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coda.pack.delete",
+      "vendor": "coda",
+      "surface": "Packs",
+      "summary": "Delete a Coda Pack.",
+      "tags": [
+        "coda",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Pack deletion can remove unique integration configuration and break dependent documents.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coda.page.content.delete",
+      "vendor": "coda",
+      "surface": "Page Content",
+      "summary": "Delete selected content elements or all content from a Coda page.",
+      "tags": [
+        "coda",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleted content and automation side effects cannot be restored without a verified recovery path.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coda.page.delete",
+      "vendor": "coda",
+      "surface": "Pages",
+      "summary": "Delete a Coda page.",
+      "tags": [
+        "coda",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Page content and references may be unavailable without a retained recovery copy.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coda.row.delete",
+      "vendor": "coda",
+      "surface": "Rows",
+      "summary": "Delete a Coda table row.",
+      "tags": [
+        "coda",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Insert replacement values and repair links; row identity and triggered automations may differ.",
+          "if": {
+            "kind": "fact",
+            "fact": "coda.row.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Row values and references are not recoverable without a retained recovery path.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coda.rows.bulk_delete",
+      "vendor": "coda",
+      "surface": "Rows",
+      "summary": "Delete multiple Coda table rows.",
+      "tags": [
+        "coda",
+        "bulk_delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Insert replacement rows and repair links; row identities and automation effects do not return.",
+          "if": {
+            "kind": "fact",
+            "fact": "coda.rows.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleted row values and relationships may have no retained recovery path.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "datadog.api_key.revoke",
+      "vendor": "datadog",
+      "surface": "API Keys",
+      "summary": "Delete a Datadog API key.",
+      "tags": [
+        "datadog",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Issue a replacement credential and update consumers to reduce disruption; the revoked credential cannot be reactivated.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "datadog.application_key.revoke",
+      "vendor": "datadog",
+      "surface": "Application Keys",
+      "summary": "Delete a Datadog application key.",
+      "tags": [
+        "datadog",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Issue a replacement credential and update consumers to reduce disruption; the revoked credential cannot be reactivated.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "datadog.dashboard.delete",
+      "vendor": "datadog",
+      "surface": "Dashboards",
+      "summary": "Delete a Datadog dashboard.",
+      "tags": [
+        "datadog",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the dashboard; dashboard identity and existing links may change.",
+          "if": {
+            "kind": "fact",
+            "fact": "datadog.dashboard.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleted dashboard configuration may no longer be available.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "datadog.downtime.cancel",
+      "vendor": "datadog",
+      "surface": "Downtimes",
+      "summary": "Cancel a scheduled or active monitor downtime through the v2 API.",
+      "tags": [
+        "datadog",
+        "cancel"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the downtime from captured settings; alerts emitted during the gap remain.",
+          "if": {
+            "kind": "fact",
+            "fact": "datadog.downtime.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Recreate the downtime to reduce unwanted notifications; notifications already sent cannot be recalled.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "datadog.logs.index.delete",
+      "vendor": "datadog",
+      "surface": "Log Indexes",
+      "summary": "Permanently delete a Datadog log index.",
+      "tags": [
+        "datadog",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deletion cannot be reverted, and the deleted index name cannot be reused.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "datadog.logs.pipeline.delete",
+      "vendor": "datadog",
+      "surface": "Log Pipelines",
+      "summary": "Delete a Datadog log processing pipeline.",
+      "tags": [
+        "datadog",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Without captured configuration the pipeline cannot be reconstructed, and previously processed logs cannot be reprocessed exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "datadog.monitor.delete",
+      "vendor": "datadog",
+      "surface": "Monitors",
+      "summary": "Delete a Datadog monitor.",
+      "tags": [
+        "datadog",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the monitor from its captured definition; monitor identity, evaluation state and notification gaps remain.",
+          "if": {
+            "kind": "fact",
+            "fact": "datadog.monitor.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The original monitor state and alert history cannot be restored by a new monitor.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "datadog.slo.delete",
+      "vendor": "datadog",
+      "surface": "Service Level Objectives",
+      "summary": "Delete a service level objective.",
+      "tags": [
+        "datadog",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the SLO; objective identity and historical evaluation continuity may differ.",
+          "if": {
+            "kind": "fact",
+            "fact": "datadog.slo.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting the SLO loses its configuration and tracked objective continuity.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "datadog.synthetics.test.delete",
+      "vendor": "datadog",
+      "surface": "Synthetics",
+      "summary": "Delete a Synthetic test.",
+      "tags": [
+        "datadog",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement test; test identity, execution history and missed checks cannot be restored.",
+          "if": {
+            "kind": "fact",
+            "fact": "datadog.synthetics.test.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting the test removes its configuration and breaks continuity of monitoring.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.bigquery.dataset.delete",
+      "vendor": "gcp",
+      "surface": "BigQuery",
+      "summary": "Delete a dataset, optionally deleting its contents.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the dataset and recover copied resources; jobs, identities and later writes cannot be restored exactly.",
+          "if": {
+            "kind": "fact",
+            "fact": "gcp.bigquery.dataset.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Dataset deletion can remove tables, routines and models with no complete recovery path.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.compute.disk.delete",
+      "vendor": "gcp",
+      "surface": "Compute Engine",
+      "summary": "Delete a persistent disk.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement disk from the copy; attachment identity and later writes need repair.",
+          "if": {
+            "kind": "fact",
+            "fact": "gcp.compute.disk.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Without a retained recovery copy the disk bytes cannot be recovered.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.compute.instance.delete",
+      "vendor": "gcp",
+      "surface": "Compute Engine",
+      "summary": "Delete a Compute Engine VM instance.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Rebuild the instance and its disks; runtime state, identity and downtime cannot be undone.",
+          "if": {
+            "kind": "fact",
+            "fact": "gcp.compute.instance.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deletion can destroy auto-delete disks and unique VM runtime state.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.compute.snapshot.delete",
+      "vendor": "gcp",
+      "surface": "Compute Engine",
+      "summary": "Delete a disk snapshot.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The snapshot recovery point is permanently removed.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.gcs.bucket.delete",
+      "vendor": "gcp",
+      "surface": "Cloud Storage",
+      "summary": "Delete a Cloud Storage bucket.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Restore the bucket data and configuration; the bucket name may no longer be available.",
+          "if": {
+            "kind": "fact",
+            "fact": "gcp.gcs.bucket.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Bucket configuration and any deleted contents are not recoverable without retained recovery data.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.gke.cluster.delete",
+      "vendor": "gcp",
+      "surface": "GKE",
+      "summary": "Delete a Kubernetes cluster and its managed nodes.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Rebuild the cluster and restore volumes; UIDs, running state and event history change.",
+          "if": {
+            "kind": "fact",
+            "fact": "gcp.gke.cluster.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Cluster deletion can destroy workloads and persistent data in its deletion scope.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.iam.role.delete",
+      "vendor": "gcp",
+      "surface": "IAM",
+      "summary": "Soft delete a custom IAM role.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the custom role remains inside its undelete window",
+          "tone": "r1",
+          "inverse": "Undelete the same custom role.",
+          "window": "within 7 days of deletion, before permanent deletion",
+          "note": "Undeleting retains the role, but access disruption and audit events remain.",
+          "if": {
+            "kind": "fact",
+            "fact": "gcp.iam.role.within_undelete_window",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "After permanent deletion, recreating a role does not recover its identity or dependent access.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.project.delete",
+      "vendor": "gcp",
+      "surface": "Resource Manager",
+      "summary": "Shut down a Google Cloud project and schedule deletion.",
+      "tags": [
+        "gcp",
+        "delete",
+        "cascade"
+      ],
+      "cases": [
+        {
+          "when": "the project is inside its soft delete window and every affected service has a verified recovery path",
+          "tone": "r2",
+          "inverse": null,
+          "window": "until the project or a dependent service recovery window expires",
+          "note": "Restoring the project can reduce harm, but service data and operations lost during shutdown may not return.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "gcp.project.within_soft_delete_window",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "gcp.project.services_recoverable",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Project deletion can cascade to services whose data is not recoverable by restoring the project.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.pubsub.subscription.delete",
+      "vendor": "gcp",
+      "surface": "Pub/Sub",
+      "summary": "Delete a Pub/Sub subscription.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting the subscription removes its delivery cursor and unacknowledged backlog unless a separate recovery path exists.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.pubsub.topic.delete",
+      "vendor": "gcp",
+      "surface": "Pub/Sub",
+      "summary": "Delete a Pub/Sub topic.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The topic message retention and original subscription connections cannot be restored by recreating its name.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.secretmanager.version.destroy",
+      "vendor": "gcp",
+      "surface": "Secret Manager",
+      "summary": "Destroy a secret version.",
+      "tags": [
+        "gcp",
+        "destroy"
+      ],
+      "cases": [
+        {
+          "when": "delayed destruction is enabled and the version remains inside its restore window",
+          "tone": "r2",
+          "inverse": null,
+          "window": "until the version scheduled destruction time",
+          "note": "Enable or disable the retained version before scheduled destruction to cancel it; prior state and interrupted consumers still need reconciliation. Whole-secret deletion or expiry bypasses the delay.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "gcp.secretmanager.version.delayed_destruction",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "gcp.secretmanager.version.within_restore_window",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The version payload is irrecoverable after destruction takes effect; no retained delayed-destruction window was established.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "gcp.sql.instance.delete",
+      "vendor": "gcp",
+      "surface": "Cloud SQL",
+      "summary": "Delete a Cloud SQL instance.",
+      "tags": [
+        "gcp",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Restore into a replacement instance; connections, instance identity and subsequent writes require repair.",
+          "if": {
+            "kind": "fact",
+            "fact": "gcp.sql.instance.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Instance deletion can remove the database and backups included in its deletion scope.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "netlify.build_hook.delete",
+      "vendor": "netlify",
+      "surface": "Build Hooks",
+      "summary": "Delete a Netlify build hook.",
+      "tags": [
+        "netlify",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement hook and update callers; missed builds and original hook identity cannot be restored.",
+          "if": {
+            "kind": "fact",
+            "fact": "netlify.build_hook.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "A replacement build hook has a new URL; callers using the original URL can no longer trigger builds.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "netlify.deploy.delete",
+      "vendor": "netlify",
+      "surface": "Deploys",
+      "summary": "Delete a Netlify deploy.",
+      "tags": [
+        "netlify",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The exact deploy artifact and its logs are lost; a new build creates a different deploy.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "netlify.dns.record.delete",
+      "vendor": "netlify",
+      "surface": "DNS",
+      "summary": "Delete a Netlify DNS record.",
+      "tags": [
+        "netlify",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Recreate the record to reduce disruption; DNS caches and missed traffic remain outside the inverse.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "netlify.form.delete",
+      "vendor": "netlify",
+      "surface": "Forms",
+      "summary": "Delete a Netlify form and its stored submissions.",
+      "tags": [
+        "netlify",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Deploy the form again and retain exports; submission history and identifiers do not return.",
+          "if": {
+            "kind": "fact",
+            "fact": "netlify.form.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting the form can remove the last copy of collected submissions.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "netlify.form.submission.delete",
+      "vendor": "netlify",
+      "surface": "Forms",
+      "summary": "Delete one Netlify form submission.",
+      "tags": [
+        "netlify",
+        "purge"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Retain the exported submission for manual follow-up; original submission identity and integration events cannot be restored.",
+          "if": {
+            "kind": "fact",
+            "fact": "netlify.form.submission.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Submission bodies and uploaded files are not recoverable without an independent export.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "netlify.site.delete",
+      "vendor": "netlify",
+      "surface": "Sites",
+      "summary": "Delete a Netlify site.",
+      "tags": [
+        "netlify",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement site and import the recovery copies; site identity and deployment history change.",
+          "if": {
+            "kind": "fact",
+            "fact": "netlify.site.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Site deletion removes deployments and site data with no exact inverse.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "netlify.team.member.remove",
+      "vendor": "netlify",
+      "surface": "Team Members",
+      "summary": "Remove a member from a Netlify team.",
+      "tags": [
+        "netlify",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinvite or regrant access to reduce disruption; required acceptance, missed activity and original access state cannot be restored exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "notion.block.delete",
+      "vendor": "notion",
+      "surface": "Blocks",
+      "summary": "Move a Notion block to trash.",
+      "tags": [
+        "notion",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "the block was not in trash and remains available for restoration",
+          "tone": "r1",
+          "inverse": "Update the same block with in_trash set to false.",
+          "window": "while the original block remains restorable",
+          "note": "The same block can be restored, but deletion and restoration remain visible in history.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "notion.block.previously_trashed",
+                "is": "false"
+              },
+              {
+                "kind": "fact",
+                "fact": "notion.block.restore_supported",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "A block outside its restore path may no longer be recoverable.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "notion.teamspace.archive",
+      "vendor": "notion",
+      "surface": "Teamspace Administration",
+      "summary": "Archive a Notion teamspace through workspace settings.",
+      "tags": [
+        "notion",
+        "archive",
+        "manual"
+      ],
+      "cases": [
+        {
+          "when": "the teamspace was active and its same-object restore is supported",
+          "tone": "r1",
+          "inverse": "Restore the same teamspace through workspace settings.",
+          "window": "while the teamspace remains archived and restorable",
+          "note": "Restoring the teamspace retains its content, but access interruption and history remain.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "notion.teamspace.previously_active",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "notion.teamspace.restore_supported",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Restore the teamspace to reduce disruption; uncaptured permissions or later changes prevent an exact inverse.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "notion.teamspace.member.remove",
+      "vendor": "notion",
+      "surface": "Teamspace Administration",
+      "summary": "Remove a member from a Notion teamspace through workspace settings.",
+      "tags": [
+        "notion",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "all prior access was captured and regrant to the same principal is supported",
+          "tone": "r1",
+          "inverse": "Regrant all captured access to the same principal.",
+          "window": "while the principal and captured grants remain valid",
+          "note": "Access can be restored, but removal, missed activity and audit events remain.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "notion.teamspace.member.access_captured",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "notion.teamspace.member.regrant_supported",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinviting a user may reduce disruption but does not restore uncaptured access or undo missed activity.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "notion.token.revoke",
+      "vendor": "notion",
+      "surface": "OAuth",
+      "summary": "Revoke a Notion OAuth access token.",
+      "tags": [
+        "notion",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Issue a replacement credential and update consumers to reduce disruption; the revoked credential cannot be reactivated.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "notion.workspace.delete",
+      "vendor": "notion",
+      "surface": "Workspace Administration",
+      "summary": "Permanently delete a Notion workspace through workspace settings.",
+      "tags": [
+        "notion",
+        "workspace",
+        "delete",
+        "manual"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Workspace deletion can remove all content and membership state; this is a manual administration surface, not a public Notion API endpoint.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "notion.workspace.member.remove",
+      "vendor": "notion",
+      "surface": "Workspace Administration",
+      "summary": "Remove a member through Notion workspace settings.",
+      "tags": [
+        "notion",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinvite or regrant access to reduce disruption; required acceptance, missed activity and original access state cannot be restored exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "opsgenie.alert.delete",
+      "vendor": "opsgenie",
+      "surface": "Alerts",
+      "summary": "Delete an Opsgenie alert.",
+      "tags": [
+        "opsgenie",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The alert record, notes and original history cannot be recreated with the same identity.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "opsgenie.escalation.delete",
+      "vendor": "opsgenie",
+      "surface": "Escalations",
+      "summary": "Delete an Opsgenie escalation policy.",
+      "tags": [
+        "opsgenie",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the escalation and reconnect routing; missed alerts and identity changes remain.",
+          "if": {
+            "kind": "fact",
+            "fact": "opsgenie.escalation.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The escalation configuration is unavailable after deletion without a capture.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "opsgenie.integration.delete",
+      "vendor": "opsgenie",
+      "surface": "Integrations",
+      "summary": "Delete an Opsgenie integration.",
+      "tags": [
+        "opsgenie",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement integration and update consumers; revoked credentials and missed alerts remain different.",
+          "if": {
+            "kind": "fact",
+            "fact": "opsgenie.integration.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The integration credentials and missed alerts cannot be restored exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "opsgenie.schedule.delete",
+      "vendor": "opsgenie",
+      "surface": "Schedules",
+      "summary": "Delete an Opsgenie on-call schedule.",
+      "tags": [
+        "opsgenie",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement schedule and repair references; identity and missed notifications cannot be restored.",
+          "if": {
+            "kind": "fact",
+            "fact": "opsgenie.schedule.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Schedule deletion removes routing configuration and can interrupt on-call coverage.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "opsgenie.team.delete",
+      "vendor": "opsgenie",
+      "surface": "Teams",
+      "summary": "Delete an Opsgenie team.",
+      "tags": [
+        "opsgenie",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the team and restore captured routing; team identity and missed alerts cannot return.",
+          "if": {
+            "kind": "fact",
+            "fact": "opsgenie.team.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Team deletion can remove routing rules and memberships.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "opsgenie.user.delete",
+      "vendor": "opsgenie",
+      "surface": "Users",
+      "summary": "Delete an Opsgenie user.",
+      "tags": [
+        "opsgenie",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Invite a replacement account and repair routing to reduce disruption; deleted identity and audit references cannot be restored exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pagerduty.business_service.delete",
+      "vendor": "pagerduty",
+      "surface": "Business Services",
+      "summary": "Delete a PagerDuty business service.",
+      "tags": [
+        "pagerduty",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Recreating a service does not restore its original identity or reverse alert-routing disruption.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pagerduty.escalation_policy.delete",
+      "vendor": "pagerduty",
+      "surface": "Escalation Policies",
+      "summary": "Delete an escalation policy.",
+      "tags": [
+        "pagerduty",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the policy and reconnect services; policy identity and missed escalations remain different.",
+          "if": {
+            "kind": "fact",
+            "fact": "pagerduty.escalation_policy.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting the policy removes alert escalation routing.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pagerduty.event_orchestration.integration.delete",
+      "vendor": "pagerduty",
+      "surface": "Event Orchestration Integrations",
+      "summary": "Delete an Event Orchestration integration and its routing key.",
+      "tags": [
+        "pagerduty",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement integration and rotate every consumer to the new key; missed events remain.",
+          "if": {
+            "kind": "fact",
+            "fact": "pagerduty.integration.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The routing key is deleted, and subsequent events using it are dropped.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pagerduty.incident.note.delete",
+      "vendor": "pagerduty",
+      "surface": "Incident Notes",
+      "summary": "Delete a note from a PagerDuty incident.",
+      "tags": [
+        "pagerduty",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The original note and its authorship context cannot be recreated with the same identity.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pagerduty.schedule.delete",
+      "vendor": "pagerduty",
+      "surface": "Schedules",
+      "summary": "Delete an on-call schedule.",
+      "tags": [
+        "pagerduty",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the schedule and repair escalation references; schedule identity and missed pages cannot return.",
+          "if": {
+            "kind": "fact",
+            "fact": "pagerduty.schedule.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleting a schedule disrupts routing and removes schedule configuration.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pagerduty.service.delete",
+      "vendor": "pagerduty",
+      "surface": "Services",
+      "summary": "Delete a PagerDuty service.",
+      "tags": [
+        "pagerduty",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement service and integrations; incident history and original integration keys may not return.",
+          "if": {
+            "kind": "fact",
+            "fact": "pagerduty.service.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Service deletion removes incident routing and associated integration configuration.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pagerduty.team.member.remove",
+      "vendor": "pagerduty",
+      "surface": "Teams",
+      "summary": "Remove a user from a PagerDuty team.",
+      "tags": [
+        "pagerduty",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "all prior access was captured and regrant to the same principal is supported",
+          "tone": "r1",
+          "inverse": "Regrant all captured access to the same principal.",
+          "window": "while the principal and captured grants remain valid",
+          "note": "Access can be restored, but removal, missed activity and audit events remain.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "pagerduty.team.member.access_captured",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "pagerduty.team.member.regrant_supported",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinviting a user may reduce disruption but does not restore uncaptured access or undo missed activity.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pagerduty.user.delete",
+      "vendor": "pagerduty",
+      "surface": "Users",
+      "summary": "Delete a PagerDuty user.",
+      "tags": [
+        "pagerduty",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinvite the person and repair routing to reduce disruption; deleted user identity and historical references are not an exact inverse.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slack.admin.apps.uninstall",
+      "vendor": "slack",
+      "surface": "Admin Apps",
+      "summary": "Uninstall an app from a Slack organization or workspace.",
+      "tags": [
+        "slack",
+        "uninstall"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Manual reinstallation may restore service, but revoked tokens, app state and missed events cannot be reinstated.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slack.admin.conversation.archive",
+      "vendor": "slack",
+      "surface": "Admin Conversations",
+      "summary": "Archive a Slack channel through the Admin API.",
+      "tags": [
+        "slack",
+        "archive"
+      ],
+      "cases": [
+        {
+          "when": "the channel was active, same-channel restoration is supported, and no template workflows are attached",
+          "tone": "r1",
+          "inverse": "Unarchive the same Slack channel.",
+          "window": "while the channel remains available for unarchive",
+          "note": "The same channel can be unarchived, but archive events and interrupted conversations remain.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "slack.channel.previously_active",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "slack.channel.restore_supported",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "slack.channel.template_workflows_present",
+                "is": "false"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Unarchive may reduce disruption, but an unknown prior state prevents a reliable inverse.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slack.admin.conversation.delete",
+      "vendor": "slack",
+      "surface": "Admin Conversations",
+      "summary": "Permanently delete a Slack channel and its messages.",
+      "tags": [
+        "slack",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Channel deletion destroys messages and channel identity; creating another channel is not an inverse.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slack.admin.invite_request.deny",
+      "vendor": "slack",
+      "surface": "Admin Invite Requests",
+      "summary": "Deny a pending workspace invite request.",
+      "tags": [
+        "slack",
+        "deny"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "A new invitation can compensate, but the original denial decision and request history cannot be withdrawn.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slack.admin.session.reset",
+      "vendor": "slack",
+      "surface": "Admin Sessions",
+      "summary": "Invalidate all valid sessions for a Slack user, optionally limited to web or mobile clients.",
+      "tags": [
+        "slack",
+        "reset"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "The user can sign in again, but invalidated sessions and interrupted actions cannot be reinstated.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slack.admin.user.remove",
+      "vendor": "slack",
+      "surface": "Admin Users",
+      "summary": "Remove a user from a Slack workspace.",
+      "tags": [
+        "slack",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "all prior access was captured and regrant to the same principal is supported",
+          "tone": "r1",
+          "inverse": "Regrant all captured access to the same principal.",
+          "window": "while the principal and captured grants remain valid",
+          "note": "Access can be restored, but removal, missed activity and audit events remain.",
+          "if": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "fact",
+                "fact": "slack.admin.user.access_captured",
+                "is": "true"
+              },
+              {
+                "kind": "fact",
+                "fact": "slack.admin.user.regrant_supported",
+                "is": "true"
+              }
+            ]
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinviting a user may reduce disruption but does not restore uncaptured access or undo missed activity.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slack.admin.usergroup.channels.remove",
+      "vendor": "slack",
+      "surface": "Admin User Groups",
+      "summary": "Remove default channels from an IDP user group.",
+      "tags": [
+        "slack",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reassociate the default channels to reduce disruption; this does not imply every current user is removed, and changes during the gap cannot be undone.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slack.auth.revoke",
+      "vendor": "slack",
+      "surface": "Auth",
+      "summary": "Revoke a Slack OAuth token.",
+      "tags": [
+        "slack",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Issue a replacement token and update consumers to reduce disruption. Revoking a bot token deactivates the bot and removes its memberships, but does not uninstall the app. The old token cannot be restored.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stripe.invoice.delete",
+      "vendor": "stripe",
+      "surface": "Invoices",
+      "summary": "Delete a one-off draft Stripe invoice.",
+      "tags": [
+        "stripe",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The invoice object and its original identifier cannot be restored after deletion.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stripe.invoice.void",
+      "vendor": "stripe",
+      "surface": "Invoices",
+      "summary": "Void a finalized Stripe invoice.",
+      "tags": [
+        "stripe",
+        "void"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Create a replacement invoice to reduce accounting disruption; the void status and original document remain permanent.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stripe.payout.cancel",
+      "vendor": "stripe",
+      "surface": "Payouts",
+      "summary": "Cancel a pending manual payout.",
+      "tags": [
+        "stripe",
+        "cancel"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Cancellation returns funds to available balance, but cannot reactivate the original payout. A new manual payout only compensates. Automatic payouts cannot be cancelled.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stripe.webhook_endpoint.delete",
+      "vendor": "stripe",
+      "surface": "Webhook Endpoints",
+      "summary": "Delete a Stripe webhook endpoint.",
+      "tags": [
+        "stripe",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "A replacement endpoint can resume delivery but has a new identity and signing secret; missed events require reconciliation.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vercel.alias.delete",
+      "vendor": "vercel",
+      "surface": "Aliases",
+      "summary": "Remove a deployment alias.",
+      "tags": [
+        "vercel",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reassign the alias to a known deployment to reduce disruption; failed requests and caches cannot be undone.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vercel.deployment.delete",
+      "vendor": "vercel",
+      "surface": "Deployments",
+      "summary": "Permanently delete a Vercel deployment.",
+      "tags": [
+        "vercel",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The deployment artifact, URL and deployment logs cannot be recovered by building a new deployment.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vercel.domain.remove",
+      "vendor": "vercel",
+      "surface": "Domains",
+      "summary": "Remove a domain from a Vercel project.",
+      "tags": [
+        "vercel",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reattach an available domain to reduce outage; DNS caches, validation state and missed requests cannot be undone.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vercel.environment.bulk_delete",
+      "vendor": "vercel",
+      "surface": "Environment Variables",
+      "summary": "Delete a selected set of project environment variables.",
+      "tags": [
+        "vercel",
+        "bulk_delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Recreate the variables from the operator vault and redeploy; consumers may already have failed.",
+          "if": {
+            "kind": "fact",
+            "fact": "vercel.environment.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Deleted secret values cannot be recovered through the API.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vercel.project.delete",
+      "vendor": "vercel",
+      "surface": "Projects",
+      "summary": "Delete a Vercel project and its deployments.",
+      "tags": [
+        "vercel",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Redeploy from the copy; deployment history, project identity and service continuity do not return.",
+          "if": {
+            "kind": "fact",
+            "fact": "vercel.project.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "Project deletion removes deployment history and project state that cannot be restored exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vercel.team.member.remove",
+      "vendor": "vercel",
+      "surface": "Teams",
+      "summary": "Remove a member from a Vercel team.",
+      "tags": [
+        "vercel",
+        "remove"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Reinvite or regrant access to reduce disruption; required acceptance, missed activity and original access state cannot be restored exactly.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vercel.token.revoke",
+      "vendor": "vercel",
+      "surface": "Access Tokens",
+      "summary": "Revoke a Vercel access token.",
+      "tags": [
+        "vercel",
+        "revoke"
+      ],
+      "cases": [
+        {
+          "when": "always",
+          "tone": "r2",
+          "inverse": null,
+          "window": "none",
+          "note": "Issue a replacement credential and update consumers to reduce disruption; the revoked credential cannot be reactivated.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vercel.webhook.delete",
+      "vendor": "vercel",
+      "surface": "Webhooks",
+      "summary": "Delete a team webhook.",
+      "tags": [
+        "vercel",
+        "delete"
+      ],
+      "cases": [
+        {
+          "when": "a complete recovery copy was verified before this call",
+          "tone": "r2",
+          "inverse": null,
+          "window": "while the verified recovery copy remains available",
+          "note": "Create a replacement webhook and update its consumer; missed deliveries and endpoint identity remain different.",
+          "if": {
+            "kind": "fact",
+            "fact": "vercel.webhook.recovery_copy_verified",
+            "is": "true"
+          }
+        },
+        {
+          "when": "always",
+          "tone": "r3",
+          "inverse": null,
+          "window": "none",
+          "note": "The original webhook secret and missed deliveries cannot be recovered from the deleted endpoint.",
+          "if": {
+            "kind": "always"
+          }
+        }
+      ]
+    }
+  ],
+  "factsAdded": [
+    "airtable.base.recovery_copy_verified",
+    "airtable.record.recovery_copy_verified",
+    "airtable.user.previously_active",
+    "airtable.user.reactivation_preserves_access",
+    "airtable.workspace.recovery_copy_verified",
+    "azure.aks.cluster.recovery_copy_verified",
+    "azure.appservice.site.recovery_copy_verified",
+    "azure.cosmosdb.account.recovery_copy_verified",
+    "azure.managed_disk.recovery_copy_verified",
+    "azure.resource_group.empty",
+    "azure.resource_group.metadata_captured",
+    "azure.sql.database.recovery_copy_verified",
+    "azure.storage.account.recovery_copy_verified",
+    "azure.storage.container.recovery_copy_verified",
+    "azure.vm.recovery_copy_verified",
+    "basecamp.project.member.access_captured",
+    "basecamp.project.member.regrant_supported",
+    "basecamp.project.previously_active",
+    "basecamp.project.restore_capacity_available",
+    "basecamp.project.trash_restorable",
+    "cloudflare.d1.database.recovery_copy_verified",
+    "cloudflare.kv.namespace.recovery_copy_verified",
+    "cloudflare.pages.project.recovery_copy_verified",
+    "cloudflare.r2.bucket.recovery_copy_verified",
+    "cloudflare.workers.script.recovery_copy_verified",
+    "coda.doc.recovery_copy_verified",
+    "coda.row.recovery_copy_verified",
+    "coda.rows.recovery_copy_verified",
+    "datadog.dashboard.recovery_copy_verified",
+    "datadog.downtime.recovery_copy_verified",
+    "datadog.monitor.recovery_copy_verified",
+    "datadog.slo.recovery_copy_verified",
+    "datadog.synthetics.test.recovery_copy_verified",
+    "gcp.bigquery.dataset.recovery_copy_verified",
+    "gcp.compute.disk.recovery_copy_verified",
+    "gcp.compute.instance.recovery_copy_verified",
+    "gcp.gcs.bucket.recovery_copy_verified",
+    "gcp.gke.cluster.recovery_copy_verified",
+    "gcp.iam.role.within_undelete_window",
+    "gcp.project.services_recoverable",
+    "gcp.project.within_soft_delete_window",
+    "gcp.secretmanager.version.delayed_destruction",
+    "gcp.secretmanager.version.within_restore_window",
+    "gcp.sql.instance.recovery_copy_verified",
+    "netlify.build_hook.recovery_copy_verified",
+    "netlify.form.recovery_copy_verified",
+    "netlify.form.submission.recovery_copy_verified",
+    "netlify.site.recovery_copy_verified",
+    "notion.block.previously_trashed",
+    "notion.block.restore_supported",
+    "notion.teamspace.member.access_captured",
+    "notion.teamspace.member.regrant_supported",
+    "notion.teamspace.previously_active",
+    "notion.teamspace.restore_supported",
+    "opsgenie.escalation.recovery_copy_verified",
+    "opsgenie.integration.recovery_copy_verified",
+    "opsgenie.schedule.recovery_copy_verified",
+    "opsgenie.team.recovery_copy_verified",
+    "pagerduty.escalation_policy.recovery_copy_verified",
+    "pagerduty.integration.recovery_copy_verified",
+    "pagerduty.schedule.recovery_copy_verified",
+    "pagerduty.service.recovery_copy_verified",
+    "pagerduty.team.member.access_captured",
+    "pagerduty.team.member.regrant_supported",
+    "slack.admin.user.access_captured",
+    "slack.admin.user.regrant_supported",
+    "slack.channel.previously_active",
+    "slack.channel.restore_supported",
+    "slack.channel.template_workflows_present",
+    "vercel.environment.recovery_copy_verified",
+    "vercel.project.recovery_copy_verified",
+    "vercel.webhook.recovery_copy_verified"
+  ],
+  "sources": {
+    "airtable.base.delete": "https://airtable.com/developers/web/api/delete-base.md",
+    "airtable.base.member.remove": "https://airtable.com/developers/web/api/delete-base-collaborator.md",
+    "airtable.record.bulk_delete": "https://airtable.com/developers/web/api/delete-multiple-records.md",
+    "airtable.token.revoke": "https://support.airtable.com/articles/9934989703-creating-personal-access-tokens",
+    "airtable.user.deactivate": "https://airtable.com/developers/web/api/manage-user-batched.md",
+    "airtable.workspace.delete": "https://airtable.com/developers/web/api/delete-workspace.md",
+    "airtable.workspace.member.remove": "https://airtable.com/developers/web/api/delete-workspace-collaborator.md",
+    "azure.aks.cluster.delete": "https://learn.microsoft.com/en-us/rest/api/aks/managed-clusters/delete?view=rest-aks-2025-07-01",
+    "azure.appservice.site.delete": "https://learn.microsoft.com/en-us/rest/api/appservice/web-apps/delete?view=rest-appservice-2024-11-01",
+    "azure.cosmosdb.account.delete": "https://learn.microsoft.com/en-us/rest/api/cosmos-db-resource-provider/database-accounts/delete?view=rest-cosmos-db-resource-provider-2025-04-15",
+    "azure.keyvault.purge": "https://learn.microsoft.com/en-us/rest/api/keyvault/keyvault/vaults/purge-deleted?view=rest-keyvault-keyvault-2024-11-01",
+    "azure.keyvault.secret.purge": "https://learn.microsoft.com/en-us/rest/api/keyvault/secrets/purge-deleted-secret/purge-deleted-secret?view=rest-keyvault-secrets-2025-07-01",
+    "azure.managed_disk.delete": "https://learn.microsoft.com/en-us/rest/api/compute/disks/delete?view=rest-compute-2025-04-01",
+    "azure.resource_group.delete": "https://learn.microsoft.com/en-us/rest/api/resources/resource-groups/delete?view=rest-resources-2021-04-01",
+    "azure.snapshot.delete": "https://learn.microsoft.com/en-us/rest/api/compute/snapshots/delete?view=rest-compute-2025-04-01",
+    "azure.sql.database.drop": "https://learn.microsoft.com/en-us/rest/api/sql/databases/delete?view=rest-sql-2023-08-01",
+    "azure.storage.account.delete": "https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/delete?view=rest-storagerp-2024-01-01",
+    "azure.storage.container.delete": "https://learn.microsoft.com/en-us/rest/api/storageservices/delete-container",
+    "azure.vm.delete": "https://learn.microsoft.com/en-us/rest/api/compute/virtual-machines/delete?view=rest-compute-2025-04-01",
+    "basecamp.project.archive": "https://raw.githubusercontent.com/basecamp/bc3-api/master/sections/projects.md#archive-a-project",
+    "basecamp.project.member.remove": "https://raw.githubusercontent.com/basecamp/bc3-api/master/sections/people.md#update-who-can-access-a-project",
+    "basecamp.project.trash": "https://raw.githubusercontent.com/basecamp/bc3-api/master/sections/projects.md#trash-a-project",
+    "basecamp.recording.trash": "https://raw.githubusercontent.com/basecamp/bc3-api/master/sections/recordings.md#trash-a-recording",
+    "cloudflare.api_token.revoke": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.yaml",
+    "cloudflare.d1.database.delete": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.yaml",
+    "cloudflare.dns_record.delete": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.yaml",
+    "cloudflare.kv.namespace.delete": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.yaml",
+    "cloudflare.pages.project.delete": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.yaml",
+    "cloudflare.r2.bucket.delete": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.yaml",
+    "cloudflare.worker.route.delete": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.yaml",
+    "cloudflare.workers.script.delete": "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.yaml",
+    "coda.doc.delete": "https://coda.io/apis/v1/openapi.json",
+    "coda.doc.permission.delete": "https://coda.io/apis/v1/openapi.json",
+    "coda.folder.delete": "https://coda.io/apis/v1/openapi.json",
+    "coda.pack.delete": "https://coda.io/apis/v1/openapi.json",
+    "coda.page.content.delete": "https://coda.io/apis/v1/openapi.json",
+    "coda.page.delete": "https://coda.io/apis/v1/openapi.json",
+    "coda.row.delete": "https://coda.io/apis/v1/openapi.json",
+    "coda.rows.bulk_delete": "https://coda.io/apis/v1/openapi.json",
+    "datadog.api_key.revoke": "https://docs.datadoghq.com/api/latest/key-management/delete-an-api-key/",
+    "datadog.application_key.revoke": "https://docs.datadoghq.com/api/latest/key-management/delete-an-application-key/",
+    "datadog.dashboard.delete": "https://docs.datadoghq.com/api/latest/dashboards/delete-a-dashboard/",
+    "datadog.downtime.cancel": "https://docs.datadoghq.com/api/latest/downtimes/cancel-a-downtime/",
+    "datadog.logs.index.delete": "https://docs.datadoghq.com/api/latest/logs-indexes/delete-an-index/",
+    "datadog.logs.pipeline.delete": "https://docs.datadoghq.com/api/latest/logs-pipelines/delete-a-pipeline/",
+    "datadog.monitor.delete": "https://docs.datadoghq.com/api/latest/monitors/delete-a-monitor/",
+    "datadog.slo.delete": "https://docs.datadoghq.com/api/latest/service-level-objectives/delete-an-slo/",
+    "datadog.synthetics.test.delete": "https://docs.datadoghq.com/api/latest/synthetics/delete-tests/",
+    "gcp.bigquery.dataset.delete": "https://docs.cloud.google.com/bigquery/docs/reference/rest/v2/datasets/delete",
+    "gcp.compute.disk.delete": "https://docs.cloud.google.com/compute/docs/reference/rest/v1/disks/delete",
+    "gcp.compute.instance.delete": "https://docs.cloud.google.com/compute/docs/reference/rest/v1/instances/delete",
+    "gcp.compute.snapshot.delete": "https://docs.cloud.google.com/compute/docs/reference/rest/v1/snapshots/delete",
+    "gcp.gcs.bucket.delete": "https://docs.cloud.google.com/storage/docs/json_api/v1/buckets/delete",
+    "gcp.gke.cluster.delete": "https://docs.cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters/delete",
+    "gcp.iam.role.delete": "https://docs.cloud.google.com/iam/docs/reference/rest/v1/projects.roles/delete",
+    "gcp.project.delete": "https://docs.cloud.google.com/resource-manager/reference/rest/v3/projects/delete",
+    "gcp.pubsub.subscription.delete": "https://docs.cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/delete",
+    "gcp.pubsub.topic.delete": "https://docs.cloud.google.com/pubsub/docs/reference/rest/v1/projects.topics/delete",
+    "gcp.secretmanager.version.destroy": "https://docs.cloud.google.com/secret-manager/docs/destroy-secret-version",
+    "gcp.sql.instance.delete": "https://docs.cloud.google.com/sql/docs/mysql/admin-api/rest/v1/instances/delete",
+    "netlify.build_hook.delete": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml",
+    "netlify.deploy.delete": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml",
+    "netlify.dns.record.delete": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml",
+    "netlify.form.delete": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml",
+    "netlify.form.submission.delete": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml",
+    "netlify.site.delete": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml",
+    "netlify.team.member.remove": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml",
+    "notion.block.delete": "https://developers.notion.com/reference/delete-a-block",
+    "notion.teamspace.archive": "https://www.notion.com/help/manage-teamspaces",
+    "notion.teamspace.member.remove": "https://www.notion.com/help/intro-to-teamspaces",
+    "notion.token.revoke": "https://developers.notion.com/reference/revoke-token",
+    "notion.workspace.delete": "https://www.notion.com/help/workspace-settings",
+    "notion.workspace.member.remove": "https://www.notion.com/help/add-members-admins-guests-and-groups",
+    "opsgenie.alert.delete": "https://raw.githubusercontent.com/opsgenie/opsgenie-python-sdk/master/docs/AlertApi.md#delete_alert",
+    "opsgenie.escalation.delete": "https://raw.githubusercontent.com/opsgenie/opsgenie-go-sdk-v2/master/escalation/request.go",
+    "opsgenie.integration.delete": "https://raw.githubusercontent.com/opsgenie/opsgenie-go-sdk-v2/master/integration/request.go",
+    "opsgenie.schedule.delete": "https://raw.githubusercontent.com/opsgenie/opsgenie-go-sdk-v2/master/schedule/request.go",
+    "opsgenie.team.delete": "https://raw.githubusercontent.com/opsgenie/opsgenie-go-sdk-v2/master/team/request.go",
+    "opsgenie.user.delete": "https://raw.githubusercontent.com/opsgenie/opsgenie-go-sdk-v2/master/user/user_request.go",
+    "pagerduty.business_service.delete": "https://raw.githubusercontent.com/PagerDuty/api-schema/main/reference/REST/openapiv3.json",
+    "pagerduty.escalation_policy.delete": "https://raw.githubusercontent.com/PagerDuty/api-schema/main/reference/REST/openapiv3.json",
+    "pagerduty.event_orchestration.integration.delete": "https://raw.githubusercontent.com/PagerDuty/api-schema/main/reference/REST/openapiv3.json",
+    "pagerduty.incident.note.delete": "https://raw.githubusercontent.com/PagerDuty/api-schema/main/reference/REST/openapiv3.json",
+    "pagerduty.schedule.delete": "https://raw.githubusercontent.com/PagerDuty/api-schema/main/reference/REST/openapiv3.json",
+    "pagerduty.service.delete": "https://raw.githubusercontent.com/PagerDuty/api-schema/main/reference/REST/openapiv3.json",
+    "pagerduty.team.member.remove": "https://raw.githubusercontent.com/PagerDuty/api-schema/main/reference/REST/openapiv3.json",
+    "pagerduty.user.delete": "https://raw.githubusercontent.com/PagerDuty/api-schema/main/reference/REST/openapiv3.json",
+    "slack.admin.apps.uninstall": "https://docs.slack.dev/reference/methods/admin.apps.uninstall/",
+    "slack.admin.conversation.archive": "https://docs.slack.dev/reference/methods/admin.conversations.archive/",
+    "slack.admin.conversation.delete": "https://docs.slack.dev/reference/methods/admin.conversations.delete/",
+    "slack.admin.invite_request.deny": "https://docs.slack.dev/reference/methods/admin.inviteRequests.deny/",
+    "slack.admin.session.reset": "https://docs.slack.dev/reference/methods/admin.users.session.reset/",
+    "slack.admin.user.remove": "https://docs.slack.dev/reference/methods/admin.users.remove/",
+    "slack.admin.usergroup.channels.remove": "https://docs.slack.dev/reference/methods/admin.usergroups.removeChannels/",
+    "slack.auth.revoke": "https://docs.slack.dev/reference/methods/auth.revoke/",
+    "stripe.invoice.delete": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+    "stripe.invoice.void": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+    "stripe.payout.cancel": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+    "stripe.webhook_endpoint.delete": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+    "vercel.alias.delete": "https://openapi.vercel.sh",
+    "vercel.deployment.delete": "https://openapi.vercel.sh",
+    "vercel.domain.remove": "https://openapi.vercel.sh",
+    "vercel.environment.bulk_delete": "https://openapi.vercel.sh",
+    "vercel.project.delete": "https://openapi.vercel.sh",
+    "vercel.team.member.remove": "https://openapi.vercel.sh",
+    "vercel.token.revoke": "https://openapi.vercel.sh",
+    "vercel.webhook.delete": "https://openapi.vercel.sh"
+  },
+  "refuted": [
+    {
+      "id": "stripe.file.delete",
+      "reason": "The public Stripe OpenAPI supports file create, retrieve and list, but no file delete.",
+      "source": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json"
+    },
+    {
+      "id": "pagerduty.integration.delete",
+      "reason": "The public schema has no service integration DELETE; use the separately scoped Event Orchestration integration operation.",
+      "source": "https://raw.githubusercontent.com/PagerDuty/api-schema/main/reference/REST/openapiv3.json"
+    },
+    {
+      "id": "netlify.site.member.remove",
+      "reason": "The verified member removal API is team scoped, not site scoped.",
+      "source": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml"
+    },
+    {
+      "id": "netlify.token.revoke",
+      "reason": "No public token revoke operation was verified; a build hook delete replaces this candidate.",
+      "source": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml"
+    },
+    {
+      "id": "netlify.form.submissions.purge",
+      "reason": "The public API deletes one submission; this batch uses the singular operation rather than claiming a bulk API.",
+      "source": "https://raw.githubusercontent.com/netlify/open-api/master/swagger.yml"
+    },
+    {
+      "id": "notion.page.archive",
+      "reason": "Archive overlaps the existing notion.page.delete operation, so it is not counted as a new entry.",
+      "source": "https://developers.notion.com/reference/delete-a-block"
+    }
+  ],
+  "reviewNotes": [
+    "Read-only official API schemas, vendor reference pages and vendor SDK source were checked by two vendor-group refuters. This is not two independent reviews per entry and does not prove live connector execution.",
+    "Opsgenie human API pages returned HTTP 429; official public SDK source verified the included operations instead.",
+    "Basecamp API documentation says projects in trash are deleted after 30 days, but current help says 25 days or when trash is emptied. No fixed trash retention duration is promised by these cases.",
+    "Cloudflare zone deletion was already in the registry and is not counted as a new entry.",
+    "A registry entry describes a canonical tool surface. It does not imply that VOID supplies a connector or that a manual administration action has a public API endpoint."
+  ]
+}

@@ -13,7 +13,7 @@ describe("@void/registry", () => {
   test("re-exports the expanded registry entries", () => {
     // The re-export is the whole package today, so the test that matters is
     // that it reaches the real data rather than an empty module.
-    assert.equal(registry.length, 163);
+    assert.equal(registry.length, 270);
     assert.equal(registryStats().entries, registry.length);
   });
 
