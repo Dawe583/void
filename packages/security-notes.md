@@ -116,3 +116,80 @@ CI=true npx tsc -p packages/proxy/tsconfig.json
 The parent must run the complete package and e2e suites after all tracks land.
 No dependency was added. No authentication, rotation, parser-format, or
 approval-queue contract was silently redesigned by this review.
+
+
+---
+
+# Security review, adversarial pass 3
+
+Wave 5 shipped new surface (cross-process approvals, policy packs, replay
+registry, control-plane pages), so this pass went after it with hostile intent
+and no code trusted from the previous pass. Every check below was executed
+against the shipped source, not inferred from tests.
+
+## Scope and evidence
+
+- `packages/policy/src/approvals.ts`: state directory reads and writes,
+  decision files, token binding, expiry, the in-use lock.
+- `packages/proxy/src/approval-loop.ts`: the pump, watcher, fail-closed paths,
+  hold registration races.
+- `packages/policy/src/packs.ts`: policy pack loading.
+- `packages/cli/src/replay.ts`: environment handling around `VOID_PG_URL`.
+- `apps/control-plane/web/app.js` plus the four pages: injection surfaces.
+
+## Checks that did not establish a vulnerability
+
+- Decision file planting. `assertPrivateFile` uses `lstat`, so a symlink in
+  `decisions/` fails the regular-file check before any read follows it, and
+  the mode and uid checks bound both the permission and the owner. The unlink
+  in `consumeDecisions` happens in a `finally`, so a hostile or stale file
+  cannot accumulate or survive as a replay source.
+- Double decision. Two operators approving the same hold concurrently both
+  see it pending, both write decision files, and the first consumed file
+  decides; the second is dropped because the status is no longer pending and
+  the decision call is idempotent by status, not by file count. The recorded
+  decision is the first write, which is the only ordering an approval can
+  promise.
+- TOCTOU on expiry. `writeDecision` re-checks `expiresAt <= now()` at decision
+  time from the pending record it just re-read, so a decision written for a
+  hold that expired between load and write is refused.
+- Hold registration race in `newestHold`. `queue.hold` is synchronous through
+  `register`, and JavaScript cannot interleave two synchronous runs, so the
+  newest hold for a tool at registration time is the one this call just
+  created. Two sequential holds each bind their own record.
+- Pump failure containment. The fail-closed path closes the active queue, then
+  expires every hold with `Infinity` so nothing is left pending on a broken
+  disk, and each step swallows only the errors of the steps after it, which
+  means a failure in diagnostics cannot undo the refusal.
+- Pack path traversal. `loadPack` accepts only the frozen `PACK_NAMES`
+  allowlist before any `join`, so `../` in a name fails as an unknown pack.
+  The YAML files are shipped with the package, so a hostile YAML implies write
+  access to the package, which implies code execution already.
+- Credential leak through replay errors. `VOID_PG_URL` can carry a password,
+  but the CLI only ever says "set" or "unset"; the value itself never reaches
+  an error message, a replay record, or stdout.
+- UI injection. Every dynamic value in `app.js` flows through `escapeHtml`
+  (all five HTML metacharacters) including attribute contexts such as
+  `data-hold-id`, the decision URL encodes the hold id with
+  `encodeURIComponent`, and the one `innerHTML` sink receives only strings
+  built from those escaped renderers. The decision POST sends
+  `content-type: application/json`, which is the same gate the CSRF fix
+  requires, so the UI cannot be locked out by its own guard.
+
+## Findings
+
+None new. Two data defects were found by the registry audit pass in the same
+wave and fixed with it: the unmigrated `mysql.table.truncate` case and the
+over-optimistic `stripe.subscription.delete` fallback, both recorded in the
+registry commit.
+
+## Verification commands
+
+```
+CI=true node --test packages/policy/src/*.test.ts
+CI=true node --test packages/proxy/src/*.test.ts
+CI=true node --test apps/control-plane/web/*.test.mjs apps/control-plane/api/*.test.ts
+```
+
+The parent ran the full workspace fan-in after this pass: 451 checks, zero
+failures.
