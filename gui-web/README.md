@@ -37,13 +37,15 @@ gui-web/
     overview.js    dark hero, stats, class mix, recent calls, hub
     intercept.js   one call through classify, policy, model, ledger preview
     live.js        intercepted call feed with pause and filter
-    holds.js       approval queue, focus mode, j/k/a/d keys
-    ledger.js      chain browser, search, working verify
+    holds.js       approval queue, compensation plan, SLA timer,
+                   focus mode, j/k/a/d keys
+    ledger.js      chain browser, full entry schema, focus mode,
+                   working verify
     registry.js    case explorer with first match evaluator
     policy.js      rules with toggles, approval channel
     providers.js   gateway, direct, local, BYOK keys, real test
     models.js      catalog, routing, fallbacks, spend, request log
-    replay.js      inverse plan plus attestation export
+    replay.js      preview then commit gate, timeline, attestation export
     sessions.js    wrapped agent sessions, transports, posture
     connectors.js  postgres and S3 undo plus snapshot store
     facts.js       declared facts, probe cache, mock probe run

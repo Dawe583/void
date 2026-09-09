@@ -95,6 +95,14 @@ window.VOID_VIEWS.ledger = function (root) {
       if (!e) return;
       wrap.querySelector("#lg-detail").innerHTML = "<div class='card'><h3>Entry " + e.seq + "</h3>" +
         "<pre class='canonical'>{\n  \"seq\": " + e.seq + ",\n  \"hash\": \"" + e.hash + "\",\n  \"prev\": \"" + e.prev + "\",\n  \"sig\": \"" + e.sig + "\",\n  \"class\": \"" + e.cls + "\",\n  \"tool\": \"" + e.tool + "\"\n}</pre>" +
+        "<div class='table-wrap'><table class='table'><tbody>" +
+        "<tr><td>agent</td><td class='mono'>demo-agent</td></tr>" +
+        "<tr><td>intent</td><td>" + e.tool + " " + e.decision + "</td></tr>" +
+        "<tr><td>timestamp</td><td class='mono'>2026-09-08T08:0" + (e.seq % 10) + ":00Z</td></tr>" +
+        "<tr><td>payload digest</td><td class='mono'>sha256:" + e.hash + e.prev.slice(0, 2) + "</td></tr>" +
+        "<tr><td>snapshot ref</td><td class='mono'>snap-" + e.seq + " (digest only, never payload)</td></tr>" +
+        "<tr><td>decision</td><td>" + e.decision + "</td></tr>" +
+        "</tbody></table></div>" +
         "<p class='muted small'>Taint: entry " + e.seq + " orders after entry " + Math.max(1, e.seq - 1) + ". Mock linkage only.</p></div>";
     }
     wrap.querySelectorAll("tr[data-seq]").forEach(function (tr) {

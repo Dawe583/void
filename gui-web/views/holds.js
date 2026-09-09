@@ -9,6 +9,29 @@ window.VOID_VIEWS.holds = function (root) {
   var focusIdx = 0;    // position in focus mode
   var listSel = 0;     // selection highlight position in list mode
   var keyHandler = null;
+  var ticker = null;
+
+  function fmtAge(sec) {
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+  }
+
+  function tick() {
+    var now = Date.now();
+    wrap.querySelectorAll("[data-age]").forEach(function (el) {
+      var h = F.holds.find(function (x) { return x.id === el.getAttribute("data-age"); });
+      if (!h || h._base == null) return;
+      var sec = Math.floor((now - h._base) / 1000);
+      el.textContent = fmtAge(sec) + " / SLA " + fmtAge(h.slaSec || 120);
+      var meter = wrap.querySelector("[data-sla='" + h.id + "']");
+      if (meter) {
+        var pct = Math.min(100, Math.round(sec / (h.slaSec || 120) * 100));
+        meter.style.width = pct + "%";
+        meter.style.background = sec > (h.slaSec || 120) ? "var(--red)" : "var(--accent)";
+      }
+    });
+  }
 
   function pendingList() {
     var p = F.holds.filter(function (h) { return h.status === "pending"; });
@@ -22,12 +45,17 @@ window.VOID_VIEWS.holds = function (root) {
   }
 
   function holdCard(h, selected) {
+    if (h._base == null) h._base = Date.now() - ((h.ageSec || 0) * 1000);
     var style = "margin-bottom:16px";
-    if (selected) style += ";outline:2px solid var(--blue-focus);outline-offset:2px";
+    if (selected) style += ";outline:2px solid var(--accent);outline-offset:2px";
+    var notify = (h.notify || ["cli"]).map(function (n) { return "<span class='key-badge'>" + n + "</span>"; }).join(" ");
     return "<div class='card hold-card' style='" + style + "'><b>" + h.id + "</b> " +
       "<span class='mono'>" + h.tool + " " + h.target + "</span> " +
       "<span class='badge-" + h.cls.toLowerCase() + "'>" + h.cls + "</span>" +
       "<p>" + h.reason + " Requested " + h.requested + ", blast radius " + h.blast + ".</p>" +
+      "<p class='muted small'>plan: " + (h.plan || "none") + "</p>" +
+      "<p class='muted small'>waiting <span class='mono' data-age='" + h.id + "'></span> " + notify + "</p>" +
+      "<div class='meter'><span data-sla='" + h.id + "' style='width:0%'></span></div>" +
       "<div class='cta-row'><button class='btn-primary btn-small' data-a='approve' data-id='" + h.id + "'>Approve</button>" +
       "<button class='btn-ghost btn-small' data-a='refuse' data-id='" + h.id + "'>Refuse</button></div></div>";
   }
@@ -132,10 +160,17 @@ window.VOID_VIEWS.holds = function (root) {
   document.addEventListener("keydown", keyHandler);
   window.VOID_HOLDS_CLEANUP = function () {
     document.removeEventListener("keydown", keyHandler);
+    if (ticker) clearInterval(ticker);
+    ticker = null;
     keyHandler = null;
     window.VOID_HOLDS_CLEANUP = null;
   };
 
   paint();
   root.appendChild(wrap);
+  tick();
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduceMotion) ticker = setInterval(function () {
+    if (document.body.contains(wrap)) tick();
+  }, 1000);
 };

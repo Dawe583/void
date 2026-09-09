@@ -12,9 +12,9 @@ window.VOID_FIXTURES = {
     { t: "08:07:52", tool: "s3.put", target: "s3://backups/dump.sql", cls: "R1", decision: "forward", blast: 1, note: "Bucket versioning enabled, prior version restores exactly." }
   ],
   holds: [
-    { id: "hold-101", tool: "s3.put", target: "s3://assets/logo.png", cls: "R2", blast: 1, reason: "No versioning, confirm compensation.", requested: "08:03:19", status: "pending" },
-    { id: "hold-102", tool: "net.fetch", target: "https://api.vendor/v1/send", cls: "R3", blast: 120, reason: "Irreversible send, needs approval.", requested: "08:04:57", status: "pending" },
-    { id: "hold-103", tool: "db.query", target: "DELETE FROM events", cls: "R2", blast: 42, reason: "Wide delete, confirm scope of 42 rows.", requested: "08:06:08", status: "pending" }
+    { id: "hold-101", tool: "s3.put", target: "s3://assets/logo.png", cls: "R2", blast: 1, reason: "No versioning, confirm compensation.", requested: "08:03:19", ageSec: 47, slaSec: 120, notify: ["cli"], plan: "compensation: delete the new version", status: "pending" },
+    { id: "hold-102", tool: "net.fetch", target: "https://api.vendor/v1/send", cls: "R3", blast: 120, reason: "Irreversible send, needs approval.", requested: "08:04:57", ageSec: 138, slaSec: 120, notify: ["cli", "slack"], plan: "no inverse, no compensation", status: "pending" },
+    { id: "hold-103", tool: "db.query", target: "DELETE FROM events", cls: "R2", blast: 42, reason: "Wide delete, confirm scope of 42 rows.", requested: "08:06:08", ageSec: 12, slaSec: 120, notify: ["cli"], plan: "compensation: restore 42 rows from snapshot", status: "pending" }
   ],
   ledgerEntries: [
     { seq: 1, hash: "a1c401", prev: "000000", sig: "OK", cls: "R0", tool: "fs.read", decision: "forward" },
