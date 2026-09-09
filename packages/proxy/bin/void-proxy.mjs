@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { ApprovalBroker } from "../../policy/src/approvals.ts";
+import { pumpApprovals } from "../src/approval-loop.ts";
 import { runProxy, PolicyStartupError, ProxyStartupError, UpstreamStartError } from "../src/bin.ts";
 
 const args = process.argv.slice(2);
@@ -12,7 +16,7 @@ function readFlag(name) {
 }
 
 function usage() {
-  return "usage: void-proxy --policy path [--transport stdio|http] [--upstream cmd] [--args a,b] [--upstream-url url] [--facts path] [--posture fail-closed|observe] [--ledger-dir dir] [--workspace name]";
+  return "usage: void-proxy --policy path [--transport stdio|http] [--upstream cmd] [--args a,b] [--upstream-url url] [--facts path] [--posture fail-closed|observe] [--ledger-dir dir] [--workspace name] [--approvals-dir dir]";
 }
 
 async function main() {
@@ -25,23 +29,39 @@ async function main() {
   const workspace = readFlag("--workspace") ?? "default";
   const transport = readFlag("--transport") ?? "stdio";
   const upstreamUrl = readFlag("--upstream-url");
+  const approvalsDir = readFlag("--approvals-dir") ?? process.env.VOID_APPROVALS_DIR;
 
   if (policy === undefined) throw new Error(usage());
   if (transport !== "stdio" && transport !== "http") throw new Error("--transport must be stdio or http");
   if (transport === "stdio" && upstream === undefined) throw new Error(usage());
   if (posture !== "fail-closed" && posture !== "observe") throw new Error("--posture must be fail-closed or observe");
 
+  if (!/^[a-zA-Z0-9_-]+$/.test(workspace)) throw new Error("invalid workspace");
+  const stateDir = approvalsDir ?? join(homedir(), ".void", "approvals", workspace);
+  let pump;
   const upstreamArgs = rawArgs === undefined || rawArgs === "" ? [] : rawArgs.split(",");
-  await runProxy({
-    upstreamCommand: upstream === undefined ? undefined : [upstream, ...upstreamArgs],
-    transport,
-    upstreamUrl,
-    policyPath: policy,
-    factsPath: facts,
-    posture,
-    ledgerDir,
-    workspace,
-  });
+  try {
+    await runProxy({
+      upstreamCommand: upstream === undefined ? undefined : [upstream, ...upstreamArgs],
+      transport,
+      upstreamUrl,
+      policyPath: policy,
+      factsPath: facts,
+      posture,
+      ledgerDir,
+      workspace,
+      onHold(queue) {
+        const broker = new ApprovalBroker({ stateDir });
+        try {
+          pump = pumpApprovals(broker, { now: Date.now }, {
+            onError() { console.error("approval channel failed; pending calls expired"); },
+          });
+          pump.onHold(queue);
+        } catch (error) { broker.close(); throw error; }
+        return () => pump.stop();
+      },
+    });
+  } finally { pump?.stop(); }
 }
 
 try {

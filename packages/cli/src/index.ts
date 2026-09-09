@@ -15,6 +15,7 @@ export const COMMANDS = [
   "feed",
   "watch",
   "approvals",
+  "approve",
   "ledger",
   "replay",
   "policy",
@@ -54,3 +55,4 @@ export * from "./feed.ts";
 export * from "./replay.ts";
 export * from "./taint.ts";
 export * from "./verify.ts";
+export * from "./approve.ts";

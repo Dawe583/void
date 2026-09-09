@@ -3,6 +3,7 @@
  * The void binary. The runnable surface grows package by package, and any
  * command not wired yet fails loudly rather than pretending to succeed.
  */
+import { runApproveCommand, runApprovalsCommand } from "../src/approve.ts";
 import { readFileSync } from "node:fs";
 import { runClassifyCommand, runFeedCommand, runReplayCommand, runTaintCommand, runVerifyCommand, parseInvocation } from "../src/index.ts";
 
@@ -30,6 +31,7 @@ try {
     const code = await runReplayCommand(parsed.args, {
       stdout: (line) => console.log(line),
       stderr: (line) => console.error(line),
+      env: process.env,
     });
     process.exit(code);
   } else if (parsed.command === "taint") {
@@ -44,9 +46,13 @@ try {
       stderr: (line) => console.error(line),
     });
     process.exit(code);
-  } else if (parsed.command === "approvals") {
-    console.log("no holds live: the proxy is not running");
-    process.exit(0);
+  } else if (parsed.command === "approve" || parsed.command === "approvals") {
+    const run = parsed.command === "approve" ? runApproveCommand : runApprovalsCommand;
+    process.exit(await run(parsed.args, {
+      stdout: (line) => console.log(line),
+      stderr: (line) => console.error(line),
+      env: process.env,
+    }));
   } else {
     console.error(`${parsed.command} is not runnable yet`);
     process.exit(2);
