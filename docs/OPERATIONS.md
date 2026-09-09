@@ -158,21 +158,58 @@ Use `--follow` for a live local view. It stays attached until the process is clo
 
 ## Approvals
 
-The current command surface exposes approval status:
+The proxy surfaces held calls through a per-run state directory. One proxy owns a directory at a time.
+
+Start the proxy with a state directory:
 
 ```sh
-node packages/cli/bin/void.mjs approvals
+node packages/proxy/bin/void-proxy.mjs --upstream node --args fixtures/e2e-server.mjs --policy fixtures/e2e-policy.yaml --ledger-dir /tmp/void-ledger --approvals-dir /tmp/void-approvals --workspace demo
 ```
 
-In this repository, approvals are development surfaces. They are not authenticated. The hosted control plane and identity layer are not wired here.
+Without `--approvals-dir`, the proxy defaults to `$VOID_APPROVALS_DIR`, then `~/.void/approvals/<workspace>`.
 
-In process, the SDK exposes hold handles that can decide a pending hold through the approval broker.
+List pending holds from a second terminal:
+
+```sh
+node packages/cli/bin/void.mjs approvals --dir /tmp/void-approvals
+```
+
+Approve or deny a hold:
+
+```sh
+node packages/cli/bin/void.mjs approve <holdId> --by <actor> --reason <text> --dir /tmp/void-approvals
+node packages/cli/bin/void.mjs approve <holdId> --by <actor> --deny --dir /tmp/void-approvals
+```
+
+The CLI writes a decision file and prints that the decision is queued. The running proxy polls the directory and resolves the hold. The CLI cannot know whether the proxy was still running when the decision landed, so it never claims the release.
+
+State directory layout:
+
+```text
+<approvals-dir>/
+  pending.json
+  proxy.lock
+  decisions/
+    <nonce>.json
+```
+
+Recovery: `proxy.lock` exists while a proxy owns the directory. If the proxy crashed, remove the stale `proxy.lock` by hand and start a new proxy. A live second proxy refuses the directory with `ApprovalStateInUseError` rather than sharing state.
+
+Every hold carries a per-hold nonce. A stale decision file cannot be replayed onto a later hold with the same id after a restart.
+
+In this repository, approvals are development surfaces. They are not authenticated. In process, the SDK exposes hold handles that can decide a pending hold through the approval broker, and the local control-plane pages can render and decide them over HTTP for development use.
 
 ## Replay and drift refusal
 
 Replay is only valid for R0 and R1 calls with a captured inverse. The connector must find a snapshot manifest entry that matches the ledger argument digest and tool.
 
-Current limitation: the command handler supports connector injection, but the packaged binary does not yet wire a default connector registry. The connector end-to-end script proves replay and drift refusal in process:
+The binary wires the static connector set. Check what is wired and which executors are available:
+
+```sh
+node packages/cli/bin/void.mjs replay --list-connectors
+```
+
+Executors come from the host environment. For Postgres, set `VOID_PG_URL` before apply. Without it, apply fails with a typed `ExecutorNotConfigured` error that names the missing variable. S3 replay additionally needs a host adapter and persisted replay metadata, which the local binary does not write yet. The connector end-to-end script proves replay and drift refusal in process:
 
 ```sh
 node scripts/src/e2e-connectors.mjs
@@ -203,6 +240,34 @@ node packages/cli/bin/void.mjs taint --ledger <ledger-dir-or-file> --seq <n> --j
 ```
 
 Data edges require `outputDigest` on a producing ledger entry. Entries without output digests can still produce resource edges.
+
+## Policy packs
+
+Three ready-made policies ship in `packages/policy/packs`. Load them with `loadPack` from the policy package, or point the proxy at the YAML file directly.
+
+- `dev.yaml`: R0 to R2 allowed, every R3 held for 60 seconds with CLI notification.
+- `balanced.yaml`: R0 and R1 allowed, R2 held for 300 seconds, R3 denied.
+- `strict.yaml`: only R0 allowed, everything else denied.
+
+Packs fail closed: a broken pack file is a load error, never a silent fallback to a default policy.
+
+## Control-plane pages
+
+The local control-plane serves dashboard pages that poll the feed, the approvals surface, and chain verification:
+
+```sh
+node --input-type=module -e "import { listenControlPlane } from './apps/control-plane/api/server.ts'; const h = await listenControlPlane({}); console.log(h.port);"
+```
+
+The pages are development surfaces with no authentication. Approve and deny buttons post to the decision endpoint of the running server instance.
+
+## Local benchmark
+
+The smoke benchmark measures the proxy write path on this machine. Its numbers are smoke-grade, not release benchmarks:
+
+```sh
+node scripts/src/bench.mjs --scale 200
+```
 
 ## Proxy startup
 

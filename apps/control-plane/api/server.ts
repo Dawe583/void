@@ -253,6 +253,12 @@ function parseDecision(value: unknown): ApprovalDecision | null {
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+  // Browsers block cross-origin application/json form posts behind a preflight,
+  // but a text/plain form body can still be crafted to parse as JSON. Requiring
+  // the explicit content type keeps the decision endpoint a fetch-only surface,
+  // so a hostile page cannot post a decision through a victim browser session.
+  const contentType = request.headers["content-type"];
+  if (contentType === undefined || !applicationJsonContentType(contentType)) return null;
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of request) {
@@ -263,6 +269,11 @@ async function readJsonBody(request: IncomingMessage): Promise<unknown> {
   }
   if (chunks.length === 0) return null;
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+function applicationJsonContentType(header: string): boolean {
+  const [mediaType] = header.split(";", 2);
+  return mediaType.trim().toLowerCase() === "application/json";
 }
 
 function sendJson(response: ServerResponse, statusCode: number, value: JsonObject): void {

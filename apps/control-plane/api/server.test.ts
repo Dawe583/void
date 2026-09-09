@@ -111,6 +111,31 @@ describe("control plane API", () => {
     });
   });
 
+  test("rejects decision posts without an application/json content type", async () => {
+    // A hostile page cannot send application/json from a form, so the content
+    // type check is what keeps cross-site posts off the decision endpoint.
+    const ledgerPath = await seedLedger(1);
+    const decideCalls: unknown[] = [];
+    const approvals = {
+      pending: () => [],
+      decide: async (holdId: string, decision: unknown) => {
+        decideCalls.push({ holdId, decision });
+        return { ok: true };
+      },
+    };
+    await withServer(ledgerPath, async (origin) => {
+      const response = await fetch(`${origin}/api/approvals/hold-1/decision`, {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: JSON.stringify({ kind: "approved", by: "attacker" }),
+      });
+      assert.equal(response.status, 400);
+      const body = await response.json() as { error: string };
+      assert.equal(body.error, "invalid_decision");
+      assert.deepEqual(decideCalls, []);
+    }, approvals as ApprovalBroker);
+  });
+
   test("uses an injected ApprovalBroker for pending holds and decisions", async () => {
     const ledgerPath = await seedLedger(1);
     const pending: PendingApproval[] = [{

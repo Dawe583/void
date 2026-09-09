@@ -1,6 +1,6 @@
 # VOID SDK
 
-This document tracks the wave 4 SDK landing. It describes the public barrel exported by `@void/sdk` now. Treat it as release candidate documentation until the SDK track reports green.
+This document describes the public barrel exported by `@void/sdk`. The surface is a release candidate covered by package tests and the whole-product arc script.
 
 ## Purpose
 
@@ -113,9 +113,12 @@ if (first !== undefined) {
 
 Before starting the proxy, `VoidClient` verifies an existing workspace ledger file. If verification fails, it throws `LedgerVerifyError` and refuses to run. If no policy path is provided, it writes a temporary deny-all policy instead of silently allowing writes.
 
+## Holds across processes
+
+The in-process broker has no state directory, so decisions made through the SDK apply only while the client runs. A proxy started with `--approvals-dir` shares its holds through the state directory instead, and the `void approve` CLI decides those from any process. The whole-product arc script shows both surfaces in one run.
+
 ## Current limitations
 
-- The SDK is still landing in wave 4.
 - It wraps current proxy behavior. It is not a separate policy engine.
 - It uses the dev-tier local ledger store by default.
 - Approval identity is not authenticated in this repo.

@@ -69,6 +69,18 @@ For connector replay behavior, including drift refusal, run:
 node scripts/src/e2e-connectors.mjs
 ```
 
+The whole-product arc drives every surface in one story: the SDK client holds a destructive call, a control-plane operator approves it over HTTP, the upstream executes it, and the ledger arc closes through the void CLI:
+
+```sh
+node scripts/src/e2e-arc.mjs all
+```
+
+A local smoke benchmark of the proxy write path:
+
+```sh
+node scripts/src/bench.mjs --scale 200
+```
+
 ## Operator commands
 
 The development binary is `node packages/cli/bin/void.mjs`. Packaged releases will expose the same handlers as `void`.
@@ -76,10 +88,13 @@ The development binary is `node packages/cli/bin/void.mjs`. Packaged releases wi
 | Need | Command surface | Current note |
 | ---- | --------------- | ------------ |
 | Live feed | `feed --ledger <ledger-file> [--json] [--follow]` | Verifies the chain before printing. |
-| Approval status | `approvals` | The current binary reports no live holds unless it is connected to a running proxy. SDK handles can resolve holds in process. |
-| Replay | `replay --ledger <ledger-file> --snapshot-dir <dir> --seq <n> [--dry-run]` | The command handler supports injected connectors. The packaged binary does not yet wire a connector registry by default. |
+| Approval status | `approvals [--dir <state-dir>]` | Reads pending holds from the approvals state directory. |
+| Decide a hold | `approve <holdId> --by <actor> [--reason <text>] [--dir <state-dir>] [--deny] [--json]` | Queues a durable decision file the running proxy consumes. |
+| Approvals overview | `approvals --dir <state-dir>` | Lists what the proxy surfaced in the state dir. |
+| Replay | `replay --ledger <ledger-file> --snapshot-dir <dir> --seq <n> [--dry-run]`, `replay --list-connectors` | The binary loads the static connector set (postgres, s3). Executors come from host environment variables, so a dry-run plan works everywhere and apply fails with a typed error when an executor is absent. |
 | Taint | `taint --ledger <dir-or-file> --seq <n> [--depth <n>] [--json]` | Builds graph edges from the verified ledger. |
 | Verify | `verify --ledger <dir-or-file> [--attestation <path>]` | Recomputes body hashes, links, and signatures. |
+| Policy packs | `packages/policy/packs/strict.yaml`, `balanced.yaml`, `dev.yaml` | Ready-made policies loaded through `loadPack` in the policy package. `strict` allows only R0, `balanced` holds R2 and denies R3, `dev` holds every R3. |
 
 ## Package map
 
@@ -101,7 +116,9 @@ The development binary is `node packages/cli/bin/void.mjs`. Packaged releases wi
 - Postgres and S3 connector logic exists, but no real customer Postgres or S3 account is wired by default. Local proof uses fixtures and fakes.
 - Approvals are not authenticated in this repo. The CLI and SDK paths are development surfaces, not a hosted identity system.
 - Blocking holds pause the tool call. Speculative execution and provisional receipts are not implemented.
-- The replay binary needs connector registry wiring before a packaged `void replay` can apply real inverses without injected connectors.
+- `void replay` builds inverse plans from captured snapshots, but applying them needs a real executor. The binary refuses with a typed error (for example `ExecutorNotConfigured`) when `VOID_PG_URL` or an S3 adapter is absent. Live drift against a real database is proven only in the local scripts.
+- The control-plane server and its pages are local development surfaces with no authentication. Do not expose them beyond localhost.
+- Real-browser verification of the control-plane pages is blocked in this development sandbox. The pages are covered by render tests plus a live API check against a real signed ledger.
 
 ## More docs
 
@@ -111,3 +128,5 @@ The development binary is `node packages/cli/bin/void.mjs`. Packaged releases wi
 - `docs/OPERATIONS.md`: operator runbook.
 - `docs/SDK.md`: SDK release candidate surface.
 - `docs/TESTING.md`: package test commands and test rules.
+- `packages/policy/README.md`: policy pack contents and loading rules.
+- `scripts/src/bench.mjs`: local smoke benchmark (forwarding, ledger append, classification).

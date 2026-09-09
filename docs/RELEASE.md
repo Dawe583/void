@@ -112,9 +112,12 @@ Wave 5 source status, pending integrated verification:
 7. **Security and licensing signoff.** Resolve release-blocking findings in
    `packages/security-notes.md` after the wave 5 adversarial review. In
    particular, unclassified calls permitted by broad allow rules, unmeasured
-   blast radius trusted from arguments, hash-only views labeled verified, and
-   control-plane CSRF remain blockers until fixes and regression tests prove
-   otherwise. The root `LICENSE` is Apache 2.0 and product metadata matches it. Confirm NOTICE and
+   blast radius trusted from arguments, and hash-only views labeled verified
+   remain blockers until fixes and regression tests prove otherwise. The
+   control-plane decision endpoint now rejects posts that do not carry an
+   application/json content type, with a regression test; the remaining
+   control-plane blocker is that the whole surface is unauthenticated and
+   localhost-only by convention, not by enforcement. The root `LICENSE` is Apache 2.0 and product metadata matches it. Confirm NOTICE and
    the registry disclaimer are included in each distributed artifact. Decision
    5 reserves paid features, but the control plane manifest currently declares
    Apache 2.0; resolve that boundary deliberately before distribution. This
