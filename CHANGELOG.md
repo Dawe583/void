@@ -68,6 +68,7 @@ All notable user-facing changes since the first repository commit.
 - 59b88a25: Added the runnable proxy binary.
 - e84e6657: Changed blast radius handling to prefer measured probe results.
 - f9790f24: Added connector lookup and snapshot manifest wiring.
+- Lowered the declared Node.js floor from >=26 to >=24 so hosted build platforms that offer Node 24 can build the repo; verified green under Node v24.21.0.
 
 ### Fixed
 

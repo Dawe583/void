@@ -15,19 +15,21 @@ compatibility policy for every persisted format.
 
 ## Runtime support
 
-The supported development floor is Node.js 26 (`engines.node: >=26`). Use the
-same Node major for development and release CI. This is a support baseline, not
-a claim that Ed25519 or `node:test` first appeared in Node 26.
+The supported floor is Node.js 24 (`engines.node: >=24`). Node 26 remains the
+local development and verification target. Use the same Node major for
+development and release CI where possible. This is a support baseline, not
+a claim that Ed25519 or `node:test` first appeared in Node 24.
 
 Source review: `tsconfig.base.json` targets ES2022. Product tsconfigs use
 `noEmit`, `allowImportingTsExtensions`, `erasableSyntaxOnly`, and
 `verbatimModuleSyntax`. The binaries import `.ts` files directly. Tests use
 `node:test` and `node:assert/strict`; runtime code uses Node crypto, filesystem,
 streams, `fetch`, `AbortController`, `Headers`, and `TextDecoder`. None of those
-reviewed APIs establishes a Node 26-only runtime requirement. Native TypeScript
+reviewed APIs establishes a Node 24-only runtime requirement. Native TypeScript
 stripping is enabled by default from Node 22.18; Decision 6a records a successful
-Node 22.22.2 test. An exact older-version compatibility floor has not been
-retested for this release and is not supported by the new engine declaration.
+Node 22.22.2 test. The full gate suite (397 package tests, 27 control-plane tests,
+30 scripts tests, all e2e suites incl. e2e-final 8/8, moment, bench) was verified
+green under Node v24.21.0 on 2026-09-10.
 
 Node 26 is the current verification target. Its default spec test reporter is
 not accepted by the workspace test-count gate, so use the TAP reporter for
