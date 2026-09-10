@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    strategy:
+      matrix:
+        node-version: [24, 26]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm test
+      - run: node --test apps/control-plane/api/server.test.ts apps/control-plane/web/control-plane-pages.test.mjs apps/control-plane/web/app.test.mjs
+      - run: node --test scripts/src/*.test.mjs
+        working-directory: .
+      - run: node scripts/src/e2e.mjs
+      - run: node scripts/src/e2e-connectors.mjs
+      - run: node scripts/src/e2e-final.mjs all
+      - run: node scripts/src/e2e-arc.mjs all
