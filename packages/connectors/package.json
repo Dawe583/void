@@ -26,7 +26,7 @@
     "snapshots"
   ],
   "engines": {
-    "node": ">=26"
+    "node": ">=24"
   },
   "repository": {
     "type": "git",

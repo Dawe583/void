@@ -21,7 +21,7 @@ for (const directory of directories) {
     }
     assert.equal(data.version, "0.1.0");
     assert.equal(data.private, true);
-    assert.equal(data.engines.node, ">=26");
+    assert.equal(data.engines.node, ">=24");
     assert.equal(typeof data.description, "string");
     assert.ok(data.description.length > 20);
     assert.ok(Array.isArray(data.keywords) && data.keywords.length >= 2);
