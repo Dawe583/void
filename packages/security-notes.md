@@ -28,14 +28,14 @@ the failure count. Parent owns full workspace fan-in.
 | S02 | High | Store and chain verification do not bind unsigned envelope workspace to signed body workspace. A valid ledger can be copied or relabeled into another workspace, and `attestLedger` will sign that new workspace label. | Fixed, parent-run regression tests pass; adversarial-2 |
 | S03 | High | `proxy/src/forward/tools.ts` returns arbitrary dependency exception text as a denial rationale. A signer/store/policy exception containing a credential reaches the hostile agent. | Fixed, parent-run regression tests pass; adversarial-2 |
 | S04 | High | HTTP SSE retains unlimited partial lines. `maxBufferSize` only checks completed `data:` lines, so a stream without newlines or a huge comment can exhaust memory. Empty data lines also consume an unbounded array when delimiters are excluded from the event count. | Fixed, parent-run regression tests pass; adversarial-2 |
-| S05 | High | Control-plane approval POST accepts cross-origin `text/plain` JSON without Origin or Host validation. A website can send a simple POST to localhost to approve a known or guessed hold. No CORS response header does not prevent this write. | Flagged for ui-wiring, parent must authorize server scope |
-| S06 | High | Blast-radius policy trusts agent `rows`, `count`, `limit`, or `n`, including negative values, when no probe exists or a probe fails. The caller can claim a small count to reach an allow rule. This violates the measured-count contract. | Partly fixed: negative, fractional, unsafe-integer and non-numeric agent counts are ignored. Positive counts still need parent/proxy owner decision; existing fallback contract retained |
+| S05 | High | Control-plane approval POST accepts cross-origin `text/plain` JSON without Origin or Host validation. A website can send a simple POST to localhost to approve a known or guessed hold. No CORS response header does not prevent this write. | Closed locally on 2026-09-11: JSON content type plus loopback peer, Host, Origin and Fetch Metadata validation, with real HTTP regressions |
+| S06 | High | Blast-radius policy trusts agent `rows`, `count`, `limit`, or `n`, including negative values, when no probe exists or a probe fails. The caller can claim a small count to reach an allow rule. This violates the measured-count contract. | Closed locally on 2026-09-11: agent counts never enter policy radius; only nonnegative safe-integer probe measurements are accepted, with real policy regressions |
 | S07 | Medium | Unknown/unclassified tools become R3 but can still pass a broad allow rule. R3 substitution alone is not unconditional denial. | Parent explicitly retained this operator foot-gun this wave. Use shipped strict/balanced packs, not broad allow rules. No semantics changed |
-| S08 | High | Feed/API and SDK verification paths call `verifyChain` without a key, then expose `verified: true` or accept startup. A locally rewritten and rehashed ledger can pass without a valid signature. | Fixed for the control-plane surfaces: readLedgerFeed accepts a public key lookup, the server resolves a read-only key from VOID_SIGNING_KEY or VOID_VERIFY_KEY (never generates one), and both /api/ledger/verify and /api/feed report verified only when signatures were checked, with integrity and signed stated separately. The UI shows an integrity-only badge when no key is configured. A regression test rewrites and rehashes a ledger and proves the attack fails with a key and is honestly downgraded without one. The CLI verify path already took a key; SDK startup acceptance remains flagged |
+| S08 | High | Feed/API and SDK verification paths call `verifyChain` without a key, then expose `verified: true` or accept startup. A locally rewritten and rehashed ledger can pass without a valid signature. | Fixed for the control-plane surfaces: readLedgerFeed accepts a public key lookup, the server resolves a read-only key from VOID_SIGNING_KEY or VOID_VERIFY_KEY (never generates one), and both /api/ledger/verify and /api/feed report verified only when signatures were checked, with integrity and signed stated separately. The UI shows an integrity-only badge when no key is configured. A regression test rewrites and rehashes a ledger and proves the attack fails with a key and is honestly downgraded without one. The CLI verify path already took a key; SDK startup acceptance closed in the small SDK followup: signatures are checked against the proxy signer before upstream startup |
 | S09 | Medium | Signature verification accepts any next key returned by an injected lookup. There is no outgoing-key-signed rotation transition or validity-window enforcement. The default dev provider only recognizes its single key, so arbitrary attacker keys are not accepted by default. | Flagged for parent/ledger owner; define rotation before multi-key providers ship |
 | S10 | Medium | Notification relaying and stdout writes have no backpressure. A valid progress flood can grow the output queue even after SSE framing is bounded. Agent stdin uses readline before the line ceiling, so an unterminated inbound line can also grow without limit. | Flagged for parent/proxy owner; bound raw input and queued output, terminate abusive sessions |
 | S11 | Medium | Session coerces numeric strings, so `1`, `"1"`, and `"01"` collide. It accepts unsafe integers and retains used IDs forever. The runProxy server-request relay receives Session but not its nested maps, so server response remapping is not recorded. | Flagged for parent/proxy owner; preserve typed IDs and reject duplicate active requests |
-| S12 | Medium | Policy validator can throw on `rules: [null]`, accepts empty array match as catch-all, and accepts invalid class values. Null validation throws before the documented typed load error. YAML parser error text can include source snippets in startup logs. | Flagged for policy-packs/parent policy owner; pack loader catches throws but core validator remains incomplete |
+| S12 | Medium | Policy validator can throw on `rules: [null]`, accepts empty array match as catch-all, and accepts invalid class values. Null validation throws before the documented typed load error. YAML parser error text can include source snippets in startup logs. | Closed locally on 2026-09-11: null and array rules and matches, invalid classes and thresholds return load errors; YAML diagnostics omit source |
 | S13 | Medium | Ledger readers load entire files into memory. A malicious multi-GB file can exhaust CLI, SDK, or control-plane memory. | Flagged for replay-registry/parent ledger owner; bounded streaming parser or explicit size ceiling |
 | S14 | Medium | Slack webhook URL is operator-configured but has no HTTPS/host/redirect policy, and response bodies enter failure messages. Policy rationale is intentionally shown to the agent and Slack, so it must never contain secrets. | Flagged for parent/policy channel owner; operator input is not a remote-user SSRF boundary today |
 | S15 | Medium | Local upstream inherits the proxy environment, including `VOID_SIGNING_KEY` if configured. Same-user local processes can also read development key files. | Flagged for parent/proxy owner; strip proxy-only secrets as defense in depth and document lack of OS isolation |
@@ -193,3 +193,34 @@ CI=true node --test apps/control-plane/web/*.test.mjs apps/control-plane/api/*.t
 
 The parent ran the full workspace fan-in after this pass: 451 checks, zero
 failures.
+
+
+## Local continuation, 11 September 2026
+
+The previous control-plane S08 closure was incomplete: `/api/feed` still returned
+`verified: true` without a key. The endpoint now returns `verified: signed` and
+an explicit `integrity: true`; the web client can display integrity-only feeds
+without claiming signature verification. Signed and unsigned server responses,
+forged-ledger refusal and integrity-only rendering are regression tested.
+
+S05 tests use node:http to send hostile Host headers. Node fetch ignores the
+attempted Host override in this environment, which initially made that test
+exercise a legitimate local request. Direct HTTP proves rebinding rejection.
+Both reads and decision writes are checked; the broker receives no denied
+request. Same-origin decisions still reach it. Internal errors no longer echo
+arbitrary dependency exception text into API responses.
+
+No cross-user authentication or OS process isolation is claimed. S07,
+S09 through S11, S13 through S15 retain their stated boundaries and followups.
+
+
+### SDK S08 followup
+
+SDK startup now passes the proxy's development signer public-key lookup into
+`verifyLedgerFile`. The shared verifier rejects forged signatures and unknown
+key IDs before any upstream process starts. Three regression cases cover a
+trusted ledger, altered content with a recomputed valid hash, and an otherwise
+valid ledger signed with a separate key. The latter two passed hash-only
+verification and failed the new startup assertions before the fix; after it,
+all 9 SDK tests pass. SDK typechecking and the whole-product arc also pass.
+No key-rotation or protection against compromise of the signing host is claimed.

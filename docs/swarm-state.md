@@ -88,3 +88,11 @@ proxy 79, connectors 57, cli 95, sdk 6, control-plane 24, scripts 30), four
 e2e suites pass (e2e, e2e-connectors, e2e-final 8 of 8 moments with zero
 NOTEs, e2e-arc). The push to refs/heads/claude/aw-00-workbench-contracts
 stays blocked on credentials.
+
+## Local continuation, 11 September 2026
+
+Recovered 04586c3 from the local workbench branch after finding the checked-out
+main 80 commits behind. Current work: codex/finish-prime-work. S05, S06 and S12
+closed locally; control-plane S08 feed semantics corrected; root check now
+covers 460 tests across 9 suites. Four local e2e commands pass. See
+PRIME-HANDOFF.md for exact evidence, compatibility changes and remaining gates.

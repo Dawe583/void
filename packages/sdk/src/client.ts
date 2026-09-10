@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { ledgerDir as defaultLedgerDir } from "../../ledger/src/store.ts";
 import { verifyLedgerFile } from "../../ledger/src/verify.ts";
+import { devKeyProvider } from "../../ledger/src/sign.ts";
 import { ApprovalBroker } from "../../policy/src/index.ts";
 import type { ApprovalRecord, HeldCall, HoldQueue, PolicyCall } from "../../policy/src/index.ts";
 import { PolicyStartupError as ProxyPolicyStartupError, runProxy } from "../../proxy/src/bin.ts";
@@ -227,7 +228,9 @@ export class VoidClient implements McpLikeClient {
     }
 
     try {
-      const result = await verifyLedgerFile(path);
+      // Trust the proxy's configured signer, never a key supplied by ledger data.
+      const signer = await devKeyProvider();
+      const result = await verifyLedgerFile(path, { publicKey: (keyId) => signer.publicKey(keyId) });
       if (!result.ok) {
         throw new LedgerVerifyError(`ledger verification failed: ${result.reason ?? "unknown"}`, {
           reason: result.reason,

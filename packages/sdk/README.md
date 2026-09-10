@@ -35,7 +35,9 @@ This package is landing in wave 4. Its README documents only the public barrel e
 
 ## Safety behavior
 
-- Existing ledger files are verified before startup.
+- Existing ledger files have their hash chain and signatures verified before
+  upstream startup, using the same configured development signer as the proxy.
+  Unknown signing keys and forged signatures cause `LedgerVerifyError`.
 - Missing policy defaults to a temporary deny-all policy.
 - Holds are exposed through the approval broker and hold handles.
 - Denied or expired holds throw `HoldDeniedError`.

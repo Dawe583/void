@@ -35,7 +35,16 @@ function classTag(klass) {
 export function renderFeed(entries, error) {
   if (error) return `<tr><td colspan="6">${errorHtml(error)}</td></tr>`;
   if (entries.length === 0) return '<tr><td colspan="6">No ledger entries in this view.</td></tr>';
-  return entries.map(entry => `<tr><td>${escapeHtml(entry.seq)}</td><td>${escapeHtml(entry.at)}</td><td>${escapeHtml(entry.tool)}</td><td>${classTag(entry.klass)}</td><td>${escapeHtml(entry.decision)}</td><td class="digest">${escapeHtml(entry.digest.slice(0, 12))}...</td></tr>`).join("");
+  return entries.map(entry => `<tr><td>${escapeHtml(entry.seq)}</td><td>${escapeHtml(entry.at)}</td><td><button class="record-link" type="button" data-record="${escapeHtml(entry.seq)}" aria-label="Inspect record ${escapeHtml(entry.seq)}: ${escapeHtml(entry.tool)}">${escapeHtml(entry.tool)}</button></td><td>${classTag(entry.klass)}</td><td>${escapeHtml(entry.decision)}</td><td class="digest">${escapeHtml(entry.digest.slice(0, 12))}...</td></tr>`).join("");
+}
+
+export function renderRecord(entry, signed) {
+  if (!entry) return '<p>This record is no longer in the current view. Close this panel and select another call.</p>';
+  return `<h3>${escapeHtml(entry.tool)}</h3>${classTag(entry.klass)}<p>${signed ? "Signatures checked against the configured key." : "Hash integrity checked. Signatures have not been checked."}</p><dl>${[
+    ["Record", entry.seq], ["Decision", entry.decision], ["Recorded at", entry.at],
+    ["Entry digest", entry.digest], ["Previous digest", entry.prev_hash ?? entry.prevDigest ?? "Not provided"],
+    ["Arguments digest", entry.argsDigest ?? "Not provided"],
+  ].map(([key, value]) => `<dt>${key}</dt><dd><code>${escapeHtml(value)}</code></dd>`).join("")}</dl><p>Argument contents are not stored in this view.</p>`;
 }
 
 export function renderApprovals(records, now, states = new Map(), error) {
@@ -63,7 +72,7 @@ export function renderVerification(result, error) {
 }
 
 function validateFeed(body) {
-  if (body?.verified !== true || !Array.isArray(body.entries) || !body.entries.every(entry => Number.isInteger(entry?.seq) && ["at", "tool", "klass", "decision", "digest"].every(key => typeof entry[key] === "string" && entry[key] !== ""))) throw new Error("Invalid or unverified feed response");
+  if ((body?.verified !== true && body?.integrity !== true) || !Array.isArray(body.entries) || !body.entries.every(entry => Number.isInteger(entry?.seq) && ["at", "tool", "klass", "decision", "digest"].every(key => typeof entry[key] === "string" && entry[key] !== ""))) throw new Error("Invalid or unverified feed response");
   return body.entries;
 }
 
@@ -77,6 +86,8 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
   let approvals = [];
   let entries = [];
   let feedSigned = false;
+  let paused = false;
+  let selectedRecord;
   let approvalsError;
   let interval;
   let refreshing = false;
@@ -99,7 +110,13 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
     setHtml("feed-scope", feedSigned
       ? '<span data-tone="ok">feed verified with signatures checked against the configured key</span>'
       : '<span data-tone="warn">feed shows hash chain integrity only: no signature key is configured, so a rewritten copy of the ledger could still present these entries</span>');
-    setHtml("feed-list", renderFeed(entries.filter(entry => (!klass || entry.klass.toLowerCase() === klass) && (!decision || entry.decision.split(":")[0] === decision))));
+    const query = (document.getElementById("activity-search")?.value ?? "").toLowerCase().trim();
+    const filtered = entries.filter(entry => (!klass || entry.klass.toLowerCase() === klass) && (!decision || entry.decision.split(":")[0] === decision) && `${entry.seq} ${entry.tool} ${entry.klass} ${entry.decision}`.toLowerCase().includes(query));
+    const focused = document.activeElement?.dataset?.record;
+    setHtml("feed-list", renderFeed(filtered));
+    setText("activity-count", `${filtered.length} of ${entries.length} records in this view${paused ? " / paused" : ""}`);
+    if (focused) document.getElementById("feed-list")?.querySelector?.(`[data-record="${Number(focused)}"]`)?.focus();
+    if (selectedRecord !== undefined) setHtml("record-details", renderRecord(entries.find(entry => entry.seq === selectedRecord), feedSigned));
   }
   async function request(url, options = {}) {
     const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000), ...options });
@@ -118,6 +135,9 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
     } catch (error) {
       entries = [];
       feedSigned = false;
+      setHtml("feed-scope", "Ledger verification is unavailable. Refresh to retry.");
+      setText("activity-count", "Activity unavailable");
+      setHtml("record-details", "<p>Ledger unavailable. Close this panel and retry the connection.</p>");
       setHtml("feed-list", renderFeed([], errorMessage(error)));
       return false;
     } finally { pending.delete("feed"); }
@@ -179,7 +199,7 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
     refreshing = true;
     try {
       const work = [verifyIndicator()];
-      if (page !== "approvals") work.push(pollFeed());
+      if (page !== "approvals" && !paused) work.push(pollFeed());
       if (page === "index" || page === "approvals") work.push(pollApprovals());
       const results = await Promise.all(work);
       setText("last-updated", `${results.every(Boolean) ? "Last updated" : "Last refresh failed"}: ${new Date(now()).toISOString()}. Refresh every 2 seconds.`);
@@ -187,6 +207,8 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
   }
   return {
     pollFeed, pollApprovals, verifyIndicator, decide, refresh, drawFeed,
+    inspect(seq) { selectedRecord = Number(seq); setHtml("record-details", renderRecord(entries.find(entry => entry.seq === selectedRecord), feedSigned)); },
+    togglePause() { paused = !paused; drawFeed(); return paused; },
     start() {
       if (interval === undefined) interval = timer.setInterval(refresh, 2000);
       return refresh();
@@ -206,7 +228,25 @@ if (typeof document !== "undefined") {
       if (button && !button.disabled) void app.decide(button.dataset.holdId, button.dataset.decision);
     });
     document.getElementById("verify-button")?.addEventListener("click", () => { void app.refresh(); });
-    for (const id of ["class-filter", "decision-filter"]) document.getElementById(id)?.addEventListener("change", () => { void app.pollFeed(); });
+    for (const id of ["class-filter", "decision-filter"]) document.getElementById(id)?.addEventListener("change", app.drawFeed);
+    document.getElementById("activity-search")?.addEventListener("input", app.drawFeed);
+    document.getElementById("pause-feed")?.addEventListener("click", event => {
+      const paused = app.togglePause();
+      event.currentTarget.textContent = paused ? "Resume activity" : "Pause activity";
+      event.currentTarget.setAttribute("aria-pressed", String(paused));
+      if (!paused) void app.pollFeed();
+    });
+    let inspectedRecord;
+    document.getElementById("feed-list")?.addEventListener("click", event => {
+      const button = event.target.closest("button[data-record]");
+      if (!button) return;
+      inspectedRecord = Number(button.dataset.record);
+      app.inspect(button.dataset.record);
+      document.getElementById("record-dialog")?.showModal();
+    });
+    document.getElementById("record-dialog")?.addEventListener("close", () => {
+      document.querySelector(`button[data-record="${inspectedRecord}"]`)?.focus();
+    });
     const input = document.getElementById("workspace");
     if (input) input.value = workspace ?? "";
     if (workspace) for (const link of document.querySelectorAll('a[href$=".html"]')) link.search = new URLSearchParams({ workspace }).toString();

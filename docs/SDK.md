@@ -111,7 +111,7 @@ if (first !== undefined) {
 
 ## Startup safety
 
-Before starting the proxy, `VoidClient` verifies an existing workspace ledger file. If verification fails, it throws `LedgerVerifyError` and refuses to run. If no policy path is provided, it writes a temporary deny-all policy instead of silently allowing writes.
+Before starting the proxy, `VoidClient` verifies the hash chain and signatures of an existing workspace ledger file. It trusts the same signer configuration as the proxy: `VOID_SIGNING_KEY` when configured, otherwise the local development key in `~/.void/keys`. Ledger entries cannot introduce a trusted key. A lost or replaced signing key therefore prevents startup against the old ledger; multi-key rotation is not supported. If verification fails, it throws `LedgerVerifyError` and refuses to run. If no policy path is provided, it writes a temporary deny-all policy instead of silently allowing writes.
 
 ## Holds across processes
 

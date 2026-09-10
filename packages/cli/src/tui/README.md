@@ -24,7 +24,7 @@ it is redundant information:
 | class | marker | truecolour |
 | ----- | ------ | ---------- |
 | R0    | `[0]`  | `#5cc094`  |
-| R1    | `[1]`  | `#8aa4ff`  |
+| R1    | `[1]`  | `#2997ff`  |
 | R2    | `[2]`  | `#dcbc63`  |
 | R3    | `[3]`  | `#f47a88`  |
 
@@ -86,3 +86,17 @@ WP-09b's fourth exit criterion, `node scripts/moment.mjs --tui`, cannot run
 yet: it needs the WP-05 hold path and the WP-08 blast radius. What will prove
 it is the WP-05 moment resolved with one keypress in the terminal the agent
 already runs in. Until then the render model is proven by the scripts above.
+
+## Live ledger watch
+
+`node packages/cli/bin/void.mjs watch --workspace default` now runs a real,
+read-only ledger view. `--ledger /path/to/file.jsonl` selects a file directly;
+`--once` prints a snapshot. Piped, CI, dumb and NO_COLOR output also uses a
+plain snapshot without terminal control sequences. The watch authenticates
+records with the same configured development signer as the proxy.
+
+Keys: j/k or arrows select; Enter opens the record; Escape returns; f cycles
+class filters; p pauses display updates; v refreshes verification; ? opens help;
+q exits. Exiting leaves the proxy running. The live watch does not offer approval
+or replay shortcuts until those actions are actually connected. Existing preview
+renderers remain available for the richer planned dashboard.

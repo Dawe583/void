@@ -23,3 +23,17 @@ FOOTER: parchment, 17px/2.41 dense links, 64px padding, legal 12px #7a7a7a.
 ACTIVE STATE: transform scale(0.95) on every button. Min touch target 44x44.
 
 BREAKPOINTS: 1440 lock, 1068, 834, 734, 640, 480. Hero 56 -> 40 (1068) -> 34 (640) -> 28 (419).
+
+## Operational workbench, September 2026
+
+The awesome-design-md Apple reference was read directly for this pass, together
+with frontend-design. Use its system typography, neutral surfaces, focus blue,
+44px controls and quiet hierarchy for operational content. Do not turn an agent
+workspace into a product marketing page. The shared `web/workbench.css` refines
+all four current GUI pages; existing page rules remain as a compatibility base.
+
+Activity rows open a keyboard-accessible native dialog with the complete record
+and digests. Search and filters operate on the fetched page. Pausing activity
+freezes the ledger display, not the proxy or the approval queue. Both GUI and
+live TUI distinguish authenticated records from hash-only evidence. Unknown
+process health, provider identity and usage are not invented.

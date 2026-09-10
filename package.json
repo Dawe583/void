@@ -5,10 +5,12 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "tui:preview": "pnpm --filter @void/cli run tui:preview --",
-    "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./scripts\" --if-present run typecheck",
+    "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./scripts\" --if-present run typecheck && tsc -p apps/control-plane/tsconfig.json",
     "test": "node scripts/src/check-tests.mjs",
     "check": "pnpm run typecheck && pnpm test",
-    "check:mirror": "node scripts/src/check-registry-mirror.mjs"
+    "check:mirror": "node scripts/src/check-registry-mirror.mjs",
+    "gui": "node apps/control-plane/api/server.ts",
+    "watch": "node packages/cli/bin/void.mjs watch"
   },
   "private": true,
   "devDependencies": {

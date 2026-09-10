@@ -22,20 +22,37 @@ if (!existsSync(packagesDir)) {
 
 const results = [];
 
-for (const name of readdirSync(packagesDir).sort()) {
-  const dir = join(packagesDir, name);
+const suites = [
+  ...readdirSync(packagesDir).sort().map((name) => ({ name, dir: join(packagesDir, name) })),
+  { name: "control-plane", dir: join(root, "apps", "control-plane") },
+  { name: "scripts", dir: join(root, "scripts") },
+];
+
+for (const { name, dir } of suites) {
   const manifestPath = join(dir, "package.json");
-  if (!existsSync(manifestPath)) continue;
+  const required = name === "control-plane" || name === "scripts";
+  if (!existsSync(manifestPath)) {
+    if (required) throw new Error(`${name} suite manifest is missing`);
+    continue;
+  }
 
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  if (!manifest.scripts?.test) continue;
+  if (!manifest.scripts?.test && name !== "scripts") {
+    if (required) throw new Error(`${name} suite test script is missing`);
+    continue;
+  }
 
   // TAP, not the runtime's default reporter: the default switched from
   // machine readable lines to a human spec format in Node 23, which broke the
   // counts this script parses. Asking for TAP keeps the output a contract on
   // every engine version the workspace may run on.
-  const run = spawnSync("node", ["--test", "--test-reporter=tap"], {
-    cwd: dir,
+  // Script fixtures resolve repository-relative paths, so run them from root.
+  const files = name === "scripts"
+    ? readdirSync(join(dir, "src")).filter((file) => file.endsWith(".test.mjs")).sort().map((file) => join(dir, "src", file))
+    : [];
+  if (name === "scripts" && files.length === 0) throw new Error("scripts suite has no tests");
+  const run = spawnSync("node", ["--test", "--test-reporter=tap", ...files], {
+    cwd: name === "scripts" ? root : dir,
     encoding: "utf8",
   });
   const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
@@ -80,7 +97,7 @@ for (const r of results) {
 }
 
 const total = results.reduce((sum, r) => sum + Math.max(r.pass, 0), 0);
-console.log(`\n  ${results.length} packages, ${total} tests`);
+console.log(`\n  ${results.length} suites, ${total} tests`);
 
 if (results.length === 0) {
   console.error("  no package declared a test script");

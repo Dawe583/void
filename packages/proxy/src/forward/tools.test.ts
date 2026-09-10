@@ -22,7 +22,7 @@ describe("interceptCall", () => {
       classify: () => classified("r0"),
       policy: (policyCall) => {
         assert.equal(policyCall.klass, "r0");
-        assert.equal(policyCall.blastRadius, 12);
+        assert.equal(policyCall.blastRadius, undefined);
         return { kind: "allow" };
       },
       hold: async () => { throw new Error("hold should not run"); },
@@ -64,14 +64,14 @@ describe("interceptCall", () => {
     assert.equal(error.error.code, -32003);
     assert.match(error.error.message, /postgres\.query/);
     assert.match(error.error.message, /r3/);
-    assert.match(error.error.message, /blast radius 12/);
+    assert.match(error.error.message, /blast radius unknown/);
     assert.match(error.error.message, /Rule 4/);
     assert.match(error.error.message, /production writes need review/);
     assert.match(error.error.message, /Do not retry/);
     const data = error.error.data as Record<string, unknown>;
     assert.equal(data.tool, "postgres.query");
     assert.equal(data.class, "r3");
-    assert.equal(data.blastRadius, 12);
+    assert.equal(data.blastRadius, undefined);
     assert.equal(data.rule, 4);
   });
 
@@ -149,11 +149,11 @@ describe("interceptCall", () => {
 });
 
 
-test("probe radius replaces the argument fallback before policy", async () => {
+test("only measured probe radius reaches policy", async () => {
   const verdict = await interceptCall(call, {
     classify: () => classified("r2"),
     probe: async (policyCall) => {
-      assert.equal(policyCall.blastRadius, 12);
+      assert.equal(policyCall.blastRadius, undefined);
       assert.deepEqual(policyCall.args, call.args);
       return { radius: 41 };
     },
@@ -168,12 +168,12 @@ test("probe radius replaces the argument fallback before policy", async () => {
   assert.deepEqual(verdict, { kind: "allow" });
 });
 
-test("probe error keeps fallback radius and still decides", async () => {
+test("probe error leaves the radius unknown", async () => {
   const verdict = await interceptCall(call, {
     classify: () => classified("r2"),
     probe: async () => ({ error: "probe timed out" }),
     policy: (policyCall) => {
-      assert.equal(policyCall.blastRadius, 12);
+      assert.equal(policyCall.blastRadius, undefined);
       return { kind: "allow" };
     },
     hold: async () => { throw new Error("hold should not run"); },
@@ -208,11 +208,11 @@ test("probe facts can be merged while declared facts win conflicts", async () =>
   ]);
 });
 
-test("without a probe the argument fallback is unchanged", async () => {
+test("without a probe agent counts remain unknown", async () => {
   const verdict = await interceptCall({ ...call, args: { n: 3 } }, {
     classify: () => classified("r1"),
     policy: (policyCall) => {
-      assert.equal(policyCall.blastRadius, 3);
+      assert.equal(policyCall.blastRadius, undefined);
       return { kind: "deny", ruleIndex: 1, rationale: "regression lock" };
     },
     hold: async () => { throw new Error("hold should not run"); },
@@ -220,7 +220,7 @@ test("without a probe the argument fallback is unchanged", async () => {
   });
 
   assert.equal(verdict.kind, "deny");
-  assert.match((verdict as { error: JsonRpcError }).error.error.message, /blast radius 3/);
+  assert.match((verdict as { error: JsonRpcError }).error.error.message, /blast radius unknown/);
 });
 
 test("probe dispatcher uses cache so executor is not invoked on a hit", async () => {
@@ -257,4 +257,29 @@ test("probe dispatcher uses cache so executor is not invoked on a hit", async ()
   assert.deepEqual(await dispatch(policyCall), { radius: 1, facts: { measured: "1" } });
   assert.deepEqual(await dispatch(policyCall), { radius: 1, facts: { measured: "1" } });
   assert.equal(executor.runs, 1);
+});
+
+test("forged small counts cannot satisfy a radius allow rule", async () => {
+  const { loadPolicy, decide } = await import("../../../policy/src/index.ts");
+  const policy = loadPolicy('version: 1\nrules:\n  - match: { blast_radius: { lt: 10 } }\n    decision: allow\n  - match: {}\n    decision: deny');
+  for (const probe of [undefined, async () => ({ error: "unavailable" }), async () => { throw new Error("offline"); }, async () => ({ radius: -1 }), async () => ({ radius: 0.5 }), async () => ({ radius: Infinity }), async () => ({ radius: Number.MAX_SAFE_INTEGER + 1 })]) {
+    for (const key of ["rows", "count", "limit", "n"]) {
+      const verdict = await interceptCall({ ...call, args: { [key]: 0 } }, {
+        classify: () => classified(),
+        policy: (input) => decide(policy, input),
+        probe,
+        ledger: () => {},
+        hold: async () => { throw new Error("unexpected hold"); },
+      });
+      assert.equal(verdict.kind, "deny");
+    }
+  }
+  const verdict = await interceptCall(call, {
+    classify: () => classified(),
+    policy: (input) => decide(policy, input),
+    probe: async () => ({ radius: 0 }),
+    ledger: () => {},
+    hold: async () => { throw new Error("unexpected hold"); },
+  });
+  assert.equal(verdict.kind, "allow");
 });

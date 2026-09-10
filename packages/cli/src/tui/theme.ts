@@ -5,12 +5,12 @@ import type {
 } from "./types.ts";
 
 export const VOID_PALETTE = {
-  paper: "#12100a",
-  ink: "#f0eade",
-  muted: "#8f8672",
-  rule: "#514b3e",
+  paper: "#1d1d1f",
+  ink: "#f5f5f7",
+  muted: "#86868b",
+  rule: "#38383a",
   r0: "#5cc094",
-  r1: "#8aa4ff",
+  r1: "#2997ff",
   r2: "#dcbc63",
   r3: "#f47a88",
 } as const;

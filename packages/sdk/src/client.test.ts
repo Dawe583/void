@@ -1,9 +1,14 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile, readFile, rm, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+
+import { devKeyProvider, sha256Hex } from "../../ledger/src/sign.ts";
+import { jsonlStore } from "../../ledger/src/store.ts";
+import { entryHash } from "../../ledger/src/canonical.ts";
+import { verifyLedgerFile } from "../../ledger/src/verify.ts";
 
 import { VoidClient } from "./client.ts";
 import { HoldDeniedError, LedgerVerifyError, RefusedError } from "./errors.ts";
@@ -153,3 +158,44 @@ test("RefusedError maps connector drift refusal reports", () => {
   assert.equal(error.code, "VOID_REFUSED");
   assert.equal(error.reason, "drift");
 });
+
+
+for (const scenario of ["trusted", "rehashed", "foreign-key"] as const) {
+  test(`startup authenticates existing ledger: ${scenario}`, async () => {
+    const dir = await mkdtemp(join(tmpdir(), "void-sdk-signatures-"));
+    const workspace = "signed";
+    const path = join(dir, `${workspace}.jsonl`);
+    const marker = join(dir, "upstream-started");
+    const signer = scenario === "foreign-key"
+      ? await devKeyProvider({ dir: join(dir, "foreign-keys"), env: {} })
+      : await devKeyProvider();
+    await jsonlStore(signer, { dir }).append({ workspace, tool: "echo", decision: "deny" });
+    if (scenario === "rehashed") {
+      const entry = JSON.parse(await readFile(path, "utf8"));
+      entry.body.decision = "allow";
+      entry.hash = await entryHash(entry.body, entry.prev_hash, sha256Hex);
+      await writeFile(path, `${JSON.stringify(entry)}\n`);
+    }
+    // A fresh hash chain also passes for forged content and an untrusted signer.
+    assert.equal((await verifyLedgerFile(path)).ok, true);
+    const client = new VoidClient({
+      ledgerDir: dir, workspace, policyPath: await fixturePolicy(),
+      connect: { upstreamCommand: scenario === "trusted"
+        ? [process.execPath, "../../fixtures/e2e-server.mjs"]
+        : [process.execPath, "-e", "require('node:fs').writeFileSync(process.argv[1], 'started')", marker] },
+      requestTimeoutMs: 1_000,
+    });
+    try {
+      const request = client.request("tools/call", { name: "echo", arguments: { text: "authenticated" } });
+      if (scenario === "trusted") {
+        assert.equal(textFrom(await request), "authenticated");
+      } else {
+        await assert.rejects(request, LedgerVerifyError);
+        await assert.rejects(access(marker), { code: "ENOENT" });
+      }
+    } finally {
+      client.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+}

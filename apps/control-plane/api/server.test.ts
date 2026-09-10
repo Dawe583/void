@@ -1,5 +1,6 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
+import { request as httpRequest } from "node:http";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -70,7 +71,7 @@ describe("control plane API", () => {
       assert.equal(response.status, 200);
       assert.match(response.headers.get("content-type") ?? "", /^application\/json/);
       const body = await response.json() as { entries: Array<Record<string, unknown>>; verified: boolean; signed: boolean };
-      assert.equal(body.verified, true);
+      assert.equal(body.verified, false);
       assert.equal(body.signed, false);
       assert.equal(body.entries.length, 1);
       assert.deepEqual(Object.keys(body.entries[0]!).sort(), [
@@ -241,4 +242,53 @@ describe("control plane API", () => {
       }]);
     }, { approvals });
   });
+});
+
+test("local API rejects rebinding and cross-origin reads and decisions", async () => {
+  let decisions = 0;
+  await withServer("unused.jsonl", async (origin) => {
+    for (const headers of [
+      { host: "attacker.example" },
+      { origin: "https://attacker.example" },
+      { origin: "null" },
+      { "sec-fetch-site": "cross-site" },
+      { "sec-fetch-site": "same-site" },
+    ]) {
+      const status = await new Promise<number | undefined>((resolve, reject) => {
+        const req = httpRequest(`${origin}/api/approvals`, { headers }, (res) => {
+          res.resume();
+          res.on("end", () => resolve(res.statusCode));
+        });
+        req.on("error", reject);
+        req.end();
+      });
+      assert.equal(status, 403, JSON.stringify(headers));
+      const writeStatus = await new Promise<number | undefined>((resolve, reject) => {
+        const req = httpRequest(`${origin}/api/approvals/h1/decision`, {
+          method: "POST", headers: { ...headers, "content-type": "application/json" },
+        }, (res) => {
+          res.resume();
+          res.on("end", () => resolve(res.statusCode));
+        });
+        req.on("error", reject);
+        req.end(JSON.stringify({ kind: "approved", by: "attacker" }));
+      });
+      assert.equal(writeStatus, 403, JSON.stringify(headers));
+    }
+    assert.equal(decisions, 0);
+    const allowed = await fetch(`${origin}/api/approvals/h1/decision`, {
+      method: "POST", headers: { origin, "sec-fetch-site": "same-origin", "content-type": "application/json" },
+      body: JSON.stringify({ kind: "denied", by: "local operator" }),
+    });
+    assert.equal(allowed.status, 200);
+    assert.equal(decisions, 1);
+  }, { approvals: { pending: () => [], decide: () => { decisions += 1; } } });
+});
+
+test("internal API failures do not echo dependency secrets", async () => {
+  await withServer("unused.jsonl", async (origin) => {
+    const response = await fetch(`${origin}/api/approvals`);
+    assert.equal(response.status, 500);
+    assert.doesNotMatch(await response.text(), /SENTINEL_PRIVATE_VALUE/);
+  }, { approvals: { pending: () => { throw new Error("SENTINEL_PRIVATE_VALUE"); }, decide: () => {} } });
 });

@@ -57,7 +57,7 @@ type RouteOptions = {
 const here = fileURLToPath(new URL(".", import.meta.url));
 const defaultWebRoot = resolve(here, "../web");
 const maxBodyBytes = 64 * 1024;
-const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js"]);
+const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js", "/workbench.css"]);
 
 /**
  * Resolve a verification key without ever generating one. Reading is the
@@ -84,11 +84,15 @@ export function createControlPlaneServer(options: ControlPlaneOptions = {}): Ser
   const webRoot = resolve(options.webRoot ?? defaultWebRoot);
 
   return createServer((request, response) => {
+    if (!isLocalRequest(request)) {
+      sendJson(response, 403, { error: "local_origin_required" });
+      return;
+    }
     void resolveVerifyKey(env).then((publicKey) =>
-      route(request, response, { ...options, env, webRoot, publicKey })).catch((error: unknown) => {
+      route(request, response, { ...options, env, webRoot, publicKey })).catch(() => {
       sendJson(response, 500, {
         error: "internal_error",
-        message: error instanceof Error ? error.message : String(error),
+        message: "The request failed; operator review required",
       });
     });
   });
@@ -147,7 +151,7 @@ async function handleFeed(response: ServerResponse, options: RouteOptions, searc
   if (ledgerPath === null) return sendJson(response, 400, { error: "invalid_workspace" });
   const page = await readLedgerFeed(ledgerPath, { publicKey: options.publicKey });
   const entries = page.records.slice(-limit).map(toApiEntry);
-  sendJson(response, 200, { entries, verified: page.verified, signed: page.signed });
+  sendJson(response, 200, { entries, verified: page.signed, integrity: true, signed: page.signed });
 }
 
 async function handleVerify(response: ServerResponse, options: RouteOptions, searchParams: URLSearchParams): Promise<void> {
@@ -253,6 +257,21 @@ function toApiApproval(record: PendingApproval): JsonObject {
   };
 }
 
+// Host validation blocks DNS rebinding; Origin and Fetch Metadata block hostile
+// browser pages. This is a local boundary, not authentication between local users.
+function isLocalRequest(request: IncomingMessage): boolean {
+  const peer = request.socket.remoteAddress;
+  if (peer !== "127.0.0.1" && peer !== "::1" && peer !== "::ffff:127.0.0.1") return false;
+  const port = request.socket.localPort;
+  const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
+  const host = request.headers.host;
+  if (host === undefined || !hosts.has(host)) return false;
+  const origin = request.headers.origin;
+  if (origin !== undefined && origin !== `http://${host}`) return false;
+  const site = request.headers["sec-fetch-site"];
+  return site === undefined || site === "same-origin" || site === "none";
+}
+
 function parseRequestUrl(request: IncomingMessage): URL | null {
   try {
     return new URL(request.url ?? "/", "http://127.0.0.1");
@@ -332,6 +351,7 @@ function staticPath(webRoot: string, pathname: string): string | null {
 
 function contentType(filePath: string): string {
   if (extname(filePath) === ".html") return "text/html; charset=utf-8";
+  if (extname(filePath) === ".css") return "text/css; charset=utf-8";
   if (extname(filePath) === ".js") return "application/javascript; charset=utf-8";
   return "application/octet-stream";
 }

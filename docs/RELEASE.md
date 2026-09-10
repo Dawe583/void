@@ -113,16 +113,16 @@ Wave 5 source status, pending integrated verification:
    source and metadata are present.
 7. **Security and licensing signoff.** Resolve release-blocking findings in
    `packages/security-notes.md` after the wave 5 adversarial review. In
-   particular, unclassified calls permitted by broad allow rules and unmeasured
-   blast radius trusted from arguments remain blockers until fixes and
-   regression tests prove otherwise; hash-only views labeled verified are closed
+   particular, unclassified calls permitted by broad allow rules remain a
+   blocker. Agent-provided blast radius was removed on 11 September 2026,
+   with regression tests for missing, failed and invalid probes; hash-only views labeled verified are closed
    for the control plane, which now distinguishes chain integrity from
    signature-checked verification and never reports verified without a
    configured key. The
    control-plane decision endpoint now rejects posts that do not carry an
-   application/json content type, with a regression test; the remaining
-   control-plane blocker is that the whole surface is unauthenticated and
-   localhost-only by convention, not by enforcement. The root `LICENSE` is Apache 2.0 and product metadata matches it. Confirm NOTICE and
+   application/json content type. Peer address, Host, Origin and Fetch Metadata
+   checks now enforce the local browser boundary. Authentication between local
+   users and authenticated remote access remain unimplemented. The root `LICENSE` is Apache 2.0 and product metadata matches it. Confirm NOTICE and
    the registry disclaimer are included in each distributed artifact. Decision
    5 reserves paid features, but the control plane manifest currently declares
    Apache 2.0; resolve that boundary deliberately before distribution. This

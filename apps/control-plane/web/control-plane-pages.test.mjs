@@ -11,7 +11,7 @@ function readPage(name) {
   return readFileSync(join(here, name), "utf8");
 }
 
-test("all pages are standalone HTML5 documents with inline CSS", () => {
+test("all pages are HTML5 documents with local design styles", () => {
   for (const page of pages) {
     const html = readPage(page);
     assert.match(html, /^<!doctype html>/i, page);
@@ -19,7 +19,7 @@ test("all pages are standalone HTML5 documents with inline CSS", () => {
     assert.match(html, /<meta charset="utf-8">/, page);
     assert.match(html, /<meta name="viewport"/, page);
     assert.match(html, /<style>[\s\S]*<\/style>/, page);
-    assert.doesNotMatch(html, /<link\b[^>]*stylesheet/i, page);
+    assert.match(html, /<link rel="stylesheet" href="workbench.css">/, page);
     assert.doesNotMatch(html, /src="https?:/i, page);
     assert.doesNotMatch(html, /[\u2013\u2014]/u, page);
   }

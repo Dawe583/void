@@ -13,7 +13,7 @@ const approval = { holdId: "hold/1", status: "pending", expiresAt: 5000, call: {
 const response = (body, ok = true, status = 200) => ({ ok, status, json: async () => body });
 
 function harness(fetchImpl) {
-  const nodes = new Map(["feed-list", "approvals-list", "verify-status", "last-updated", "decision-status"].map(id => [id, { innerHTML: "", textContent: "" }]));
+  const nodes = new Map(["feed-scope", "feed-list", "approvals-list", "verify-status", "last-updated", "decision-status"].map(id => [id, { innerHTML: "", textContent: "" }]));
   let tick;
   let cleared;
   const app = createApp({
@@ -144,7 +144,9 @@ test("real server supplies feed shape and serves only the public browser module"
     const feed = await fetch(origin + feedUrl("default", 1));
     const body = await feed.json();
     assert.equal(feed.status, 200);
-    assert.equal(body.verified, true);
+    assert.equal(body.verified, false);
+    assert.equal(body.integrity, true);
+    assert.equal(body.signed, false);
     assert.equal(body.entries[0].tool, entry.tool);
     assert.match(body.entries[0].digest, /^[a-f0-9]{64}$/);
     assert.match(renderFeed(body.entries), /postgres.row.update/);
@@ -179,4 +181,21 @@ test("verification renders integrity-only results without claiming proof", () =>
 
   const signed = renderVerification({ ok: true, verified: true, integrity: true, signed: true, checked: 2, head: "0".repeat(64) });
   assert.match(signed, /chain ok, signatures checked/);
+});
+
+
+test("integrity-only API feeds stay visible without claiming signature verification", async () => {
+  const h = harness(async () => response({ entries: [entry], verified: false, integrity: true, signed: false }));
+  assert.equal(await h.app.pollFeed("default", 50), true);
+  assert.match(h.nodes.get("feed-list").innerHTML, /postgres.row.update/);
+  assert.match(h.nodes.get("feed-scope").innerHTML, /hash chain integrity only/);
+  assert.doesNotMatch(h.nodes.get("feed-scope").innerHTML, /feed verified/);
+});
+
+test("record inspector escapes content and distinguishes unsigned evidence", async () => {
+  const { renderRecord } = await import("./app.js");
+  const html = renderRecord({ ...entry, tool: '<script>alert(1)</script>', argsDigest: 'b'.repeat(64) }, false);
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /Signatures have not been checked/);
+  assert.match(html, /b{64}/);
 });

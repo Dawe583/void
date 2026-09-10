@@ -43,7 +43,6 @@ export type InterceptDeps = {
 };
 
 const ERROR_CODE = -32003;
-const BLAST_KEYS = ["rows", "count", "limit", "n"] as const;
 
 export async function interceptCall(
   call: InterceptedCall,
@@ -53,11 +52,10 @@ export async function interceptCall(
   const digest = digestArgs(call.args);
   try {
     const baseClassification = deps.classify({});
-    const fallbackRadius = extractBlastRadius(call.args);
-    const probeResult = await runProbe(deps, call, buildPolicyCall(call, baseClassification, fallbackRadius));
+    const probeResult = await runProbe(deps, call, buildPolicyCall(call, baseClassification, undefined));
     const probeFacts = probeResult !== undefined && !("error" in probeResult) && probeResult.facts !== undefined ? probeResult.facts : {};
     const classification = Object.keys(probeFacts).length === 0 ? baseClassification : deps.classify(probeFacts);
-    const policyCall = buildPolicyCall(call, classification, chooseBlastRadius(fallbackRadius, probeResult));
+    const policyCall = buildPolicyCall(call, classification, chooseBlastRadius(probeResult));
     const decision = deps.policy(policyCall);
     // The decision record lands before the verdict, so a crash after the
     // decision still leaves the ledger saying what was about to happen.
@@ -94,7 +92,7 @@ export async function interceptCall(
       connector: call.connector,
       workspace: call.workspace,
       klass: UNCLASSIFIED_CLASS,
-      blastRadius: extractBlastRadius(call.args),
+      blastRadius: undefined,
     };
     return { kind: "deny", error: denyError(call, policyCall, -1, "internal dependency failure; operator review required") };
   }
@@ -115,14 +113,6 @@ function buildPolicyCall(
   };
 }
 
-function extractBlastRadius(args: Readonly<Record<string, unknown>>): number | undefined {
-  for (const key of BLAST_KEYS) {
-    const value = args[key];
-    if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return value;
-  }
-  return undefined;
-}
-
 async function runProbe(
   deps: InterceptDeps,
   call: InterceptedCall,
@@ -137,15 +127,13 @@ async function runProbe(
 }
 
 function chooseBlastRadius(
-  fallbackRadius: number | undefined,
   probeResult: ProbeProviderResult | undefined,
 ): number | undefined {
-  if (probeResult !== undefined && !("error" in probeResult) && typeof probeResult.radius === "number" && Number.isFinite(probeResult.radius)) {
+  if (probeResult !== undefined && !("error" in probeResult) && typeof probeResult.radius === "number" && Number.isSafeInteger(probeResult.radius) && probeResult.radius >= 0) {
     return probeResult.radius;
   }
-  // Probe rollout must not widen into a new denial path. The argument fallback
-  // preserves the old behaviour when a probe fails or has no measured number.
-  return fallbackRadius;
+  // Caller-supplied counts are claims, never measurements that authorize writes.
+  return undefined;
 }
 
 function digestArgs(args: Readonly<Record<string, unknown>>): string {

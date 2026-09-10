@@ -82,8 +82,8 @@ export type MatchValue = string | number | readonly string[];
 
 Per-key value shapes (packages/policy/src/rules.ts:100-107):
 
-- `class`: a string such as `r0`, a number, or a list of strings
-  (any of). Example: `class: [r2, r3]`.
+- `class`: one of `r0`, `r1`, `r2`, `r3`, or a non-empty list of
+  those values. Example: `class: [r2, r3]`. Unknown classes are load errors.
 - `tool`: a string such as `postgres.row.delete`, a number, or a
   list of strings. Example from the real fixture: `tool: echo`
   (fixtures/e2e-policy.yaml:4).
@@ -123,7 +123,7 @@ export type BlastRadiusCondition = {
 
 Rules enforced by the validator (packages/policy/src/rules.ts:91-98):
 
-- The value must be an object whose `lt` is a number; anything else
+- The value must be an object whose `lt` is a nonnegative safe integer; anything else
   is rejected with `rules[N].match.blast_radius: must be { lt: number }`.
 - Extra keys beside `lt` are rejected with
   `rules[N].match.blast_radius: unknown key <names>`.
@@ -376,3 +376,17 @@ string is quoted verbatim.
 10. An empty list value, which matches nothing
     (packages/policy/src/rules.ts:102):
     `rules[0].match.class: an empty list matches nothing`
+
+
+## Local hardening update, 11 September 2026
+
+A missing, failed, or invalid probe leaves blast radius unknown. Agent arguments
+such as `rows`, `count`, `limit`, and `n` never supply a policy measurement.
+Rules requiring a radius therefore do not match without a valid measurement;
+the next rule, normally the final deny or hold, decides. The development binary
+currently has no probe provider wired, so radius-dependent allow rules do not
+match there. Library hosts can supply a probe to `interceptCall`.
+
+A rule and its match must be objects, not arrays. Null rules, unknown classes,
+and invalid radius thresholds return load errors. YAML parse errors report a
+generic syntax failure without echoing potentially private policy source.

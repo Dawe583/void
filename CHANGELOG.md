@@ -4,6 +4,19 @@ All notable user-facing changes since the first repository commit.
 
 ## Unreleased
 
+- Add a live ledger TUI with keyboard inspection and signature checks.
+- Refine the GUI with shared Apple-inspired styling, call search and details.
+
+### Security fixes
+
+- Authenticate existing SDK ledger signatures before starting an upstream.
+
+- Prevent agent-provided row counts from satisfying measured-radius policy rules.
+- Reject malformed policies without crashing or echoing YAML source.
+- Reject hostile browser origins and DNS rebinding against the local control plane.
+- Distinguish signature verification from hash integrity in the ledger feed.
+- Include the control plane and script suites in the standard workspace check.
+
 ### Added
 
 - d125b7e9: Restored the product baseline from upstream history.

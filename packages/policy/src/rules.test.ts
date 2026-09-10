@@ -189,3 +189,22 @@ rules:
     assert.equal(decide(fenced, call({ workspace: "prod" })).kind, "allow");
   });
 });
+
+test("malformed rule shapes fail closed without throwing", () => {
+  for (const rule of [null, [], { match: [], decision: "allow" }, { match: { class: "r9" }, decision: "allow" }]) {
+    const loaded = loadPolicy(JSON.stringify({ version: 1, rules: [rule] }));
+    assert.equal(loaded.ok, false);
+  }
+  for (const lt of [-1, 0.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.notEqual(validatePolicyFile({ version: 1, rules: [
+      { match: { blast_radius: { lt } }, decision: "allow" },
+      { match: {}, decision: "deny" },
+    ] }).length, 0);
+  }
+});
+
+test("YAML syntax errors never echo source contents", () => {
+  const result = loadPolicy('version: 1\nrules: [SENTINEL_PRIVATE_VALUE');
+  assert.equal(result.ok, false);
+  assert.doesNotMatch(JSON.stringify(result), /SENTINEL_PRIVATE_VALUE/);
+});

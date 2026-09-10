@@ -3,6 +3,7 @@
  * The void binary. The runnable surface grows package by package, and any
  * command not wired yet fails loudly rather than pretending to succeed.
  */
+import { runWatchCommand } from "../src/watch.ts";
 import { runApproveCommand, runApprovalsCommand } from "../src/approve.ts";
 import { readFileSync } from "node:fs";
 import { runClassifyCommand, runFeedCommand, runReplayCommand, runTaintCommand, runVerifyCommand, parseInvocation } from "../src/index.ts";
@@ -13,6 +14,7 @@ if (!parsed.ok) {
   process.exit(2);
 }
 try {
+  if (parsed.command === "watch") process.exit(await runWatchCommand(parsed.args));
   if (parsed.command === "classify") {
     const code = await runClassifyCommand(
       parsed.args,

@@ -892,3 +892,29 @@ a preview deploy.
 | A failing assertion exits 1                                                                          | Verified at WP-00                                                                   |
 | `node:crypto` signs and verifies ed25519 with no dependency                                          | Verified by two deciders on Node 22.22.2                                            |
 | PostgreSQL 16.13 starts here with `pg_ctlcluster 16 main start`                                      | Verified by Reader C, no install needed                                             |
+
+
+## Local hardening continuation, 11 September 2026
+
+Remove the argument fallback for blast radius. The prior rollout compatibility
+rule let an agent claim a small `rows`, `count`, `limit`, or `n` and satisfy an
+allow rule without a measurement. This conflicts with the context pack's
+measured-count definition. Only a nonnegative safe-integer probe result supplies
+a radius. Missing or failed measurements stay unknown and radius rules do not
+match. The binary currently has no probe provider, so this can move calls to a
+later hold or deny rule; it must not silently authorize an unmeasured write.
+
+Reject malformed policy structures at load time, including null rules, array
+matches, unknown classes and invalid count thresholds. YAML parser diagnostics
+must not echo the policy source into an agent-visible error.
+
+The control plane remains a local development surface. Enforce a loopback peer,
+an explicit local Host with the listening port, and same-origin browser
+requests. This blocks DNS rebinding and hostile cross-origin requests without
+claiming authentication between local users. Remote authenticated serving is
+still a separate feature. Feed verification means signatures checked; hash
+integrity alone is stated separately and remains inspectable in the UI.
+
+The root check now includes control-plane typechecking plus its tests and the
+script test suite. Script tests run from the repository root because their
+fixtures resolve relative paths there. No dependencies or lockfile changes.
