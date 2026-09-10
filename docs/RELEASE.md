@@ -111,9 +111,12 @@ Wave 5 source status, pending integrated verification:
    source and metadata are present.
 7. **Security and licensing signoff.** Resolve release-blocking findings in
    `packages/security-notes.md` after the wave 5 adversarial review. In
-   particular, unclassified calls permitted by broad allow rules, unmeasured
-   blast radius trusted from arguments, and hash-only views labeled verified
-   remain blockers until fixes and regression tests prove otherwise. The
+   particular, unclassified calls permitted by broad allow rules and unmeasured
+   blast radius trusted from arguments remain blockers until fixes and
+   regression tests prove otherwise; hash-only views labeled verified are closed
+   for the control plane, which now distinguishes chain integrity from
+   signature-checked verification and never reports verified without a
+   configured key. The
    control-plane decision endpoint now rejects posts that do not carry an
    application/json content type, with a regression test; the remaining
    control-plane blocker is that the whole surface is unauthenticated and

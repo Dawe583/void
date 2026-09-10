@@ -27,6 +27,7 @@ const snapshotDigest = "sha256:" + "b".repeat(64) as `sha256:${string}`;
 
 const page: FeedPage = {
   verified: true,
+  signed: false,
   head: "c".repeat(64),
   records: [
     {

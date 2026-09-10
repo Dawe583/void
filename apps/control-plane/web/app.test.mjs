@@ -168,3 +168,15 @@ test("all pages load the module and have honest initial states", async () => {
     assert.doesNotMatch(html, /09:41:|1201|verified, 10 records linked|143 objects/);
   }
 });
+
+test("verification renders integrity-only results without claiming proof", () => {
+  // Chain ok but no signature key: the badge must say what was and was not
+  // checked instead of presenting integrity as authentication.
+  const integrityOnly = renderVerification({ ok: true, verified: false, integrity: true, signed: false, checked: 2, head: "0".repeat(64) });
+  assert.match(integrityOnly, /integrity only/);
+  assert.match(integrityOnly, /no signature key/);
+  assert.ok(!integrityOnly.includes("chain ok:"), "integrity view must not reuse the chain ok wording");
+
+  const signed = renderVerification({ ok: true, verified: true, integrity: true, signed: true, checked: 2, head: "0".repeat(64) });
+  assert.match(signed, /chain ok, signatures checked/);
+});

@@ -10,6 +10,7 @@ import type { TaintGraph, TaintNode } from "../../ledger/src/taint/graph.ts";
 
 const page: FeedPage = {
   verified: true,
+  signed: false,
   head: "c".repeat(64),
   records: [
     record(1, "a", "postgres.rows.select", "allow:resolved"),

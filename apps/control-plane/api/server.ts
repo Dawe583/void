@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 
 import { GENESIS_PREV } from "../../../packages/ledger/src/canonical.ts";
 import { readLedgerFeed, type LedgerFeedRecord } from "../../../packages/ledger/src/feed.ts";
+import type { PublicKeyLookup } from "../../../packages/ledger/src/verify.ts";
+import { keyProviderFromPkcs8 } from "../../../packages/ledger/src/sign.ts";
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 
@@ -49,6 +51,7 @@ type RouteOptions = {
   readonly webRoot: string;
   readonly ledgerPath?: string;
   readonly approvals?: ApprovalBroker;
+  readonly publicKey?: PublicKeyLookup;
 };
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -56,12 +59,33 @@ const defaultWebRoot = resolve(here, "../web");
 const maxBodyBytes = 64 * 1024;
 const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js"]);
 
+/**
+ * Resolve a verification key without ever generating one. Reading is the
+ * operator's trust domain: the server sits next to the ledger it serves, so
+ * the same development key that signed locally is the honest default. When no
+ * key material exists the lookup stays undefined and every feed and verify
+ * view reports integrity without claiming authentication.
+ */
+async function resolveVerifyKey(env: Readonly<NodeJS.ProcessEnv>): Promise<PublicKeyLookup | undefined> {
+  const inline = env.VOID_SIGNING_KEY;
+  if (inline !== undefined && inline !== "") {
+    const provider = keyProviderFromPkcs8(Buffer.from(inline, "base64"));
+    return (keyId) => provider.publicKey(keyId);
+  }
+  const explicit = env.VOID_VERIFY_KEY;
+  if (explicit !== undefined && explicit !== "") {
+    return new Uint8Array(Buffer.from(explicit, "base64"));
+  }
+  return undefined;
+}
+
 export function createControlPlaneServer(options: ControlPlaneOptions = {}): Server {
   const env = options.env ?? process.env;
   const webRoot = resolve(options.webRoot ?? defaultWebRoot);
 
   return createServer((request, response) => {
-    void route(request, response, { ...options, env, webRoot }).catch((error: unknown) => {
+    void resolveVerifyKey(env).then((publicKey) =>
+      route(request, response, { ...options, env, webRoot, publicKey })).catch((error: unknown) => {
       sendJson(response, 500, {
         error: "internal_error",
         message: error instanceof Error ? error.message : String(error),
@@ -121,21 +145,30 @@ async function handleFeed(response: ServerResponse, options: RouteOptions, searc
   const limit = parseLimit(searchParams.get("limit"));
   const ledgerPath = selectLedgerPath(options, searchParams.get("workspace"));
   if (ledgerPath === null) return sendJson(response, 400, { error: "invalid_workspace" });
-  const page = await readLedgerFeed(ledgerPath);
+  const page = await readLedgerFeed(ledgerPath, { publicKey: options.publicKey });
   const entries = page.records.slice(-limit).map(toApiEntry);
-  sendJson(response, 200, { entries, verified: page.verified });
+  sendJson(response, 200, { entries, verified: page.verified, signed: page.signed });
 }
 
 async function handleVerify(response: ServerResponse, options: RouteOptions, searchParams: URLSearchParams): Promise<void> {
   const ledgerPath = selectLedgerPath(options, searchParams.get("workspace"));
   if (ledgerPath === null) return sendJson(response, 400, { error: "invalid_workspace" });
   try {
-    const page = await readLedgerFeed(ledgerPath);
-    sendJson(response, 200, { ok: true, verified: true, checked: page.records.length, head: page.head });
+    const page = await readLedgerFeed(ledgerPath, { publicKey: options.publicKey });
+    sendJson(response, 200, {
+      ok: true,
+      verified: page.signed,
+      integrity: true,
+      signed: page.signed,
+      checked: page.records.length,
+      head: page.head,
+    });
   } catch (error) {
     sendJson(response, 200, {
       ok: false,
       verified: false,
+      integrity: false,
+      signed: false,
       checked: 0,
       head: GENESIS_PREV,
       reason: error instanceof Error ? error.message : String(error),

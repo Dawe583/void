@@ -1,6 +1,6 @@
 import { watchFile, unwatchFile } from "node:fs";
 import type { JsonlEntry } from "./store.ts";
-import { readLedgerEntries, verifyChain } from "./verify.ts";
+import { readLedgerEntries, verifyChain, type PublicKeyLookup } from "./verify.ts";
 
 export type LedgerFeedRecord = {
   readonly seq: number;
@@ -16,6 +16,8 @@ export type LedgerFeedRecord = {
 export type FeedPage = {
   readonly records: readonly LedgerFeedRecord[];
   readonly verified: true;
+  /** True only when a public key checked every entry signature. */
+  readonly signed: boolean;
   readonly head: string;
 };
 
@@ -37,16 +39,26 @@ const DEFAULT_POLL_MS = 500;
 
 export async function readLedgerFeed(
   ledgerPath: string,
-  options: { readonly afterSeq?: number } = {},
+  options: {
+    readonly afterSeq?: number;
+    /**
+     * A public key lookup turns the feed into authenticated reading: every
+     * entry signature is checked, not just the hash chain. Without a key the
+     * chain still detects local tampering, but anyone who rewrites the whole
+     * file can rehash it, so the page says signed false and callers must not
+     * present integrity as authentication.
+     */
+    readonly publicKey?: PublicKeyLookup;
+  } = {},
 ): Promise<FeedPage> {
   const entries = await readLedgerEntries(ledgerPath);
-  const result = await verifyChain(entries);
+  const result = await verifyChain(entries, { publicKey: options.publicKey });
   if (!result.ok) throw new Error(`ledger chain invalid: ${result.reason}`);
   const records = entries
     .filter((entry) => entry.seq > (options.afterSeq ?? 0))
     .map((entry) => toFeedRecord(entry));
 
-  return { records, verified: true, head: result.head };
+  return { records, verified: true, signed: options.publicKey !== undefined, head: result.head };
 }
 
 export function watchLedgerFeed(

@@ -6,6 +6,7 @@ import type { FeedPage } from "../../ledger/src/feed.ts";
 
 const firstPage: FeedPage = {
   verified: true,
+  signed: false,
   head: "b".repeat(64),
   records: [
     {
@@ -23,6 +24,7 @@ const firstPage: FeedPage = {
 
 const secondPage: FeedPage = {
   verified: true,
+  signed: false,
   head: "c".repeat(64),
   records: [
     ...firstPage.records,

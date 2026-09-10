@@ -60,7 +60,9 @@ describe("classifyCall", () => {
     // from an undecided one, with no assumed class either way.
     const result = classifyCall({ tool: "specimen.never.migrated", facts: {} });
     assert.equal(result.outcome, "unknown-tool");
-    if (result.outcome === "unknown-tool") assert.equal(result.assume, undefined);
+    // The unknown-tool outcome is a bare marker, so an absent tone is itself
+    // the assertion: TS narrowing rejects reading any other field here.
+    assert.ok(!("assume" in result) && !("tone" in result));
   });
 });
 

@@ -1,10 +1,11 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
-import { devKeyProvider } from "../../../packages/ledger/src/sign.ts";
+import { devKeyProvider, sha256Hex } from "../../../packages/ledger/src/sign.ts";
+import { entryHash } from "../../../packages/ledger/src/canonical.ts";
 import { jsonlStore } from "../../../packages/ledger/src/store.ts";
 import { listenControlPlane, type ApprovalBroker, type PendingApproval } from "./server.ts";
 
@@ -39,8 +40,21 @@ async function seedLedger(count = 2): Promise<string> {
   return join(dir, `${workspace}.jsonl`);
 }
 
-async function withServer<T>(ledgerPath: string, run: (origin: string) => Promise<T>, approvals?: ApprovalBroker): Promise<T> {
-  const handle = await listenControlPlane({ ledgerPath, approvals });
+type WithServerOptions = {
+  readonly approvals?: ApprovalBroker;
+  readonly env?: Readonly<NodeJS.ProcessEnv>;
+};
+
+async function withServer<T>(
+  ledgerPath: string,
+  run: (origin: string) => Promise<T>,
+  options: WithServerOptions = {},
+): Promise<T> {
+  const handle = await listenControlPlane({
+    ledgerPath,
+    approvals: options.approvals,
+    env: options.env ?? {},
+  });
   try {
     return await run(`http://127.0.0.1:${handle.port}`);
   } finally {
@@ -55,8 +69,9 @@ describe("control plane API", () => {
       const response = await fetch(`${origin}/api/feed?workspace=default&limit=1`);
       assert.equal(response.status, 200);
       assert.match(response.headers.get("content-type") ?? "", /^application\/json/);
-      const body = await response.json() as { entries: Array<Record<string, unknown>>; verified: boolean };
+      const body = await response.json() as { entries: Array<Record<string, unknown>>; verified: boolean; signed: boolean };
       assert.equal(body.verified, true);
+      assert.equal(body.signed, false);
       assert.equal(body.entries.length, 1);
       assert.deepEqual(Object.keys(body.entries[0]!).sort(), [
         "argsDigest",
@@ -79,11 +94,67 @@ describe("control plane API", () => {
     await withServer(ledgerPath, async (origin) => {
       const response = await fetch(`${origin}/api/ledger/verify`);
       assert.equal(response.status, 200);
-      const body = await response.json() as { ok: boolean; verified: boolean; checked: number; head: string };
+      const body = await response.json() as { ok: boolean; verified: boolean; integrity: boolean; signed: boolean; checked: number; head: string };
       assert.equal(body.ok, true);
-      assert.equal(body.verified, true);
+      // Without a configured key the server has checked the hash chain, and
+      // it must not claim that as authenticated verification.
+      assert.equal(body.verified, false);
+      assert.equal(body.integrity, true);
+      assert.equal(body.signed, false);
       assert.equal(body.checked, 3);
       assert.match(body.head, /^[0-9a-f]{64}$/);
+    });
+  });
+
+  test("verifies signatures when the signing key is in the environment", async () => {
+    const ledgerPath = await seedLedger(2);
+    const keyMaterial = await readFile(join(dirname(ledgerPath), "keys", "dev-ed25519.pkcs8"));
+    await withServer(ledgerPath, async (origin) => {
+      const feedResponse = await fetch(`${origin}/api/feed?workspace=default`);
+      assert.equal(feedResponse.status, 200);
+      const feedBody = await feedResponse.json() as { verified: boolean; signed: boolean };
+      assert.equal(feedBody.verified, true);
+      assert.equal(feedBody.signed, true);
+      const verifyResponse = await fetch(`${origin}/api/ledger/verify`);
+      const verifyBody = await verifyResponse.json() as { ok: boolean; verified: boolean; integrity: boolean; signed: boolean };
+      assert.equal(verifyBody.ok, true);
+      assert.equal(verifyBody.verified, true);
+      assert.equal(verifyBody.integrity, true);
+      assert.equal(verifyBody.signed, true);
+    }, { env: { VOID_SIGNING_KEY: keyMaterial.toString("base64") } });
+  });
+
+  test("a rewritten and rehashed ledger fails verification when a key is configured", async () => {
+    // The S08 attack: rewrite an entry, recompute the whole hash chain so
+    // chain integrity alone sees nothing wrong, and keep the original
+    // signature bytes on the forged entry. Only signature checking can see
+    // this, which is why verified means signed, not just chained.
+    const ledgerPath = await seedLedger(2);
+    const lines = (await readFile(ledgerPath, "utf8")).trim().split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    const forged = JSON.parse(JSON.stringify(lines[1]!)) as Record<string, unknown>;
+    (forged["body"] as Record<string, unknown>)["tool"] = "aws.s3.object.put";
+    let prev = String(lines[0]!["hash"]);
+    forged["prev_hash"] = prev;
+    forged["hash"] = await entryHash(forged["body"], prev, sha256Hex);
+    const keyMaterial = await readFile(join(dirname(ledgerPath), "keys", "dev-ed25519.pkcs8"));
+    await writeFile(ledgerPath, `${JSON.stringify(lines[0])}\n${JSON.stringify(forged)}\n`);
+    await withServer(ledgerPath, async (origin) => {
+      const response = await fetch(`${origin}/api/ledger/verify`);
+      const body = await response.json() as { ok: boolean; verified: boolean; reason?: string };
+      assert.equal(body.ok, false);
+      assert.equal(body.verified, false);
+      assert.match(body.reason ?? "", /signature/);
+    }, { env: { VOID_SIGNING_KEY: keyMaterial.toString("base64") } });
+    // Without a key the same forged file reports integrity only, and the
+    // response must say verified false rather than pass it as checked.
+    await withServer(ledgerPath, async (origin) => {
+      const response = await fetch(`${origin}/api/ledger/verify`);
+      const body = await response.json() as { ok: boolean; verified: boolean; integrity?: boolean; signed?: boolean };
+      assert.equal(body.ok, true);
+      assert.equal(body.verified, false);
+      assert.equal(body.integrity, true);
+      assert.equal(body.signed, false);
     });
   });
 
@@ -133,7 +204,7 @@ describe("control plane API", () => {
       const body = await response.json() as { error: string };
       assert.equal(body.error, "invalid_decision");
       assert.deepEqual(decideCalls, []);
-    }, approvals as ApprovalBroker);
+    }, { approvals: approvals as ApprovalBroker });
   });
 
   test("uses an injected ApprovalBroker for pending holds and decisions", async () => {
@@ -168,6 +239,6 @@ describe("control plane API", () => {
         holdId: "hold-1",
         decision: { kind: "approved", by: "operator", reason: "reviewed blast radius" },
       }]);
-    }, approvals);
+    }, { approvals });
   });
 });

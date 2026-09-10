@@ -53,7 +53,11 @@ export function renderApprovals(records, now, states = new Map(), error) {
 
 export function renderVerification(result, error) {
   if (!error && result?.ok === true && result?.verified === true && Number.isInteger(result.checked) && result.checked >= 0) {
-    return `<span data-tone="ok">chain ok: ${result.checked} records checked</span>`;
+    const scope = result.signed === true ? "chain ok, signatures checked" : "chain ok, signatures NOT checked";
+    return `<span data-tone="ok">${scope}: ${result.checked} records checked</span>`;
+  }
+  if (!error && result?.ok === true && result?.integrity === true && Number.isInteger(result.checked) && result.checked >= 0) {
+    return `<span data-tone="warn">integrity only: hash chain agrees but no signature key was configured, so a rewritten copy could still look like this</span>`;
   }
   return `<span class="error" role="alert">VERIFICATION FAILED: ${escapeHtml(error ?? result?.reason ?? "no positive verification result")}</span>`;
 }
@@ -72,6 +76,7 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
   const states = new Map();
   let approvals = [];
   let entries = [];
+  let feedSigned = false;
   let approvalsError;
   let interval;
   let refreshing = false;
@@ -91,6 +96,9 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
   function drawFeed() {
     const klass = document.getElementById("class-filter")?.value ?? "";
     const decision = document.getElementById("decision-filter")?.value ?? "";
+    setHtml("feed-scope", feedSigned
+      ? '<span data-tone="ok">feed verified with signatures checked against the configured key</span>'
+      : '<span data-tone="warn">feed shows hash chain integrity only: no signature key is configured, so a rewritten copy of the ledger could still present these entries</span>');
     setHtml("feed-list", renderFeed(entries.filter(entry => (!klass || entry.klass.toLowerCase() === klass) && (!decision || entry.decision.split(":")[0] === decision))));
   }
   async function request(url, options = {}) {
@@ -102,11 +110,14 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
     if (pending.has("feed")) return false;
     pending.add("feed");
     try {
-      entries = validateFeed(await request(feedUrl(selectedWorkspace, selectedLimit)));
+      const body = await request(feedUrl(selectedWorkspace, selectedLimit));
+      entries = validateFeed(body);
+      feedSigned = body.signed === true;
       drawFeed();
       return true;
     } catch (error) {
       entries = [];
+      feedSigned = false;
       setHtml("feed-list", renderFeed([], errorMessage(error)));
       return false;
     } finally { pending.delete("feed"); }
