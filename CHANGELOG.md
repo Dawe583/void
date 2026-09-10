@@ -75,3 +75,21 @@ All notable user-facing changes since the first repository commit.
 - 5b8d7013: Fixed the serverless function build so it emits deployable code.
 - 8b097a19: Fixed registry guards that matched too broadly.
 - 04e19881: Fixed hold error wording.
+
+### Added since wave 4
+
+- 79d8683: Added the whole-product arc e2e moment.
+- 3a482ca: Synced operator docs to the wave 5 surfaces.
+- 411d505: Audited the 270 registry entries and pinned the invariants.
+- 7041b06: Hardened the wave-5 surface in an adversarial pass.
+- 6967fcc: Closed S08 for the control plane with signature aware feeds.
+
+### Fixed since wave 4
+
+- The control plane verify endpoint now reports signed separately from chain
+  integrity, and the web UI downgrades to an integrity-only warning when no
+  signing key is configured instead of labeling a hash-only view verified.
+- The decision endpoint rejects posts that do not carry an application/json
+  content type.
+- The unknown-tool classification outcome no longer carries assume or tone
+  fields.
