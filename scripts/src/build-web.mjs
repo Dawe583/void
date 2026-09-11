@@ -1,8 +1,10 @@
-import { mkdir, copyFile, readdir } from 'node:fs/promises';
-const source = new URL('../../apps/control-plane/web/', import.meta.url);
+import { copyFile, mkdir, rm } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+const root = new URL('../../', import.meta.url);
+await rm(new URL('../../dist/web/', import.meta.url), { recursive: true, force: true });
+const result = spawnSync('pnpm', ['--filter', '@void/control-plane-ui', 'build'], { cwd: root, stdio: 'inherit' });
+if (result.status !== 0) process.exit(result.status ?? 1);
 const output = new URL('../../dist/web/', import.meta.url);
 await mkdir(output, { recursive: true });
-for (const name of await readdir(source)) {
-  if (!name.includes('.test.') && /\.(html|css|js|svg|webmanifest)$/.test(name)) await copyFile(new URL(name, source), new URL(name, output));
-}
+for (const name of ['icon.svg', 'manifest.webmanifest']) await copyFile(new URL(`../../apps/control-plane/web/${name}`, import.meta.url), new URL(name, output));
 console.log('VOID web build ready: dist/web');

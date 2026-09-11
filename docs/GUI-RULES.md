@@ -1,5 +1,41 @@
 # VOID GUI design rules
 
+## Shared React application
+
+The active web application lives in `apps/control-plane/ui`. Vite emits
+`dist/web`; the local server, desktop package and Vercel serve the same build.
+The retained `apps/control-plane/web` source is a compatibility reference and
+must not be used as the starting point for new UI features.
+
+- Use the paper-terminal colors defined in `ui/src/styles.css`. System, light
+  and dark appearances share semantic tokens. Keep a visible focus outline.
+- Use the shared shell and named routes. Chat occupies a bounded transcript
+  with a separate composer. Never make the whole viewport scroll to reach Send.
+- Desktop panels use CSS Grid and adjustable, bounded widths. Mobile navigation
+  uses a drawer and safe-area-aware bottom bar; context becomes a full panel.
+- Dialogs use native modal behavior. Restore focus after closing or replacing
+  controls. Background surfaces cannot receive input behind mobile overlays.
+- Body text uses system sans; headings may use serif. Monospace belongs to code
+  and identifiers. Actions have at least 44 px touch targets.
+- Reuse `DataTable`, `Dialog`, `ErrorBox` and the query client. Lists filter on the
+  server. Preserve the displayed page when newer data arrives; offer Refresh.
+- A completed assistant message replaces its streamed fragments. Merge tool
+  cards by call ID; preserve arguments and results. Never execute partial calls.
+- Render Markdown through the parser, with raw HTML disabled. Syntax highlighting
+  loads on demand. Treat all model and connector output as untrusted content.
+- Document edits require the displayed revision. Preserve unsaved content on a
+  conflict. Undo requires a fresh server preview and updates the editor revision.
+- Distinguish signed, verified, unavailable and unknown. A catalog model named
+  Free is not evidence of a zero invoice. Do not invent limits or metrics.
+- Default new conversations to TokenRouter / `z-ai/glm-5.3-free`. Credentials
+  remain server-side. Existing conversations retain their provider snapshot.
+- UI defaults to Czech and supports English. Dates and numbers follow the active
+  locale; API names, model names and conversation content remain unchanged.
+
+Validate changes with `pnpm run typecheck`, `pnpm test`, `pnpm build:web` and the
+relevant browser flow. Use `pnpm desktop:test` for shared runtime changes. Check
+320 px mobile layout, desktop layout, keyboard controls and long content.
+
 ## Current visual direction, 2026-09-11
 
 The user explicitly requested the ASCII identity of Dawe583/void-empty. This

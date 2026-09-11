@@ -48,7 +48,8 @@ await build({
   banner: { js: "import { createRequire as __voidCreateRequire } from 'node:module'; const require = __voidCreateRequire(import.meta.url);" },
   logLevel: 'info',
 });
-await cp(join(root, 'apps/control-plane/web'), join(resources, 'web'), { recursive: true, filter: source => !source.includes('.test.') });
+await execute('pnpm', ['run', 'build:web'], { cwd: root });
+await cp(join(root, 'dist/web'), join(resources, 'web'), { recursive: true });
 await cp(join(root, 'packages/policy/packs'), join(resources, 'packs'), { recursive: true });
 await execute(join(desktop, 'node_modules/.bin/tauri'), ['icon', join(root, 'apps/control-plane/web/icon.svg'), '-o', join(desktop, 'src-tauri/icons')], { cwd: desktop });
 console.log(`VOID desktop resources prepared with verified Node ${version} (${target}).`);

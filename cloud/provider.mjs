@@ -1,37 +1,67 @@
 import { getVercelOidcToken } from "@vercel/oidc";
 import { CompatibleProvider } from "../packages/workbench/src/provider.ts";
+import {
+  DEFAULT_MODEL_ID,
+  DEFAULT_PROVIDER_ID,
+  TOKENROUTER_URL,
+  PROVIDER_PRESETS,
+} from "../packages/workbench/src/provider-defaults.ts";
 import { read, decrypt } from "./store.mjs";
-export async function provider(snapshot) {
+
+async function configuration(snapshot) {
   const config = snapshot ?? (await read("provider"));
   if (config?.disabled) throw new Error("Connect a provider first.");
-  return new CompatibleProvider(
-    config?.secret
-      ? decrypt(config.secret)
-      : {
-          baseUrl: "https://ai-gateway.vercel.sh/v1",
-          apiKey:
-            process.env.AI_GATEWAY_API_KEY ?? (await getVercelOidcToken()),
-        },
-  );
+  if (config?.secret) return decrypt(config.secret);
+  // Explicit legacy snapshots retain their provider. New workspaces use TokenRouter.
+  if (config?.mode === "gateway")
+    return {
+      baseUrl: "https://ai-gateway.vercel.sh/v1",
+      apiKey: process.env.AI_GATEWAY_API_KEY ?? (await getVercelOidcToken()),
+      kind: "openai",
+    };
+  if (!process.env.TOKENROUTER_API_KEY)
+    throw new Error("Connect TokenRouter to use GLM 5.3 Free.");
+  return {
+    baseUrl: TOKENROUTER_URL,
+    apiKey: process.env.TOKENROUTER_API_KEY,
+    kind: "openai",
+  };
+}
+export async function provider(snapshot) {
+  return new CompatibleProvider(await configuration(snapshot));
 }
 export async function providerState() {
+  const defaults = {
+    defaultModel: DEFAULT_MODEL_ID,
+    providerId: DEFAULT_PROVIDER_ID,
+    presets: PROVIDER_PRESETS.filter((p) => !("local" in p)),
+    keyStorage: "encrypted-cloud",
+  };
   try {
-    const client = await provider();
-    const models = await client.models();
+    const config = await configuration();
+    const models = await new CompatibleProvider(config).models();
     return {
+      ...defaults,
       connected: true,
-      baseUrl: (await read("provider"))?.secret ? decrypt((await read("provider")).secret).baseUrl : "https://ai-gateway.vercel.sh/v1",
+      baseUrl: config.baseUrl,
+      kind: config.kind,
+      providerId:
+        PROVIDER_PRESETS.find((p) => p.baseUrl === config.baseUrl)?.id ??
+        "custom",
       profiles: Object.keys((await read("provider-profiles")) ?? {}),
       models,
-      keyStorage: "encrypted-cloud",
-      mode: (await read("provider"))?.secret ? "custom" : "vercel-gateway",
+      mode: config.baseUrl === TOKENROUTER_URL ? "tokenrouter" : "custom",
     };
-  } catch {
+  } catch (error) {
     return {
+      ...defaults,
       connected: false,
+      baseUrl: TOKENROUTER_URL,
       models: [],
-      keyStorage: "encrypted-cloud",
-      message: "Connect a provider or enable Vercel AI Gateway.",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Connect TokenRouter to continue.",
     };
   }
 }

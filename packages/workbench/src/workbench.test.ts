@@ -93,7 +93,8 @@ test('long sessions keep advancing event cursors and refuse unbounded context', 
     if (turn < 98) workbench.send(started.id, `Follow up ${turn}`);
   }
   const events = workbench.get(started.id)!.events;
-  assert.equal(events.length, 200);
+  assert.equal(events.filter(e=>e.type !== "run.status").length, 297);
+  assert.equal(events[0]!.seq, 1);
   assert.ok(events.at(-1)!.seq > 200);
   assert.throws(() => workbench.send(started.id, 'Too much context'), /context limit/);
 });

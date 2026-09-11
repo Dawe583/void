@@ -139,7 +139,7 @@ test("real server supplies feed shape and serves only the public browser module"
     const signer = await devKeyProvider({ dir: join(dir, "keys"), env: {} });
     const store = jsonlStore(signer, { dir });
     await store.append({ workspace: "default", ...entry, argsDigest: "b".repeat(64) });
-    handle = await listenControlPlane({ ledgerPath: join(dir, "default.jsonl"), env: {} });
+    handle = await listenControlPlane({ ledgerPath: join(dir, "default.jsonl"), webRoot: import.meta.dirname, env: {} });
     const origin = `http://127.0.0.1:${handle.port}`;
     const feed = await fetch(origin + feedUrl("default", 1));
     const body = await feed.json();

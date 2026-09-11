@@ -24,5 +24,59 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/chat/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/overview",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sessions",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/runs",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/documents",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/approvals",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ledger",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/connections",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/models",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/feed.html",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/approvals.html",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ledger.html",
+      "destination": "/index.html"
+    }
   ]
 }

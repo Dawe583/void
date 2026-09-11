@@ -1,0 +1,25 @@
+{
+  "name": "@void/control-plane-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "dev": "vite --host 127.0.0.1",
+    "test": "node --experimental-strip-types --test src/events.test.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "highlight.js": "^11.11.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.3.2"
+  }
+}

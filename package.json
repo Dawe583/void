@@ -5,16 +5,18 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "tui:preview": "pnpm --filter @void/cli run tui:preview --",
-    "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./scripts\" --if-present run typecheck && tsc -p apps/control-plane/tsconfig.json",
+    "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./scripts\" --if-present run typecheck && tsc -p apps/control-plane/tsconfig.json && pnpm --filter @void/control-plane-ui typecheck",
     "test": "node scripts/src/check-tests.mjs",
     "check": "pnpm run typecheck && pnpm test",
     "check:mirror": "node scripts/src/check-registry-mirror.mjs",
-    "gui": "node apps/control-plane/api/server.ts",
+    "gui": "pnpm build:web && node apps/control-plane/api/server.ts",
     "watch": "node packages/cli/bin/void.mjs watch",
     "desktop:setup": "pnpm --dir apps/desktop install --ignore-workspace",
     "desktop": "pnpm --dir apps/desktop dev",
     "desktop:build": "pnpm --dir apps/desktop build",
-    "desktop:test": "pnpm --dir apps/desktop test"
+    "desktop:test": "pnpm --dir apps/desktop test",
+    "build:web": "node scripts/src/build-web.mjs",
+    "dev:web": "pnpm --filter @void/control-plane-ui dev"
   },
   "private": true,
   "devDependencies": {

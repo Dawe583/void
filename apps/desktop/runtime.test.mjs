@@ -17,8 +17,8 @@ test('desktop runtime serves the shared workbench, rejects foreign origins, and 
   const packaged = process.env.VOID_TEST_PACKAGED === '1';
   const executable = packaged ? join(desktop, 'src-tauri/resources/bin/node') : process.execPath;
   const entry = packaged ? join(desktop, 'src-tauri/resources/runtime/runtime.mjs') : join(desktop, 'runtime.mjs');
-  const env = { ...process.env, VOID_DATA_DIR: data, VOID_DESKTOP_WEB_ROOT: web, VOID_CONTROL_TOKEN: 'ignored-cloud-token'.repeat(4), VOID_WORKSPACE_KEY: randomBytes(32).toString('base64') };
-  for (const key of ['OPENROUTER_API_KEY', 'VOID_PROVIDER_URL', 'VOID_UPSTREAM_COMMAND', 'VOID_POLICY_PATH', 'VOID_LEDGER_DIR', 'VOID_SIGNING_KEY', 'VOID_VERIFY_KEY']) delete env[key];
+  const env = { ...process.env, VOID_DATA_DIR: data, VOID_DESKTOP_WEB_ROOT: packaged ? join(desktop, 'src-tauri/resources/web') : web, VOID_CONTROL_TOKEN: 'ignored-cloud-token'.repeat(4), VOID_WORKSPACE_KEY: randomBytes(32).toString('base64') };
+  for (const key of ['TOKENROUTER_API_KEY', 'OPENROUTER_API_KEY', 'VOID_PROVIDER_URL', 'VOID_UPSTREAM_COMMAND', 'VOID_POLICY_PATH', 'VOID_LEDGER_DIR', 'VOID_SIGNING_KEY', 'VOID_VERIFY_KEY']) delete env[key];
   const child = spawn(executable, [entry], { env, stdio: ['pipe', 'pipe', 'pipe'] });
   const exited = once(child, 'exit');
   const lines = createInterface({ input: child.stdout });
@@ -31,7 +31,14 @@ test('desktop runtime serves the shared workbench, rejects foreign origins, and 
     assert.equal(ready.pid, child.pid);
     const page = await fetch(origin);
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /VOID/);
+    const html = await page.text();
+    assert.match(html, /VOID/);
+    if (packaged) {
+      const script = html.match(/src="(\/assets\/[^\"]+\.js)"/)?.[1];
+      assert.ok(script, 'Packaged desktop contains the shared React build');
+      assert.equal((await fetch(origin + script)).status, 200);
+      assert.equal((await fetch(origin + '/chat/new')).status, 200);
+    }
     const state = await fetch(`${origin}/api/provider`);
     assert.equal(state.status, 200);
     assert.equal((await state.json()).connected, false);

@@ -1,3 +1,5 @@
+import { DEFAULT_MODEL_ID, TOKENROUTER_URL, PROVIDER_PRESETS } from './provider-defaults.ts';
+import { documentView, sessionPatch, preferencePatch, page, filterRows, providerFailure, connectorInput, publicConnector } from './gui.ts';
 import { LocalStorage } from './storage.ts';
 import { catalog as mcpCatalog, rpc, validateEndpoint, type McpTool, type McpConfig } from './mcp.ts';
 import { createWorkspace, workspaceTools, executeWorkspaceTool, previewWorkspaceUndo, applyWorkspaceUndo, workspaceToolClass, type WorkspaceState, type WorkspaceOperation } from './workspace.ts';
@@ -14,11 +16,11 @@ import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createVoidClient, type VoidClient } from '../../sdk/src/client.ts';
-import { CompatibleProvider, type Model, type ModelMessage, type ProviderConfig } from './provider.ts';
+import { CompatibleProvider, ProviderRequestError, type Model, type ModelMessage, type ProviderConfig } from './provider.ts';
 import type { JsonObject } from '../../proxy/src/rpc.ts';
 
-export type SessionEvent = { readonly seq: number; readonly at: string; readonly kind: 'user' | 'assistant' | 'tool' | 'error' | 'usage'; readonly text: string };
-export type SessionView = { readonly id: string; readonly workspace: string; readonly model: string; readonly title?: string; readonly status: 'running' | 'idle' | 'cancelled' | 'failed'; readonly events: readonly SessionEvent[] };
+export type SessionEvent = { readonly seq: number; readonly at: string; readonly kind: 'user' | 'assistant' | 'tool' | 'error' | 'usage'; readonly text: string; readonly id?: string; readonly sessionId?: string; readonly runId?: string; readonly type?: string; readonly payload?: Record<string, unknown>; readonly schemaVersion?: number };
+export type SessionView = { readonly id: string; readonly workspace: string; readonly model: string; readonly title?: string; readonly createdAt?: string; readonly updatedAt?: string; readonly pinned?: boolean; readonly archived?: boolean; readonly project?: string; readonly tags?: string[]; readonly runId?: string; readonly provider?: string; readonly parentId?: string; readonly status: 'running' | 'idle' | 'cancelled' | 'failed'; readonly events: readonly SessionEvent[] };
 export const DEFAULT_POLICY = 'version: 1\nrules:\n  - match:\n      class: r0\n    decision: allow\n  - match: {}\n    decision: hold\n    seconds: 300\n    notify: [cli]\n';
 type Connector = McpConfig & { id: string; name: string; tools: McpTool[] };
 type Session = { view: SessionView; messages: ModelMessage[]; client?: VoidClient; tools?: McpTool[]; connections?: Record<string, McpConfig & { sessionId?: string }>; config?: ProviderConfig; controller: AbortController; provider: CompatibleProvider };
@@ -30,6 +32,9 @@ export class Workbench {
   private provider: CompatibleProvider | undefined;
   private readonly storage: LocalStorage;
   private hasState = false;
+  private preferences: Record<string, string> = { defaultProvider: 'tokenrouter', defaultModel: DEFAULT_MODEL_ID, locale: 'cs', appearance: 'system', sendBehavior: 'enter' };
+  private requests: Record<string, { digest: string; sessionId: string }> = {};
+  private approvalHistory: unknown[] = [];
   private readonly keyStorage: string;
   private config: ProviderConfig | undefined;
   private profiles: Record<string, ProviderConfig> = {};
@@ -45,21 +50,22 @@ export class Workbench {
     this.keyStorage = env.VOID_WORKSPACE_KEY ? "os-keychain" : "encrypted-local";
     this.env = { ...env }; delete (this.env as NodeJS.ProcessEnv).VOID_WORKSPACE_KEY; this.fetcher = fetcher;
     this.storage = new LocalStorage(env.VOID_DATA_DIR ?? join(env.VOID_LEDGER_DIR ?? join(homedir(), '.void'), 'workbench'), env.VOID_WORKSPACE_KEY);
-    const saved = this.storage.read<{ config?: ProviderConfig; profiles?: Record<string, ProviderConfig>; catalog: readonly Model[]; connectors: Connector[]; documents: Record<string, WorkspaceState>; evidence: Record<string, JsonlEntry[]>; sessions: Array<{ view: SessionView; messages: ModelMessage[]; config?: ProviderConfig; tools?: McpTool[]; connections?: Session['connections'] }> }>();
+    const saved = this.storage.read<{ preferences?: Record<string, string>; requests?: Record<string, { digest: string; sessionId: string }>; approvalHistory?: unknown[]; config?: ProviderConfig; profiles?: Record<string, ProviderConfig>; catalog: readonly Model[]; connectors: Connector[]; documents: Record<string, WorkspaceState>; evidence: Record<string, JsonlEntry[]>; sessions: Array<{ view: SessionView; messages: ModelMessage[]; config?: ProviderConfig; tools?: McpTool[]; connections?: Session['connections'] }> }>();
     if (saved) {
+      this.preferences = { ...this.preferences, ...saved.preferences }; this.requests = saved.requests ?? {}; this.approvalHistory = saved.approvalHistory ?? [];
       this.hasState = !!saved.config || !!saved.sessions.length || !!saved.connectors.length;
       this.config = saved.config; this.profiles = saved.profiles ?? {}; this.catalog = saved.catalog; this.connectors = saved.connectors; this.documents = saved.documents; this.evidence = saved.evidence;
       if (this.config) this.provider = new CompatibleProvider(this.config, fetcher);
       for (const item of saved.sessions) {
         const config = item.config ?? this.config;
-        if (!config) continue;
+        if (!config) { const fallback = { baseUrl: TOKENROUTER_URL, apiKey: '' }; this.sessions.set(item.view.id, { ...item, view: { ...item.view, status: item.view.status === 'running' ? 'failed' : item.view.status }, provider: new CompatibleProvider(fallback, fetcher), controller: new AbortController() }); continue; }
         this.sessions.set(item.view.id, { ...item, view: { ...item.view, status: item.view.status === 'running' ? 'failed' : item.view.status }, provider: new CompatibleProvider(config, fetcher), controller: new AbortController() });
       }
     }
   }
   private persist(): void {
     if (!this.hasState && !this.config && !this.sessions.size && !this.connectors.length) return;
-    this.storage.save({ config: this.config, profiles: this.profiles, catalog: this.catalog, connectors: this.connectors, documents: this.documents, evidence: this.evidence,
+    this.storage.save({ preferences: this.preferences, requests: this.requests, approvalHistory: this.approvalHistory, config: this.config, profiles: this.profiles, catalog: this.catalog, connectors: this.connectors, documents: this.documents, evidence: this.evidence,
       sessions: [...this.sessions.values()].map(({ view, messages, config, tools, connections }) => ({ view, messages, config, tools, connections })) });
     this.hasState = true;
   }
@@ -71,13 +77,14 @@ export class Workbench {
     return models;
   }
   async providerState() {
+    if (!this.provider && !this.ignoreEnvironment && this.env.TOKENROUTER_API_KEY) await this.configure({ baseUrl: TOKENROUTER_URL, apiKey: this.env.TOKENROUTER_API_KEY });
     if (!this.provider && !this.ignoreEnvironment && this.env.OPENROUTER_API_KEY) await this.configure({ baseUrl: this.env.VOID_PROVIDER_URL ?? 'https://openrouter.ai/api/v1', apiKey: this.env.OPENROUTER_API_KEY });
-    return { connected: this.provider !== undefined, models: this.catalog, keyStorage: this.keyStorage, baseUrl: this.config?.baseUrl, kind: this.config?.kind, profiles: Object.keys(this.profiles), upstreamConfigured: true };
+    return { connected: this.provider !== undefined, models: this.catalog, keyStorage: this.keyStorage, baseUrl: this.config?.baseUrl, kind: this.config?.kind, profiles: Object.keys(this.profiles), presets: PROVIDER_PRESETS, providerId: PROVIDER_PRESETS.find(p => p.baseUrl === this.config?.baseUrl)?.id ?? 'custom', defaultModel: this.preferences.defaultModel, upstreamConfigured: true };
   }
   clearProvider(): void { this.ignoreEnvironment = true; this.provider = undefined; if (this.config) delete this.profiles[this.config.baseUrl]; this.config = undefined; this.catalog = []; this.persist(); }
   list(): readonly SessionView[] { return [...this.sessions.values()].map(session => ({ ...session.view, events: [] })); }
   get(id: string): SessionView | undefined { return this.sessions.get(id)?.view; }
-  async start(prompt: string, model: string): Promise<SessionView> { return this.locked(() => this.startSession(prompt, model)); }
+  async start(prompt: string, model = this.preferences.defaultModel ?? DEFAULT_MODEL_ID, key?: string): Promise<SessionView> { return this.locked(async () => { const prior = this.request(key, ['start', prompt, model]); if (prior) return this.get(prior)!; await this.providerState(); const result = await this.startSession(prompt, model); this.remember(key, ['start', prompt, model], result.id); return result; }); }
   private async startSession(prompt: string, model: string): Promise<SessionView> {
     if (!this.provider) throw new Error('Connect and validate a provider first.');
     const selectedProvider = this.provider, selectedConfig = this.config;
@@ -88,7 +95,6 @@ export class Workbench {
     if (command !== null && (!Array.isArray(command) || !command.length || !command.every(item => typeof item === 'string' && item.length > 0))) throw new Error('Configure VOID_UPSTREAM_COMMAND on the runtime with the MCP server command as a JSON array.');
     if (command && !this.env.VOID_POLICY_PATH) throw new Error('Configure VOID_POLICY_PATH before starting an agent.');
     if (!prompt.trim() || prompt.length > 32000) throw new Error('Enter a prompt between 1 and 32000 characters.');
-    if (this.sessions.size >= 100) throw new Error('Session capacity reached. Restart the runtime after exporting the ledgers.');
     const id = randomUUID();
     const workspace = `agent-${id}`;
     const client = Array.isArray(command) ? createVoidClient({ workspace, ledgerDir: this.env.VOID_LEDGER_DIR ?? join(homedir(), '.void', 'ledger'), connect: { upstreamCommand: command }, policyPath: this.env.VOID_POLICY_PATH!, factsPath: this.env.VOID_FACTS_PATH, posture: 'fail-closed', requestTimeoutMs: 180000 }) : undefined;
@@ -105,28 +111,33 @@ export class Workbench {
     }
     if ([...this.sessions.values()].some(s => s.view.status === 'running')) { client?.close(); throw new Error('Another session started while connecting tools. Retry after it stops.'); }
     this.documents[workspace] = createWorkspace();
-    const session: Session = { view: { id, workspace, model, title: prompt.trim().slice(0, 80), status: 'idle', events: [] }, messages: [{ role: 'system', content: 'You are operating through VOID. Tool calls are classified, governed by policy, and recorded. Respect denied calls; do not retry them with reworded arguments. Wait for operator approval of held calls. Only claim completed actions when tool results prove them. You have a managed document workspace with list, read, write and delete tools. Changes in that workspace are captured and can be undone by the operator. These tools do not access the host filesystem. Use them when asked to create or edit documents.' }], client, tools, connections, config: selectedConfig, controller: new AbortController(), provider: selectedProvider };
+    const session: Session = { view: { id, workspace, model, provider: selectedConfig?.baseUrl, createdAt: new Date().toISOString(), title: prompt.trim().slice(0, 80), status: 'idle', events: [] }, messages: [{ role: 'system', content: 'You are operating through VOID. Tool calls are classified, governed by policy, and recorded. Respect denied calls; do not retry them with reworded arguments. Wait for operator approval of held calls. Only claim completed actions when tool results prove them. You have a managed document workspace with list, read, write and delete tools. Changes in that workspace are captured and can be undone by the operator. These tools do not access the host filesystem. Use them when asked to create or edit documents.' }], client, tools, connections, config: selectedConfig, controller: new AbortController(), provider: selectedProvider };
     this.sessions.set(id, session);
     this.send(id, prompt);
     return session.view;
   }
-  send(id: string, prompt: string): void {
+  send(id: string, prompt: string, key?: string): void {
+    if (this.request(key, [id, prompt])) return;
     const session = this.sessions.get(id);
-    if (!session || session.view.status !== 'idle') throw new Error('The session is not ready for another message.');
+    if (!session || session.view.status === 'running') throw new Error('The session is not ready for another message.');
     if (!prompt.trim() || prompt.length > 32000) throw new Error('Enter a prompt between 1 and 32000 characters.');
     if ([...this.sessions.values()].some(other => other !== session && other.view.status === 'running')) throw new Error('Wait for the active session or cancel it first.');
     if (session.messages.length >= 199) throw new Error('Session context limit reached. Start a new session.');
+    session.controller = new AbortController();
+    session.view = { ...session.view, runId: randomUUID() };
     session.messages.push({ role: 'user', content: prompt });
     this.event(session, 'user', prompt);
     session.view = { ...session.view, status: 'running' };
+    this.event(session, 'tool', 'Running', { status: 'running' }, 'run.status');
     this.persist();
+    this.remember(key, [id, prompt], id);
     void this.run(session);
   }
   cancel(id: string): void {
     const session = this.sessions.get(id);
     if (!session) throw new Error('Session not found.');
     session.controller.abort(); session.client?.close();
-    session.view = { ...session.view, status: 'cancelled' }; this.persist();
+    session.view = { ...session.view, status: 'cancelled' }; this.event(session, 'tool', 'Cancellation requested. An already dispatched tool may finish.', { status: 'cancelled' }, 'run.status'); this.persist();
   }
   close(): void { for (const session of this.sessions.values()) { session.controller.abort(); session.client?.close(); if (session.view.status === 'running') session.view = { ...session.view, status: 'cancelled' }; } this.persist(); }
   pending() { return [...this.holds.values()].filter(h => h.status === 'pending' && h.expiresAt > Date.now()).concat([...this.sessions.values()].flatMap(session => session.view.status === 'running' ? (session.client?.pendingHolds() ?? []).map(hold => ({ ...hold, holdId: `${session.view.id}:${hold.holdId}` })) : []) as never[]); }
@@ -138,11 +149,40 @@ export class Workbench {
     if (session && holdId && session.view.status === "running") return session.client?.approvals.decide(holdId, decision) ?? false;
     return false;
   }
-  private event(session: Session, kind: SessionEvent['kind'], text: string) {
-    session.view = { ...session.view, events: [...session.view.events, { seq: (session.view.events.at(-1)?.seq ?? 0) + 1, at: new Date().toISOString(), kind, text: session.provider.redact(text).slice(0, 32000) }].slice(-200) };
+  private event(session: Session, kind: SessionEvent['kind'], text: string, payload: Record<string, unknown> = {}, type?: string) {
+    const seq = (session.view.events.at(-1)?.seq ?? 0) + 1, at = new Date().toISOString();
+    let safeText = session.provider.redact(JSON.stringify(payload)); for (const config of Object.values(session.connections ?? {})) if(config.token) safeText=safeText.split(config.token).join('[redacted]');
+    const safe = JSON.parse(safeText) as Record<string, unknown>;
+    session.view = { ...session.view, updatedAt: at, events: [...session.view.events, { id: `${session.view.id}:${seq}`, sessionId: session.view.id, runId: session.view.runId, seq, at, kind, text: session.provider.redact(text).slice(0, 32000), type: type ?? ({ user: 'message.completed', assistant: 'message.completed', tool: 'tool.result', error: 'run.error', usage: 'usage.reported' }[kind]), payload: safe, schemaVersion: 1 }] };
   }
-  connectionState() { return { connectors: [{ id: 'workspace', name: 'VOID documents', builtin: true, tools: workspaceTools.map(t => t.name), undo: true }, ...this.connectors.map(({ id, name, url, tools }) => ({ id, name, url, tools: tools.map(t => t.name), undo: false }))] }; }
+  getPreferences() { return { ...this.preferences }; }
+  patchPreferences(body: Record<string, unknown>) { this.preferences = { ...this.preferences, ...preferencePatch(body) }; this.hasState = true; this.persist(); return this.getPreferences(); }
+  patchSession(id: string, body: Record<string, unknown>) { const s = this.sessions.get(id); if (!s) throw new Error('Session not found.'); s.view = { ...s.view, ...sessionPatch(body), updatedAt: new Date().toISOString() }; this.persist(); return s.view; }
+  sessionPage(query: URLSearchParams) {
+    const all = filterRows([...this.sessions.values()].map(s => s.view), query).filter(s => query.get('archived') === 'all' || !!s.archived === (query.get('archived') === 'true')).sort((a,b) => Number(!!b.pinned)-Number(!!a.pinned) || String(b.createdAt ?? b.id).localeCompare(String(a.createdAt ?? a.id)));
+    const result = page(all, query); return { ...result, items: result.items.map(s => ({ ...s, events: [], messageCount: s.events.filter(e => e.type === 'message.completed' || !e.type && ['user','assistant'].includes(e.kind)).length })), sessions: result.items.map(s => ({ ...s, events: [] })) };
+  }
+  allViews() { return [...this.sessions.values()].map(s => s.view); }
+  approvals() { return [...this.approvalHistory, ...this.holds.values()].map(h => { const hold = h as { status: string; expiresAt: number }; return { ...hold, status: hold.status === 'pending' && hold.expiresAt <= Date.now() ? 'expired' : hold.status }; }); }
+  documentsList() { return [...this.sessions.values()].flatMap(s => Object.keys(this.workspace(s.view.id).files).map(path => { const { content, ...item } = documentView(this.workspace(s.view.id), path, s.view.id); return { ...item, workspace: s.view.workspace }; })); }
+  document(id: string, path: string) { return documentView(this.workspace(id), path, id); }
+  async editDocument(id: string, input: { path: string; content: string; expectedRevision: string | null }) {
+    return this.locked(async () => { const s = this.sessions.get(id); if (!s) throw new Error('Session not found.'); if (s.view.status === 'running') throw new Error('Wait for the agent to stop.'); const state = this.workspace(id); if (documentView(state, input.path, id).revision !== input.expectedRevision) throw new Error('Document revision conflict. Refresh before saving.'); const changed = executeWorkspaceTool(state, { id: randomUUID(), name: 'void_workspace_write', arguments: input }); if (changed.result.isError) throw new Error(changed.result.content[0]?.text); await this.commitWorkspace(s, changed.state, 'void_workspace_write', { path: input.path, content: input.content }, 'execute:completed', changed.operation, { by: 'web-operator' }); this.event(s, 'tool', `Updated ${input.path}.`, { path: input.path, operationId: changed.operation?.id }, 'document.changed'); this.persist(); return this.document(id, input.path); });
+  }
+  async branch(id: string, body: { seq: number; prompt?: string; snapshotDocuments?: boolean }) {
+    return this.locked(async () => { const parent = this.sessions.get(id); if (!parent || !Number.isSafeInteger(body.seq) || !parent.view.events.some(e => e.seq === body.seq)) throw new Error('Choose an existing message.'); const messages = parent.view.events.filter(e => e.seq <= body.seq && ['user','assistant'].includes(e.kind) && (!e.type || e.type === 'message.completed'));
+      if (body.prompt !== undefined) { if (!body.prompt.trim() || body.prompt.length > 32000 || messages.at(-1)?.kind !== 'user') throw new Error('Choose a user message to edit.'); messages[messages.length-1] = { ...messages.at(-1)!, text: body.prompt }; }
+      const childId = randomUUID(), workspace = `agent-${childId}`; const child: Session = { ...parent, client: undefined, controller: new AbortController(), view: { ...parent.view, id: childId, workspace, parentId: id, title: `${parent.view.title ?? 'Conversation'} (branch)`, status: 'idle', pinned: false, archived: false, createdAt: new Date().toISOString(), events: [] }, messages: [parent.messages[0]!, ...messages.map(e => ({ role: e.kind as 'user'|'assistant', content: e.text }))] };
+      this.sessions.set(childId, child); this.documents[workspace] = createWorkspace();
+      if (body.snapshotDocuments) for (const [path, content] of Object.entries(this.workspace(id).files)) { const change = executeWorkspaceTool(this.documents[workspace]!, { id: randomUUID(), name: 'void_workspace_write', arguments: { path, content } }); if (change.result.isError) throw new Error('Snapshot failed.'); await this.commitWorkspace(child, change.state, 'void_workspace_write', { path, content }, 'execute:completed', change.operation, { by: 'web-operator' }); }
+      for (const e of messages) this.event(child, e.kind, e.text, { importedFrom: id, originalSeq: e.seq }); this.persist(); return child.view;
+    });
+  }
+  private request(key: string | undefined, value: unknown) { if (!key) return; if (!/^[A-Za-z0-9_.:-]{1,160}$/.test(key)) throw new Error('Invalid idempotency key.'); const prior = this.requests[key]; if (prior && prior.digest !== JSON.stringify(value)) throw new Error('Idempotency key belongs to another request.'); return prior?.sessionId; }
+  private remember(key: string | undefined, value: unknown, sessionId: string) { if (key) { this.requests[key] = { digest: JSON.stringify(value), sessionId }; this.persist(); } }
+  connectionState() { return { connectors: [{ id: 'workspace', name: 'VOID documents', builtin: true, tools: workspaceTools.map(t => t.name), toolDetails: workspaceTools, undo: true }, ...this.connectors.map(publicConnector)] }; }
   async addConnector(input: McpConfig & { name?: string }) {
+    input = connectorInput(input);
     const url = validateEndpoint(input.url, true);
     const policy = input.policy || DEFAULT_POLICY;
     if (!loadPolicy(policy).ok) throw new Error('Invalid VOID policy.');
@@ -151,6 +191,24 @@ export class Workbench {
     const connector = { ...input, url, policy, id: randomUUID(), name: input.name?.trim().slice(0, 80) || new URL(url).hostname, tools: listed.tools };
     this.connectors.push(connector); this.persist();
     return this.connectionState();
+  }
+  async updateConnector(id: string, body: Record<string, unknown>) {
+    const previous = this.connectors.find(item => item.id === id); if (!previous) throw new Error('Connector not found.');
+    const input = connectorInput(body, previous), url = validateEndpoint(input.url, true), policy = input.policy || DEFAULT_POLICY;
+    if (!loadPolicy(policy).ok) throw new Error('Invalid VOID policy.');
+    const listed = await mcpCatalog({ ...input, url, policy });
+    return this.locked(async () => {
+      if (this.connectors.find(item => item.id === id) !== previous) throw new Error('Connector changed during validation. Refresh before saving.');
+      const replacement = { ...input, id, url, policy, name: input.name?.trim() || new URL(url).hostname, tools: listed.tools };
+      const before = this.connectors; this.connectors = before.map(item => item.id === id ? replacement : item);
+      try { this.persist(); } catch(error) { this.connectors = before; throw error; }
+      return publicConnector(replacement);
+    });
+  }
+  async testConnector(id: string) {
+    const config = this.connectors.find(item => item.id === id); if (!config) throw new Error('Connector not found.');
+    const listed = await mcpCatalog(config), safe = publicConnector({ ...config, tools: listed.tools });
+    return { ok: true, checkedAt: new Date().toISOString(), tools: safe.tools, toolDetails: safe.toolDetails };
   }
   removeConnector(id: string) { this.connectors = this.connectors.filter(c => c.id !== id); this.persist(); }
   workspace(id: string) {
@@ -251,7 +309,7 @@ export class Workbench {
       while (hold.status === 'pending' && hold.expiresAt > Date.now() && !session.controller.signal.aborted) await delay(100);
       allowed = hold.status === 'approved' && !session.controller.signal.aborted;
       await this.locked(() => this.commitWorkspace(session, this.workspace(session.view.id), name, args, allowed ? "hold:approved" : "hold:denied", undefined, hold, { klass: call.klass }));
-      this.holds.delete(hold.holdId);
+      this.approvalHistory.push({ ...hold }); this.holds.delete(hold.holdId);
     }
     if (!allowed) return { isError: true, content: [{ type: 'text', text: `VOID denied ${name} (${call.klass}). Review the connector policy and explicit registry mapping. Do not retry.` }] };
     if (session.controller.signal.aborted) throw new Error('Session cancelled.');
@@ -269,10 +327,12 @@ export class Workbench {
       for (let turn = 0; turn < 20; turn++) {
         if (session.controller.signal.aborted) return;
         if (session.messages.length >= 200) throw new Error('Session context limit reached. Start a new session.');
-        const reply = await session.provider.complete(session.view.model, session.messages, tools, session.controller.signal);
+        let delta = ''; let flushed = Date.now();
+        const reply = await session.provider.complete(session.view.model, session.messages, tools, session.controller.signal, text => { delta += text; if (Date.now()-flushed > 250 || delta.length > 512) { this.event(session, 'assistant', delta, {}, 'message.delta'); delta = ''; flushed = Date.now(); this.persist(); } });
+        if (delta) this.event(session, 'assistant', delta, {}, 'message.delta');
         session.messages.push(reply.message);
         if (reply.message.content) this.event(session, 'assistant', reply.message.content);
-        if (reply.usage) this.event(session, 'usage', `${reply.usage.total_tokens ?? 'Unknown'} tokens reported by provider`);
+        if (reply.usage) this.event(session, 'usage', `${reply.usage.total_tokens ?? 'Unknown'} tokens reported by provider`, { ...reply.usage, model: session.view.model, source: 'provider', cost: null });
         if ((reply.message.tool_calls?.length ?? 0) > 32) throw new Error('Provider exceeded the 32-tool batch limit.');
         if (!reply.message.tool_calls?.length) { session.view = { ...session.view, status: 'idle' }; this.persist(); return; }
         for (const call of reply.message.tool_calls) {
@@ -283,18 +343,18 @@ export class Workbench {
           let args: unknown;
           try { args = JSON.parse(call.function.arguments); } catch { throw new Error('Provider returned malformed tool arguments.'); }
           if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Tool arguments must be an object.');
-          this.event(session, 'tool', `Requested ${name}. VOID will decide before execution.`);
+          this.event(session, 'tool', `Requested ${name}. VOID will decide before execution.`, { tool: name, callId: call.id, arguments: args }, 'tool.started');
           let result: unknown;
           try { result = await this.execute(session, tool!, args as JsonObject, `${session.view.id}-${session.messages.length}-${call.id}`); }
           catch { result = { isError: true, content: [{ type: 'text', text: 'VOID refused or could not execute this call. Do not retry; ask the operator.' }] }; }
           if (session.controller.signal.aborted) return;
-          this.event(session, 'tool', `${name}: ${(result as { isError?: boolean })?.isError ? 'refused or failed' : 'result received'}`);
+          this.event(session, 'tool', `${name}: ${(result as { isError?: boolean })?.isError ? 'refused or failed' : 'result received'}`, { tool: name, callId: call.id, result });
           session.messages.push({ role: 'tool', tool_call_id: call.id, content: session.provider.redact(JSON.stringify(result)).slice(0, 64000) });
         }
       }
       throw new Error('Session reached the 20-turn limit. Review the ledger before continuing.');
     } catch (error) {
-      if (!session.controller.signal.aborted) { this.event(session, 'error', error instanceof Error ? error.message : 'Session failed.'); session.view = { ...session.view, status: 'failed' }; session.client?.close(); }
-    } finally { this.persist(); }
+      if (!session.controller.signal.aborted) { const failure = error instanceof ProviderRequestError ? providerFailure(error) : undefined; this.event(session, 'error', failure?.text ?? (error instanceof Error ? error.message : 'Session failed.'), failure?.payload ?? {}); session.view = { ...session.view, status: 'failed' }; session.client?.close(); }
+    } finally { this.event(session, 'tool', session.view.status, { status: session.view.status }, 'run.status'); this.persist(); }
   }
 }

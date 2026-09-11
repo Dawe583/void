@@ -35,6 +35,14 @@ VOID does not make an agent safe by trusting the model. It protects the write pa
 
 Use Node.js 24 or newer and `pnpm install --frozen-lockfile`. Packages are private at version 0.1.0. Start the agent GUI with `pnpm gui`, or run the native macOS app with `pnpm desktop:setup` followed by `pnpm desktop`. Connect a provider in Settings; managed documents and captured Undo work without a separate tool server. Build the installer with `pnpm desktop:build`; see [the beta runbook](docs/BETA.md) for agent configuration, terminal controls, Vercel deployment and the reviewed feature boundaries.
 
+The GUI uses the shared React/TypeScript client in `apps/control-plane/ui`.
+`pnpm gui` builds it before starting the local API. For frontend development,
+run `node apps/control-plane/api/server.ts` and `pnpm dev:web` in separate
+terminals. `pnpm build:web` creates the production assets used by Vercel and
+the desktop bundle. New conversations default to **TokenRouter / GLM 5.3 Free**;
+connect a server-side provider key in Settings or set `TOKENROUTER_API_KEY`.
+Existing conversations keep their original provider and model.
+
 From the repository root, start with the simulated hold moment:
 
 ```sh

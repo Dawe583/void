@@ -37,6 +37,7 @@ minimumReleaseAgeExclude:
 packages:
   - packages/*
   - scripts
+  - apps/control-plane/ui
 
 catalog:
   '@replit/vite-plugin-cartographer': ^0.5.21
@@ -74,8 +75,6 @@ onlyBuiltDependencies:
 
 overrides:
   # replit uses linux-x64 only, we can exclude all other platforms
-  "esbuild>@esbuild/darwin-arm64": "-"
-  "esbuild>@esbuild/darwin-x64": "-"
   "esbuild>@esbuild/freebsd-arm64": "-"
   "esbuild>@esbuild/freebsd-x64": "-"
   "esbuild>@esbuild/linux-arm": "-"
@@ -121,8 +120,6 @@ overrides:
   "@tailwindcss/oxide>@tailwindcss/oxide-linux-x64-musl": "-"
   "rollup>@rollup/rollup-android-arm-eabi": "-"
   "rollup>@rollup/rollup-android-arm64": "-"
-  "rollup>@rollup/rollup-darwin-arm64": "-"
-  "rollup>@rollup/rollup-darwin-x64": "-"
   "rollup>@rollup/rollup-freebsd-arm64": "-"
   "rollup>@rollup/rollup-freebsd-x64": "-"
   "rollup>@rollup/rollup-linux-arm-gnueabihf": "-"

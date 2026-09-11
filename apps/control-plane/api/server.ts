@@ -1,7 +1,8 @@
-import { createReadStream } from "node:fs";
+import { page, filterRows, capabilities, activity } from '../../../packages/workbench/src/gui.ts';
+import { createReadStream, existsSync } from "node:fs";
 import { stat, readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { extname, join, normalize, relative, resolve } from "node:path";
+import { basename, extname, join, normalize, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -98,7 +99,8 @@ async function resolveVerifyKey(env: Readonly<NodeJS.ProcessEnv>): Promise<Publi
 
 export function createControlPlaneServer(options: ControlPlaneOptions = {}): Server {
   const env = options.env ?? process.env;
-  const webRoot = resolve(options.webRoot ?? defaultWebRoot);
+  const built = fileURLToPath(new URL('../../../dist/web', import.meta.url));
+  const webRoot = resolve(options.webRoot ?? (existsSync(join(built, 'index.html')) ? built : defaultWebRoot));
 
   const workbench = new Workbench(env);
   const server = createServer((request, response) => {
@@ -146,6 +148,36 @@ async function route(
   const parsed = parseRequestUrl(request);
   if (parsed === null) return sendJson(response, 400, { error: "bad_url" });
 
+  const query = parsed.searchParams, wb = options.workbench;
+  try {
+    if (parsed.pathname === '/api/capabilities' && request.method === 'GET') return sendJson(response, 200, capabilities('local'));
+    if (parsed.pathname === '/api/preferences') {
+      if (request.method === 'GET') return sendJson(response, 200, { preferences: wb.getPreferences() });
+      if (request.method === 'PATCH') return sendJson(response, 200, { preferences: wb.patchPreferences(await readJsonBody(request) as Record<string, unknown>) });
+    }
+    if (['/api/runs','/api/usage','/api/overview'].includes(parsed.pathname) && request.method === 'GET') {
+      const data = activity(wb.allViews()); if (parsed.pathname === '/api/overview') return sendJson(response, 200, { ...data.overview, pendingApprovals: wb.pending().length, documents: wb.documentsList().length });
+      const rows = parsed.pathname === '/api/runs' ? data.runs : data.usage; return sendJson(response, 200, page(filterRows(rows as readonly Record<string, unknown>[], query), query));
+    }
+    if (parsed.pathname === '/api/documents' && request.method === 'GET') return sendJson(response, 200, page(filterRows(wb.documentsList(), query), query));
+    if (parsed.pathname === '/api/approvals' && request.method === 'GET' && query.get('history') === 'true') { const result = page(filterRows(wb.approvals(), query), query); return sendJson(response, 200, { ...result, approvals: result.items }); }
+    const feature = /^\/api\/sessions\/([a-f0-9-]+)\/(events|stream|documents|branches)$/.exec(parsed.pathname);
+    if (feature) {
+      const id = feature[1]!, kind = feature[2], session = wb.get(id); if (!session) return sendJson(response, 404, { message: 'Session not found.' });
+      if (kind === 'branches' && request.method === 'POST') return sendJson(response, 201, { session: await wb.branch(id, await readJsonBody(request) as { seq: number; prompt?: string; snapshotDocuments?: boolean }) });
+      if (kind === 'documents') {
+        if (request.method === 'GET') return sendJson(response, 200, { document: wb.document(id, query.get('path') ?? '') });
+        if (request.method === 'PATCH') return sendJson(response, 200, { document: await wb.editDocument(id, await readJsonBody(request) as { path: string; content: string; expectedRevision: string | null }) });
+      }
+      if (kind === 'events' && request.method === 'GET') { const items = session.events.filter(e => e.seq > Number(query.get('after') || 0)); return sendJson(response, 200, { items, after: items.at(-1)?.seq ?? Number(query.get('after') || 0), status: session.status, asOf: new Date().toISOString(), scope: id, historyComplete: session.events[0]?.seq === 1 }); }
+      if (kind === 'stream' && request.method === 'GET') {
+        response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', 'x-accel-buffering': 'no' });
+        let after = Number(request.headers['last-event-id'] ?? query.get('after') ?? 0);
+        const emit = () => { const current = wb.get(id)!; for (const e of current.events.filter(e=>e.seq>after)) { response.write(`id: ${e.seq}\ndata: ${JSON.stringify(e)}\n\n`); after=e.seq; } response.write(`: heartbeat\n\n`); };
+        emit(); const timer = setInterval(emit, 1000); response.once('close', ()=>clearInterval(timer)); return;
+      }
+    }
+  } catch (error) { return sendJson(response, 409, { message: error instanceof Error ? error.message : 'Request failed.' }); }
   if (parsed.pathname === "/api/provider") {
     try {
       if (request.method === "GET") return sendJson(response, 200, await options.workbench.providerState());
@@ -168,6 +200,9 @@ async function route(
     } catch (error) { return sendJson(response, 400, { message: error instanceof Error ? error.message : 'Connector unavailable.' }); }
   }
   const connectorMatch = /^\/api\/connectors\/([a-f0-9-]+)$/.exec(parsed.pathname);
+  if (connectorMatch && request.method === 'PATCH') { try { return sendJson(response, 200, { connector: await options.workbench.updateConnector(connectorMatch[1]!, await readJsonBody(request) as Record<string, unknown>) }); } catch(error) { return sendJson(response, 409, { message: error instanceof Error ? error.message : 'Connector update failed.' }); } }
+  const connectorTest = /^\/api\/connectors\/([a-f0-9-]+)\/test$/.exec(parsed.pathname);
+  if (connectorTest && request.method === 'POST') { try { return sendJson(response, 200, await options.workbench.testConnector(connectorTest[1]!)); } catch(error) { return sendJson(response, 400, { message: error instanceof Error ? error.message : 'Connector test failed.' }); } }
   if (connectorMatch && request.method === 'DELETE') { options.workbench.removeConnector(connectorMatch[1]!); return sendJson(response, 200, { ok: true }); }
   const workspaceMatch = /^\/api\/sessions\/([a-f0-9-]+)\/(workspace|undo)(?:\/([A-Za-z0-9_.:-]+))?$/.exec(parsed.pathname);
   if (workspaceMatch) {
@@ -186,18 +221,18 @@ async function route(
     const workspace = parsed.searchParams.get('workspace') || options.workbench.list().at(-1)?.workspace;
     const proof = workspace ? await options.workbench.ledger(workspace) : undefined;
     if (proof && proof.entries.length) {
-      if (parsed.pathname === '/api/feed') return sendJson(response, 200, { entries: proof.entries.slice(-50).map(e => ({ seq: e.seq, ...(e.body as JsonObject), hash: e.hash, digest: e.hash, prev_hash: e.prev_hash })), verified: true, signed: true, integrity: true });
+      if (parsed.pathname === '/api/feed') { const result = page(filterRows(proof.entries.map(e => ({ seq: e.seq, ...(e.body as JsonObject), hash: e.hash, digest: e.hash, prev_hash: e.prev_hash })).reverse(), query), query, workspace); return sendJson(response, 200, { ...result, entries: result.items, verified: true, signed: true, integrity: true, checked: proof.entries.length }); }
       if (parsed.pathname === '/api/ledger/verify') return sendJson(response, 200, { ok: true, verified: true, signed: true, integrity: true, checked: proof.entries.length, head: proof.result.head });
       response.setHeader('content-disposition', 'attachment; filename="void-ledger.json"');
       return sendJson(response, 200, { format: 'void.signed-ledger.v1', entries: proof.entries });
     }
   }
   if (parsed.pathname === "/api/sessions") {
-    if (request.method === "GET") return sendJson(response, 200, { sessions: options.workbench.list() });
+    if (request.method === "GET") return sendJson(response, 200, options.workbench.sessionPage(query));
     if (request.method === "POST") {
-      const body = await readJsonBody(request) as { prompt?: string; model?: string } | null;
-      if (typeof body?.prompt !== "string" || typeof body.model !== "string") return sendJson(response, 400, { error: "invalid_session" });
-      try { return sendJson(response, 201, { session: await options.workbench.start(body.prompt, body.model) }); }
+      const body = await readJsonBody(request) as { prompt?: string; model?: string; idempotencyKey?: string } | null;
+      if (typeof body?.prompt !== "string" || (body.model !== undefined && typeof body.model !== "string")) return sendJson(response, 400, { error: "invalid_session" });
+      try { return sendJson(response, 201, { session: await options.workbench.start(body.prompt, body.model, body.idempotencyKey) }); }
       catch (error) { return sendJson(response, 409, { error: "session_not_started", message: error instanceof Error ? error.message : "Session not started" }); }
     }
   }
@@ -206,12 +241,13 @@ async function route(
     const id = sessionMatch[1]!;
     const session = options.workbench.get(id);
     if (!session) return sendJson(response, 404, { error: "session_not_found" });
-    if (request.method === "GET") return sendJson(response, 200, { session });
+    if (request.method === "PATCH") { try { return sendJson(response, 200, { session: wb.patchSession(id, await readJsonBody(request) as Record<string, unknown>) }); } catch (error) { return sendJson(response, 400, { message: error instanceof Error ? error.message : "Invalid update." }); } }
+    if (request.method === "GET") return sendJson(response, 200, { session: query.get("events") === "false" ? { ...session, events: [] } : session });
     if (request.method === "DELETE") { options.workbench.cancel(id); return sendJson(response, 200, { ok: true }); }
     if (request.method === "POST") {
-      const body = await readJsonBody(request) as { prompt?: string } | null;
+      const body = await readJsonBody(request) as { prompt?: string; idempotencyKey?: string } | null;
       if (typeof body?.prompt !== "string") return sendJson(response, 400, { error: "invalid_message" });
-      try { options.workbench.send(id, body.prompt); return sendJson(response, 202, { ok: true }); }
+      try { options.workbench.send(id, body.prompt, body.idempotencyKey); return sendJson(response, 202, { ok: true }); }
       catch (error) { return sendJson(response, 409, { error: "session_not_ready", message: error instanceof Error ? error.message : "Session not ready" }); }
     }
   }
@@ -268,7 +304,7 @@ async function route(
     if (!ledger) return sendJson(response, 400, { error: "invalid_workspace" });
     const page = await readLedgerFeed(ledger, { publicKey: options.publicKey });
     response.setHeader("content-disposition", 'attachment; filename="void-records.json"');
-    return sendJson(response, 200, { format: "void.records.v1", note: "Record metadata export. Use void attest for offline signed attestation.", signed: page.signed, entries: page.records.map(toApiEntry) });
+    return sendJson(response, 200, { format: "void.signed-ledger.v1", verified: page.signed, entries: await readLedgerEntries(ledger) });
   }
   if (request.method === "GET" && parsed.pathname === "/api/feed") {
     return handleFeed(response, options, parsed.searchParams);
@@ -290,7 +326,6 @@ async function route(
 }
 
 async function handleFeed(response: ServerResponse, options: RouteOptions, searchParams: URLSearchParams): Promise<void> {
-  const limit = parseLimit(searchParams.get("limit"));
   const ledgerPath = selectLedgerPath(options, searchParams.get("workspace"));
   if (ledgerPath === null) return sendJson(response, 400, { error: "invalid_workspace" });
   try { await stat(ledgerPath); }
@@ -298,9 +333,11 @@ async function handleFeed(response: ServerResponse, options: RouteOptions, searc
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return sendJson(response, 404, { error: "ledger_not_found", message: "No recorded calls yet. Start an agent session or connect an existing VOID workspace." });
     throw error;
   }
-  const page = await readLedgerFeed(ledgerPath, { publicKey: options.publicKey });
-  const entries = page.records.slice(-limit).map(toApiEntry);
-  sendJson(response, 200, { entries, verified: page.signed, integrity: true, signed: page.signed });
+  const feed = await readLedgerFeed(ledgerPath, { publicKey: options.publicKey });
+  const workspace = searchParams.get("workspace") ?? options.env.VOID_WORKSPACE ?? basename(ledgerPath, ".jsonl");
+  const rows = feed.records.map(record => ({ ...toApiEntry(record), workspace })).reverse();
+  const result = page(filterRows(rows, searchParams), searchParams, workspace);
+  sendJson(response, 200, { ...result, entries: result.items, verified: feed.signed, integrity: true, signed: feed.signed, checked: feed.records.length });
 }
 
 async function handleVerify(response: ServerResponse, options: RouteOptions, searchParams: URLSearchParams): Promise<void> {
@@ -488,14 +525,17 @@ function sendJson(response: ServerResponse, statusCode: number, value: JsonObjec
 }
 
 function staticPath(webRoot: string, pathname: string): string | null {
-  const name = pathname === "/" ? "/index.html" : pathname;
+  if (pathname.startsWith('/api/')) return null;
+  const spa = /^\/(chat(?:\/[^/]*)?|overview|sessions|runs|documents|approvals|ledger|connections|models|settings)$/.test(pathname);
+  const legacySpa = ['/feed.html','/approvals.html','/ledger.html'].includes(pathname) && !existsSync(join(webRoot, pathname));
+  const name = pathname === '/' || spa || legacySpa ? '/index.html' : pathname;
   let normalized: string;
   try {
     normalized = normalize(decodeURIComponent(name));
   } catch {
     return null;
   }
-  if (!normalized.endsWith(".html") && !publicScriptPaths.has(normalized)) return null;
+  if (!normalized.endsWith(".html") && !publicScriptPaths.has(normalized) && !/^\/assets\/[A-Za-z0-9_.-]+\.(js|css|svg|woff2)$/.test(normalized)) return null;
   const target = resolve(join(webRoot, normalized));
   const inside = relative(webRoot, target);
   if (inside.startsWith("..") || inside === "" || inside.includes(":") || resolve(webRoot, inside) !== target) return null;

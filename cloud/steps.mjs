@@ -1,5 +1,10 @@
-import { createWorkspace, executeWorkspaceTool, workspaceToolClass } from '../packages/workbench/src/workspace.ts';
-import { encrypt } from './store.mjs';
+import { providerFailure } from "../packages/workbench/src/gui.ts";
+import {
+  createWorkspace,
+  executeWorkspaceTool,
+  workspaceToolClass,
+} from "../packages/workbench/src/workspace.ts";
+import { encrypt } from "./store.mjs";
 import { read, write, transaction, event, append, decrypt } from "./store.mjs";
 import { ProviderRequestError } from "../packages/workbench/src/provider.ts";
 import { provider } from "./provider.mjs";
@@ -76,12 +81,19 @@ export async function advance(id, generation) {
       const args = JSON.parse(call.function.arguments);
       if (!args || typeof args !== "object" || Array.isArray(args))
         throw new Error("Invalid tool arguments.");
-      const config = tool.connectorId && s.connected?.[tool.connectorId] ? decrypt(s.connected[tool.connectorId].config) : s.upstream ? decrypt(s.upstream) : {};
+      const config =
+        tool.connectorId && s.connected?.[tool.connectorId]
+          ? decrypt(s.connected[tool.connectorId].config)
+          : s.upstream
+            ? decrypt(s.upstream)
+            : {};
       const name = config.mapping?.[tool.name] ?? tool.name;
-      const classification = tool.builtin ? { outcome: 'classified', tone: workspaceToolClass(tool.name) } : classifyTool(name, {
-        facts: config.facts ?? {},
-        args,
-      });
+      const classification = tool.builtin
+        ? { outcome: "classified", tone: workspaceToolClass(tool.name) }
+        : classifyTool(name, {
+            facts: config.facts ?? {},
+            args,
+          });
       const policy = loadPolicy(config.policy ?? CLOUD_POLICY);
       if (!policy.ok) throw new Error("Invalid cloud policy.");
       const callInfo = {
@@ -94,7 +106,9 @@ export async function advance(id, generation) {
       };
       const decision =
         classification.outcome === "classified"
-          ? tool.builtin ? { kind: 'allow' } : decide(policy, callInfo)
+          ? tool.builtin
+            ? { kind: "allow" }
+            : decide(policy, callInfo)
           : { kind: "deny" };
       const body = {
         workspace: s.workspace,
@@ -104,6 +118,18 @@ export async function advance(id, generation) {
         decision: decision.kind,
         argsDigest: `sha256:${await sha256Hex(new TextEncoder().encode(canonicalJson(args)))}`,
       };
+      event(
+        s,
+        "tool",
+        `${tool.name}: requested`,
+        {
+          tool: tool.name,
+          callId: call.id,
+          klass: callInfo.klass,
+          decision: decision.kind,
+        },
+        "tool.started",
+      );
       await append(body, c);
       if (decision.kind === "hold") {
         const holdId = `${s.id}-${s.generation}-${s.turn}-${s.queue.length}`;
@@ -119,7 +145,14 @@ export async function advance(id, generation) {
           },
           c,
         );
-        s.pending = { id: holdId, call, name: tool.name, args, body, connectorId: tool.connectorId };
+        s.pending = {
+          id: holdId,
+          call,
+          name: tool.name,
+          args,
+          body,
+          connectorId: tool.connectorId,
+        };
         event(s, "tool", `${tool.name}: waiting for your approval`);
         await save(s, c);
         return { kind: "wait" };
@@ -138,7 +171,16 @@ export async function advance(id, generation) {
       }
       s.executing = "tool";
       await save(s, c);
-      return { kind: "tool", session: s, call, name: tool.name, args, body, builtin: tool.builtin, connectorId: tool.connectorId };
+      return {
+        kind: "tool",
+        session: s,
+        call,
+        name: tool.name,
+        args,
+        body,
+        builtin: tool.builtin,
+        connectorId: tool.connectorId,
+      };
     }
     if (s.turn >= 20 || s.messages.length > 200)
       throw new Error("Session limit reached. Start a new session.");
@@ -160,12 +202,32 @@ export async function advance(id, generation) {
           parameters: tool.inputSchema ?? { type: "object", properties: {} },
         },
       }));
+      let delta = "",
+        flushed = Date.now();
+      const flush = async () => {
+        if (!delta) return;
+        const text = client.redact(delta);
+        delta = "";
+        flushed = Date.now();
+        await transaction(id, async (c) => {
+          const current = await read(`session:${id}`, c);
+          if (current.status !== "running" || current.generation !== generation)
+            return;
+          event(current, "assistant", text, {}, "message.delta");
+          await save(current, c);
+        });
+      };
       const reply = await client.complete(
         s.model,
         s.messages,
         tools,
         AbortSignal.timeout(65000),
+        async (text) => {
+          delta += text;
+          if (Date.now() - flushed > 500 || delta.length > 1024) await flush();
+        },
       );
+      await flush();
       if ((reply.message.tool_calls?.length ?? 0) > 32)
         throw new Error("Too many tool calls in a single batch.");
       await transaction(id, async (c) => {
@@ -186,27 +248,81 @@ export async function advance(id, generation) {
             current,
             "usage",
             `${reply.usage.total_tokens ?? "Unknown"} tokens reported by provider`,
+            { ...reply.usage, model: s.model, source: "provider", cost: null },
           );
-        if (!current.queue.length) current.status = "idle";
+        if (!current.queue.length) {
+          current.status = "idle";
+          event(current, "tool", "Idle", { status: "idle" }, "run.status");
+        }
         await save(current, c);
       });
     } else {
       if (claim.builtin) {
-        await transaction(id, async c => {
+        await transaction(id, async (c) => {
           const current = await read(`session:${id}`, c);
-          if (current.status !== 'running' || current.generation !== generation) return;
-          const saved = await read(`workspace:${id}`, c), state = saved ? decrypt(saved) : createWorkspace();
-          const transition = executeWorkspaceTool(state, { id: `${id}-${generation}-${s.turn}-${claim.call.id}`, name: claim.name, arguments: claim.args });
-          await append({ ...claim.body, at: new Date().toISOString(), decision: transition.result.isError ? 'execute:failed' : 'execute:completed', ...(transition.operation ? { operationId: transition.operation.id, captureDigest: await sha256Hex(canonicalJson(transition.operation)) } : {}) }, c);
+          if (current.status !== "running" || current.generation !== generation)
+            return;
+          const saved = await read(`workspace:${id}`, c),
+            state = saved ? decrypt(saved) : createWorkspace();
+          const transition = executeWorkspaceTool(state, {
+            id: `${id}-${generation}-${s.turn}-${claim.call.id}`,
+            name: claim.name,
+            arguments: claim.args,
+          });
+          await append(
+            {
+              ...claim.body,
+              at: new Date().toISOString(),
+              decision: transition.result.isError
+                ? "execute:failed"
+                : "execute:completed",
+              ...(transition.operation
+                ? {
+                    operationId: transition.operation.id,
+                    captureDigest: await sha256Hex(
+                      canonicalJson(transition.operation),
+                    ),
+                  }
+                : {}),
+            },
+            c,
+          );
           await write(`workspace:${id}`, encrypt(transition.state), c);
-          event(current, 'tool', `${claim.name}: ${transition.result.isError ? 'failed' : 'completed, change captured'}`);
-          current.executing = null; current.queue.shift();
-          current.messages.push({ role: 'tool', tool_call_id: claim.call.id, content: client.redact(JSON.stringify(transition.result)) });
+          event(
+            current,
+            "tool",
+            `${claim.name}: ${transition.result.isError ? "failed" : "completed, change captured"}`,
+            {
+              tool: claim.name,
+              callId: claim.call.id,
+              result: transition.result,
+            },
+          );
+          if (transition.operation)
+            event(
+              current,
+              "tool",
+              `Changed ${transition.operation.path}.`,
+              {
+                path: transition.operation.path,
+                operationId: transition.operation.id,
+              },
+              "document.changed",
+            );
+          current.executing = null;
+          current.queue.shift();
+          current.messages.push({
+            role: "tool",
+            tool_call_id: claim.call.id,
+            content: client.redact(JSON.stringify(transition.result)),
+          });
           await save(current, c);
         });
-        return 'next';
+        return "next";
       }
-      const connection = claim.connectorId ? s.connected?.[claim.connectorId] : undefined;
+      const connection = claim.connectorId
+        ? s.connected?.[claim.connectorId]
+        : undefined;
       const config = decrypt(connection?.config ?? s.upstream);
       const result = await rpc(
         config,
@@ -257,8 +373,11 @@ export async function advance(id, generation) {
           current,
           "error",
           error instanceof ProviderRequestError
-            ? error.message
+            ? providerFailure(error).text
             : "Cloud execution failed. Check provider and tool connectivity. A dispatched tool is not retried automatically.",
+          error instanceof ProviderRequestError
+            ? providerFailure(error).payload
+            : {},
         );
         await save(current, c);
       }

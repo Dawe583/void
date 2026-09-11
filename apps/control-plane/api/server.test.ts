@@ -53,6 +53,7 @@ async function withServer<T>(
 ): Promise<T> {
   const handle = await listenControlPlane({
     ledgerPath,
+    webRoot: join(import.meta.dirname, '../web'),
     approvals: options.approvals,
     env: options.env ?? {},
   });
@@ -84,6 +85,7 @@ describe("control plane API", () => {
         "prev_hash",
         "seq",
         "tool",
+        "workspace",
       ].sort());
       assert.equal(body.entries[0]!["seq"], 2);
       assert.equal(body.entries[0]!["hash"], body.entries[0]!["digest"]);
@@ -166,6 +168,18 @@ describe("control plane API", () => {
       assert.equal(response.status, 200);
       assert.match(response.headers.get("content-type") ?? "", /^text\/html/);
       assert.match(await response.text(), /VOID Call Feed/);
+    });
+  });
+
+  test("exports complete signed envelopes for offline verification", async () => {
+    const ledgerPath = await seedLedger(2);
+    await withServer(ledgerPath, async origin => {
+      const response = await fetch(`${origin}/api/ledger/export`);
+      assert.equal(response.status, 200);
+      const body = await response.json() as { format: string; entries: Array<{ signature: string; body: unknown; hash: string }> };
+      assert.equal(body.format, 'void.signed-ledger.v1');
+      assert.equal(body.entries.length, 2);
+      assert.ok(body.entries.every(entry => typeof entry.signature === 'string' && entry.body && /^[a-f0-9]{64}$/.test(entry.hash)));
     });
   });
 
