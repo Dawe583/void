@@ -43,9 +43,18 @@ const suffix = randomBytes(8).toString("hex"),
 const root = await mkdtemp(join(tmpdir(), "void-real-postgres-"));
 const connect = async () => {
   const c = await pool.connect();
+  // Terminated test backends may report an asynchronous driver error.
+  let broken = false;
+  const onError = () => {
+    broken = true;
+  };
+  c.on("error", onError);
   return {
     query: async (sql, params) => (await c.query(sql, params)).rows,
-    close: async () => c.release(),
+    close: async () => {
+      c.release(broken);
+      c.removeListener("error", onError);
+    },
   };
 };
 const db = await connect();
@@ -209,6 +218,234 @@ try {
     await human.query("ROLLBACK").catch(() => {});
     await human.close();
   }
+  console.log(
+    "PASS: existing capture, restore, ABA and serialization scenarios",
+  );
+  // Terminate only a backend acquired by this fixture. Probe the dead connection
+  // to make the adapter observe a real driver failure at the commit boundary.
+  function terminatedAdapter(phase) {
+    let armed = true;
+    return managedPostgresAdapter({
+      ...options,
+      connect: async () => {
+        const c = await connect();
+        const [{ pid }] = await c.query("SELECT pg_backend_pid() AS pid");
+        return {
+          close: c.close,
+          query: async (sql, params) => {
+            if (sql !== "COMMIT" || !armed) return c.query(sql, params);
+            armed = false;
+            if (phase === "after") await c.query(sql, params);
+            const [{ terminated }] = await db.query(
+              "SELECT pg_terminate_backend($1) AS terminated",
+              [pid],
+            );
+            assert.equal(terminated, true);
+            // Before COMMIT this rolls back both mutation and database receipt.
+            return c.query(phase === "after" ? "SELECT 1" : sql, params);
+          },
+        };
+      },
+    });
+  }
+  const balance = async () =>
+    (await db.query(`SELECT balance FROM "${schema}".account WHERE id=1`))[0]
+      .balance;
+  const receipts = async (table) =>
+    Number(
+      (
+        await db.query(`SELECT count(*) AS count FROM "${metadata}".${table}`)
+      )[0].count,
+    );
+  for (const phase of ["before", "after"]) {
+    const beforeCount = await receipts("operations");
+    const operation = {
+      ...request,
+      operationId: randomUUID(),
+      arguments: { ...request.arguments, values: { balance: 50 } },
+    };
+    const faulty = recoveryRuntime({
+      ...base,
+      adapters: [terminatedAdapter(phase)],
+    });
+    assert.equal((await faulty.execute(operation)).status, "unknown");
+    assert.equal(await balance(), phase === "after" ? 50 : 40);
+    assert.equal(
+      await receipts("operations"),
+      beforeCount + (phase === "after" ? 1 : 0),
+    );
+    const restarted = recoveryRuntime({
+      ...base,
+      adapters: [managedPostgresAdapter(options)],
+    });
+    // A repeated caller never redispatches the uncertain operation.
+    assert.equal((await restarted.execute(operation)).status, "unknown");
+    assert.equal(
+      (await restarted.reconcile("qa-test", operation.operationId)).status,
+      phase === "after" ? "succeeded" : "unknown",
+    );
+    if (phase === "after") {
+      assert.equal(
+        (
+          await restarted.recover(
+            await restarted.planRecovery("qa-test", operation.operationId),
+            async () => true,
+          )
+        ).status,
+        "restored",
+      );
+    } else {
+      await assert.rejects(
+        restarted.planRecovery("qa-test", operation.operationId),
+      );
+    }
+    assert.equal(await balance(), 40);
+    console.log(`PASS: backend termination ${phase} commit`);
+    await base.journal.transaction("qa-test", async (tx) => {
+      assert.equal(
+        tx.events.filter(
+          (e) =>
+            e.operationId === operation.operationId && e.stage === "dispatched",
+        ).length,
+        1,
+      );
+    });
+  }
+  // Recovery itself can commit while its acknowledgement is lost.
+  const recoveryOperation = {
+    ...request,
+    operationId: randomUUID(),
+    arguments: { ...request.arguments, values: { balance: 60 } },
+  };
+  runtime = recoveryRuntime({
+    ...base,
+    adapters: [managedPostgresAdapter(options)],
+  });
+  assert.equal((await runtime.execute(recoveryOperation)).status, "succeeded");
+  plan = await runtime.planRecovery("qa-test", recoveryOperation.operationId);
+  const recoveryCount = await receipts("recoveries");
+  const faultyRecovery = recoveryRuntime({
+    ...base,
+    adapters: [terminatedAdapter("after")],
+  });
+  assert.equal(
+    (await faultyRecovery.recover(plan, async () => true)).status,
+    "unknown",
+  );
+  assert.equal(await balance(), 40);
+  assert.equal(await receipts("recoveries"), recoveryCount + 1);
+  runtime = recoveryRuntime({
+    ...base,
+    adapters: [managedPostgresAdapter(options)],
+  });
+  assert.equal(
+    (await runtime.reconcileRecovery("qa-test", recoveryOperation.operationId))
+      .status,
+    "restored",
+  );
+  assert.equal(
+    (await runtime.recover(plan, async () => true)).status,
+    "restored",
+  );
+  assert.equal(await receipts("recoveries"), recoveryCount + 1);
+
+  console.log("PASS: recovery commit termination and receipt reconciliation");
+  // Create a real lock cycle while the managed adapter is dispatching. PostgreSQL
+  // chooses the victim; assert the correct behavior for either valid selection.
+  const competitor = await connect();
+  let blocked, managedCode;
+  const atDispatch = new Promise((resolve) => {
+    blocked = resolve;
+  });
+  const deadlockAdapter = managedPostgresAdapter({
+    ...options,
+    connect: async () => {
+      const c = await connect();
+      return {
+        close: c.close,
+        query: async (sql, params) => {
+          try {
+            if (sql.startsWith(`UPDATE "${schema}"."account" SET`)) {
+              blocked();
+              await c.query(
+                `SELECT id FROM "${schema}".account WHERE id=2 FOR UPDATE`,
+              );
+            }
+            const result = await c.query(sql, params);
+            if (sql.startsWith("BEGIN"))
+              await c.query("SET LOCAL statement_timeout='8s'");
+            return result;
+          } catch (error) {
+            managedCode = error.code;
+            throw error;
+          }
+        },
+      };
+    },
+  });
+  try {
+    await competitor.query("BEGIN; SET LOCAL statement_timeout='8s'");
+    await competitor.query(
+      `SELECT id FROM "${schema}".account WHERE id=2 FOR UPDATE`,
+    );
+    const operation = {
+      ...request,
+      operationId: randomUUID(),
+      arguments: { ...request.arguments, values: { balance: 70 } },
+    };
+    const execution = recoveryRuntime({
+      ...base,
+      adapters: [deadlockAdapter],
+    }).execute(operation);
+    await Promise.race([
+      atDispatch,
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Managed dispatch timed out")),
+          15000,
+        ).unref(),
+      ),
+    ]);
+    let competitorCode;
+    try {
+      await competitor.query(
+        `SELECT id FROM "${schema}".account WHERE id=1 FOR UPDATE`,
+      );
+    } catch (error) {
+      competitorCode = error.code;
+    } finally {
+      await competitor.query("ROLLBACK");
+    }
+    const result = await execution;
+    assert.ok(managedCode === "40P01" || competitorCode === "40P01");
+    runtime = recoveryRuntime({
+      ...base,
+      adapters: [managedPostgresAdapter(options)],
+    });
+    assert.equal((await runtime.execute(operation)).status, result.status);
+    if (managedCode === "40P01") {
+      assert.equal(result.status, "unknown");
+      assert.equal(
+        (await runtime.reconcile("qa-test", operation.operationId)).status,
+        "unknown",
+      );
+      assert.equal(await balance(), 40);
+    } else {
+      assert.equal(result.status, "succeeded");
+      assert.equal(
+        (
+          await runtime.recover(
+            await runtime.planRecovery("qa-test", operation.operationId),
+            async () => true,
+          )
+        ).status,
+        "restored",
+      );
+    }
+  } finally {
+    await competitor.query("ROLLBACK").catch(() => {});
+    await competitor.close();
+  }
   // PostgreSQL deadlock detection against two independent test-only transactions.
   const left = await connect(),
     right = await connect();
@@ -260,6 +497,10 @@ try {
         "capacity reservation vault",
         "real serialization conflict before dispatch",
         "isolated PostgreSQL deadlock rollback",
+        "terminated backend before commit: no mutation or receipt, no retry",
+        "terminated backend after commit: receipt reconciliation and restore",
+        "terminated recovery backend after commit: idempotent reconciliation",
+        "real deadlock during managed dispatch",
       ],
       networkPartitionTest: false,
     }),

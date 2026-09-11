@@ -9,7 +9,7 @@ by the existence of a prototype or a narrow passing test.
 | R01 | Signed local journal, immutable operation identity, unknown results, adapter reconciliation | Cloud transactional journal, full persistence fault matrix |
 | R02 | Shared runtime used by managed CLI/MCP, TS SDK and local workbench document writes/Undo | Legacy proxy and cloud integration; HTTP conformance |
 | R03 | Encrypted durable artifacts, reserved capture/outcome/recovery capacity, shared quota, legacy reads, key rotation | Streaming, pin lifecycle, GC, retention, quota migration |
-| R04 | Structured row mutations, revision trigger, atomic outbox, verified restore, real prepare serialization conflict | Cascade/tenant certification, managed deadlock/lost-connection tests, migration, process kill |
+| R04 | Structured row mutations, revision trigger, atomic outbox, verified restore, real prepare serialization conflict, managed deadlock and terminated database sessions | Cascade/tenant certification, migration, client process kill and network partition |
 | R05 | Not started | Filesystem/Git with declared scope and conflict handling |
 | R06 | Single-operation plan, exact digest, signed recovery, uncertain recovery reconciliation | Multi-operation jobs, selection boundaries, dependencies, durable leases/checkpoints |
 | R07 | Existing taint modules retained | Runtime provenance and dependency-aware recovery integration |
@@ -33,8 +33,9 @@ by the existence of a prototype or a narrow passing test.
 
 ## Next implementation sequence
 
-1. Complete PostgreSQL concurrency
-   fault coverage and remaining persistence crash cases before promoting M1 from verified subset to release milestone.
+1. Complete the remaining client-process crash and persistence fault cases before
+   promoting M1 from verified subset to release milestone. Real database-session
+   termination and a managed-dispatch deadlock now have executable coverage.
 2. Extend the completed local document integration to the cloud transaction
    host, preserving signed evidence and existing UI API compatibility.
 3. Implement filesystem/Git with an explicit cooperative vs enforced boundary;
@@ -85,3 +86,26 @@ capture with no document write, human conflicts, missing runtime evidence and
 legacy compatibility. Cloud `server.mjs`/`steps.mjs` still use their original
 transaction path. No claim is made that this local integration is deployed on
 Vercel. The production workspace login was separately verified with HTTP 200.
+
+### PostgreSQL connection faults, 2026-09-12
+
+The isolated verifier now terminates only its own acquired PostgreSQL backend
+sessions at the COMMIT boundary. Before COMMIT, both row mutation and receipt
+roll back; VOID keeps an unknown outcome and refuses automatic redispatch or
+recovery without evidence. After COMMIT, a fresh adapter reconciles the durable
+receipt and restores the row. A terminated recovery connection after COMMIT is
+also reconciled without a second recovery receipt.
+
+A real lock cycle now includes the managed executor during dispatch. The test
+accepts PostgreSQL's victim selection and checks the corresponding safe result:
+unknown without redispatch when the managed transaction loses, or successful
+execution and verified Undo when the competing transaction loses. This does not
+claim that both victim selections were observed in one run.
+
+Validation: `scripts/src/verify-managed-postgres.mjs` passed all thirteen reported
+checks against the isolated database; syntax and diff checks passed. The fixture
+removes its owned schemas and releases terminated clients without retaining error
+listeners. No production data or credentials were used by this verifier. This
+is connection-fault coverage, not a physical network partition, PostgreSQL server
+crash, client SIGKILL test, or completion of M1. Shared-runtime cloud integration
+remains the next feature work; the deployed web login is unchanged.

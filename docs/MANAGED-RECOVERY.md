@@ -156,4 +156,8 @@ public HTTP endpoint for claude.ai or the Vercel chat application.
 Run the offline suite with `pnpm test:reverse`. The real database verification
 script requires `VOID_RECOVERY_DATABASE_TEST=1`, a direct `DATABASE_URL` targeting
 `void_gui_upgrade_preview`, and creates/removes only its uniquely named schemas.
-It does not intentionally partition the network or kill the PostgreSQL server.
+It deliberately terminates only database sessions acquired by the fixture,
+before/after execution COMMIT and after recovery COMMIT. It also exercises a real
+deadlock during managed dispatch. A missing receipt after connection loss remains
+unknown; absence alone cannot authorize a repeated write. The verifier does not
+partition the network, kill the PostgreSQL server, or certify client process death.
