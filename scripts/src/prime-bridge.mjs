@@ -66,7 +66,7 @@ export async function runBridge(config) {
     await readFile(join(homedir(), ".prime/agent/settings.json"), "utf8"),
   );
   const tools = [
-    "prime-agent: native Python kernel, shell and installed skills",
+    "prime-agent: native Python kernel and shell and installed skills",
     ...Object.keys(settings.mcpServers ?? {}).map((name) => `MCP: ${name}`),
   ];
   const secretValues = [config.token, config.workerToken];
