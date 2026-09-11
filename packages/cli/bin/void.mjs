@@ -3,6 +3,8 @@
  * The void binary. The runnable surface grows package by package, and any
  * command not wired yet fails loudly rather than pretending to succeed.
  */
+import { runAgentCommand } from "../src/agent.ts";
+import { runOperation } from "../src/operations.ts";
 import { runWatchCommand } from "../src/watch.ts";
 import { runApproveCommand, runApprovalsCommand } from "../src/approve.ts";
 import { readFileSync } from "node:fs";
@@ -14,8 +16,16 @@ if (!parsed.ok) {
   process.exit(2);
 }
 try {
-  if (parsed.command === "watch") process.exit(await runWatchCommand(parsed.args));
-  if (parsed.command === "classify") {
+  if (parsed.command === "agent") process.exit(await runAgentCommand(parsed.args));
+  else if (parsed.command === "run") { await import("../../proxy/bin/void-proxy.mjs"); }
+  else if (["attest", "export", "policy"].includes(parsed.command)) process.exit(await runOperation(parsed.command, parsed.args, process.env, text => console.log(text)));
+  else if (parsed.command === "ledger") {
+    const [action, ...args] = parsed.args;
+    if (action !== "verify") throw new Error("usage: void ledger verify --ledger <path>");
+    process.exit(await runVerifyCommand(args, { stdout: console.log, stderr: console.error }));
+  }
+  else if (parsed.command === "watch") process.exit(await runWatchCommand(parsed.args));
+  else if (parsed.command === "classify") {
     const code = await runClassifyCommand(
       parsed.args,
       (path) => readFileSync(path, "utf8"),
@@ -23,7 +33,7 @@ try {
     );
     process.exit(code);
   }
-  if (parsed.command === "feed") {
+  else if (parsed.command === "feed") {
     const code = await runFeedCommand(parsed.args, {
       stdout: (line) => console.log(line),
       stderr: (line) => console.error(line),

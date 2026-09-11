@@ -23,6 +23,7 @@ export const COMMANDS = [
   "attest",
   "taint",
   "verify",
+  "agent",
 ] as const;
 
 export type Command = (typeof COMMANDS)[number];

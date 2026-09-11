@@ -351,7 +351,7 @@ async function handleToolCall(
   ledgerStore: LedgerStore<unknown, JsonlEntry, JsonlReceipt> | undefined,
   workspace: string,
 ): Promise<void> {
-  const call = interceptedCall(request);
+  const call = { ...interceptedCall(request), workspace };
   let lastPolicyCall: PolicyCall | null = null;
   let lastDecision: PolicyDecision | null = null;
   const policyFn = (policyCall: PolicyCall): PolicyDecision => {

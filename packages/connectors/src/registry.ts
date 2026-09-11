@@ -128,7 +128,7 @@ export function makeConnector(deps: ConnectorDeps): ConnectorRegistry {
 }
 
 export function connectorFor(tool: string): { readonly connectorId: ConnectorId; readonly connector: Connector } | null {
-  const vendor = tool.split(".")[0];
+  const vendor = tool.startsWith("aws.s3.") ? "s3" : tool.split(".")[0];
   if (vendor !== "postgres" && vendor !== "s3") {
     // Unknown vendors return null so callers deny instead of guessing a connector.
     return null;
@@ -219,12 +219,15 @@ function makeS3Connector(deps: ConnectorDeps, captures: Map<string, StoredS3Capt
         reference: result.reference,
         capturedEtag: result.etag,
       };
-      captures.set(captureKey(result.reference), { call, input, facts: result.facts });
-      return { reference: result.reference, digest: result.digest, facts: result.facts, capturedAt: result.capturedAt };
+      const stored = { call, input, facts: result.facts };
+      // Bind the target and before-image reference into one content-addressed
+      // envelope so replay after a restart never guesses a bucket or object key.
+      const envelope = await deps.store.put(snapshotNamespace(call, "s3"), encodeJson({ version: "void.s3.capture.v1", ...stored }));
+      captures.set(captureKey(envelope.reference), stored);
+      return { reference: envelope.reference, digest: envelope.digest, facts: result.facts, capturedAt: result.capturedAt };
     },
     inverse: async (reference) => {
-      const stored = captures.get(captureKey(reference));
-      if (stored === undefined) throw new Error("missing captured S3 call for snapshot reference");
+      const stored = captures.get(captureKey(reference)) ?? await readS3Capture(deps.store, reference);
       return {
         connector: "s3",
         call: stored.call,
@@ -234,7 +237,7 @@ function makeS3Connector(deps: ConnectorDeps, captures: Map<string, StoredS3Capt
           target: `s3://${stored.input.call.bucket}/${stored.input.call.key}`,
           operation: "putObject",
           dependsOn: [],
-          inputDigest: reference.digest,
+          inputDigest: stored.input.reference.digest,
         }],
         facts: stored.facts,
         s3: stored,
@@ -245,6 +248,16 @@ function makeS3Connector(deps: ConnectorDeps, captures: Map<string, StoredS3Capt
       return s3ApplyReport(await applyRestore(deps.store, client, s3Plan(plan).s3.input));
     },
   };
+}
+
+async function readS3Capture(store: SnapshotStore, reference: SnapshotReference): Promise<StoredS3Capture> {
+  const value = JSON.parse(new TextDecoder().decode(await store.get(reference)));
+  if (value?.version !== "void.s3.capture.v1" || value.call?.connector !== "s3" ||
+    typeof value.call?.tool !== "string" || typeof value.input?.stepId !== "string" ||
+    typeof value.input?.call?.bucket !== "string" || typeof value.input?.call?.key !== "string" ||
+    typeof value.input?.reference?.digest !== "string" || !Array.isArray(value.facts))
+    throw new Error("invalid persisted S3 capture");
+  return { call: value.call, input: value.input, facts: value.facts };
 }
 
 async function readPostgresCapture(store: SnapshotStore, reference: SnapshotReference): Promise<StoredPostgresCapture> {

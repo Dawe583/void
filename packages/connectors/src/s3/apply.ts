@@ -54,7 +54,12 @@ export async function applyRestore(store: SnapshotStore, client: S3Client, input
   }
 
   const bytes = await store.get(input.reference);
-  await restoreObject(client, input.call, { bytes, etag: input.capturedEtag });
+  try {
+    await restoreObject(client, input.call, { bytes, etag: input.capturedEtag, ...(current?.etag ? { ifMatch: current.etag } : { ifNoneMatch: "*" }) });
+  } catch (error) {
+    const conflict = (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+    return { applied: [], refused: [{ stepId: input.stepId, reason: conflict === 412 || conflict === 409 ? "drift" : "internal_error", changed: [] }] };
+  }
   return { applied: [input.stepId], refused: [] };
 }
 

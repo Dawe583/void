@@ -15,7 +15,7 @@ class FakeExecutor implements QueryExecutor {
 
   async query<T>(sql: string, params: readonly unknown[] = []): Promise<T[]> {
     (this.queries as { sql: string; params: readonly unknown[] }[]).push({ sql, params });
-    if (sql.includes("information_schema")) return [{ table_schema: "public", table_name: "order_items" }] as T[];
+    if (sql.includes("pg_constraint")) return (params[0] === "public.orders" ? [{ table: "public.order_items", childColumns: ["order_id"], parentColumns: ["id"] }] : []) as T[];
     const table = sql.includes("order_items") ? "public.order_items" : "public.orders";
     return [...(this.tables[table] ?? [])] as T[];
   }
@@ -48,9 +48,9 @@ describe("captureBeforeImage", () => {
     assert.deepEqual(image.rows[1]?.dependencies, ["public.orders"]);
   });
 
-  test("lists cascade tables from information schema", async () => {
+  test("lists cascade tables from foreign key metadata", async () => {
     const exec = new FakeExecutor({});
     assert.deepEqual(await listCascadeTables(exec, "public.orders"), ["public.order_items"]);
-    assert.equal(exec.queries[0]?.params[0], "orders");
+    assert.equal(exec.queries[0]?.params[0], "public.orders");
   });
 });

@@ -38,7 +38,7 @@ export function LocalSnapshotStore(root: string, options: LocalSnapshotStoreOpti
       const tmp = join(dir, `.tmp-${process.pid}-${clock().getTime()}-${Math.random().toString(16).slice(2)}`);
 
       try {
-        await mkdir(dir, { recursive: true });
+        await mkdir(dir, { recursive: true, mode: 0o700 });
         await writeAll(tmp, redacted);
         await rename(tmp, path).catch(async (error: unknown) => {
           await rm(tmp, { force: true });
@@ -93,7 +93,7 @@ export function LocalSnapshotStore(root: string, options: LocalSnapshotStoreOpti
 }
 
 async function writeAll(path: string, bytes: Uint8Array): Promise<void> {
-  const handle = await open(path, "wx");
+  const handle = await open(path, "wx", 0o600);
   try {
     await handle.writeFile(bytes);
     await handle.sync();

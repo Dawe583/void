@@ -39,6 +39,7 @@ export async function applyInverse(exec: ReplayExecutor, steps: readonly Inverse
 
 
 function buildReplayDriftReport(image: BeforeImage, currentRows: Awaited<ReturnType<typeof currentRowsForImage>>): DriftReport {
+  if (image.statement.type === "delete") return currentRows.length ? { drifted: true, report: "Rows already exist at captured primary keys" } : { drifted: false, report: "no drift" };
   if (image.statement.type !== "update") return { drifted: false, report: "no drift" };
   const expectedRows = image.rows.map((row) => ({ ...row, row: { ...row.row, ...image.statement.updatedValues } }));
   return buildDriftReport({ ...image, rows: expectedRows }, currentRows);

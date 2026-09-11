@@ -918,3 +918,19 @@ integrity alone is stated separately and remains inspectable in the UI.
 The root check now includes control-plane typechecking plus its tests and the
 script test suite. Script tests run from the repository root because their
 fixtures resolve relative paths there. No dependencies or lockfile changes.
+
+## Beta workbench and web gateway, 2026-09-11
+
+The user's ASCII direction from Dawe583/void-empty takes precedence over literal
+Apple branding in GUI-RULES.md. Keep Apple's touch sizing, hierarchy and keyboard
+accessibility while sharing one paper/CRT stylesheet across GUI pages.
+
+The optional workbench originates model requests through the SDK; the proxy
+itself remains an interceptor. Provider/session logic lives in @void/workbench.
+Vercel hosts a stateless authenticated gateway, while a persistent runtime owns
+MCP sessions, approval brokers and signed JSONL storage. There is no claim that
+function-local disk is durable. See BETA.md for configuration and open scope.
+
+Replay gains pg and AWS SDK transport adapters. PGlite is a development-only SQL
+engine used to validate real foreign-key behavior during cascade restoration.
+The reviewed core checks pass; external customer resources remain unverified.

@@ -3,7 +3,14 @@ import type { TerminalCapabilities } from "./types.ts";
 import { crop, fit, pad, rule, sanitizeText } from "./layout.ts";
 import { paint } from "./theme.ts";
 
+import type { ApprovalRecord } from "../../../policy/src/approvals.ts";
+
 export type LiveView = {
+  readonly approvals?: readonly ApprovalRecord[];
+  readonly approvalView?: boolean;
+  readonly approvalSelected?: number;
+  readonly confirmDecision?: "approved" | "denied";
+  readonly notice?: string;
   readonly page?: FeedPage;
   readonly workspace: string;
   readonly selected: number;
@@ -31,8 +38,20 @@ export function renderLiveFeed(view: LiveView, caps: TerminalCapabilities): stri
       : "Integrity only. Signatures have not been checked.",
     "",
   ];
-  if (view.help) {
-    lines.push("Keyboard", "", "j/k or arrows   Select a record", "Enter           Inspect the full record", "Esc             Return to activity", "f               Filter R0 / R1 / R2 / R3 / all", "p               Pause ledger updates", "v               Read and verify again", "?               Toggle help", "q or Ctrl+C     Leave watch", "", "This view reads the ledger. It does not approve or replay calls.");
+  if (view.notice) lines.push(sanitizeText(view.notice));
+  if (view.approvalView) {
+    const holds = view.approvals ?? [];
+    const current = holds[view.approvalSelected ?? 0];
+    lines.push("[!] Pending holds", "");
+    if (!holds.length) lines.push("No pending holds. The proxy must use this approval directory.");
+    for (const [index, hold] of holds.entries()) {
+      lines.push(`${index === (view.approvalSelected ?? 0) ? ">" : " "} ${sanitizeText(hold.call.klass.toUpperCase())} ${sanitizeText(hold.call.tool)}`);
+    }
+    if (current) {
+      lines.push("", `Hold: ${sanitizeText(current.holdId)}`, `Blast radius: ${current.call.blastRadius ?? "unknown"}`, `Expires: ${new Date(current.expiresAt).toISOString()}`, "", view.confirmDecision ? `Confirm ${view.confirmDecision} with y; Escape cancels.` : "a approve / d deny. A second explicit confirmation is required.");
+    }
+  } else if (view.help) {
+    lines.push("Keyboard", "", "j/k or arrows   Select a record", "Enter           Inspect the full record", "Esc             Return to activity", "f               Filter R0 / R1 / R2 / R3 / all", "p               Pause ledger updates", "v               Read and verify again", "?               Toggle help", "q or Ctrl+C     Leave watch", "", "h               Show pending holds", "a/d then y      Approve / deny a selected hold", "Decisions are queued durably; the proxy confirms release.");
   } else if (view.detail && selected) {
     lines.push(paint(`Record #${selected.seq}`, "ink", caps, true), "");
     for (const [label, value] of [["Tool", selected.tool], ["Class", selected.klass.toUpperCase()], ["Decision", selected.decision], ["Time", selected.at], ["Digest", selected.digest], ["Previous", selected.prevDigest], ["Arguments", selected.argsDigest]]) {
@@ -55,6 +74,6 @@ export function renderLiveFeed(view: LiveView, caps: TerminalCapabilities): stri
   }
   const body = crop(lines, width, Math.max(1, caps.rows - 2));
   while (body.length < caps.rows - 2) body.push("");
-  body.push(rule(width), fit("j/k select  enter inspect  f filter  p pause  v refresh  ? help  q quit", width));
+  body.push(rule(width), fit(view.approvalView ? "j/k select  a approve  d deny  y confirm  h feed  q quit" : "j/k select  enter inspect  h holds  f filter  p pause  ? help  q quit", width));
   return body.join("\n");
 }

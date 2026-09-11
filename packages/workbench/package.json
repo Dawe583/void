@@ -1,0 +1,32 @@
+{
+  "name": "@void/workbench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  },
+  "description": "Run model sessions through the VOID policy and signed ledger.",
+  "keywords": [
+    "void",
+    "agents",
+    "workbench"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dawe583/void.git",
+    "directory": "packages/workbench"
+  },
+  "homepage": "https://github.com/Dawe583/void/tree/main/packages/workbench"
+}

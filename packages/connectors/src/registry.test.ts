@@ -77,10 +77,11 @@ describe("connector registry", () => {
     const capture = await registry.s3.capture(call);
     const plan = await registry.s3.inverse(capture.reference);
 
-    assert.equal(decoder.decode(await store.get(capture.reference)), "before");
+    const restartedPlan = await makeConnector({ store, s3: client }).s3.inverse(capture.reference);
+    assert.deepEqual(restartedPlan, plan);
     assert.equal(plan.connector, "s3");
     assert.equal(plan.steps[0]?.operation, "putObject");
-    assert.equal(plan.steps[0]?.inputDigest, capture.reference.digest);
+    assert.match(plan.steps[0]?.inputDigest ?? "", /^sha256:/);
   });
 });
 
@@ -154,3 +155,7 @@ class FakeS3Client implements S3Client {
 function fact(facts: readonly { readonly name: string; readonly value: string | boolean }[], name: string): string | boolean | undefined {
   return facts.find((item) => item.name === name)?.value;
 }
+
+test('AWS S3 aliases resolve the same persisted connector', () => {
+  assert.equal(connectorFor('aws.s3.object.delete')?.connectorId, 's3');
+});

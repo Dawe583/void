@@ -3,6 +3,8 @@ import type { S3Client, S3DeleteCall } from "./classify.ts";
 export type S3ObjectImage = {
   readonly bytes: Uint8Array;
   readonly etag?: string;
+  readonly ifMatch?: string;
+  readonly ifNoneMatch?: string;
 };
 
 export type RestoreObjectReport = {
@@ -12,7 +14,7 @@ export type RestoreObjectReport = {
 };
 
 export async function restoreObject(client: S3Client, call: S3DeleteCall, image: S3ObjectImage): Promise<RestoreObjectReport> {
-  const result = await client.putObject({ bucket: call.bucket, key: call.key, body: image.bytes });
+  const result = await client.putObject({ bucket: call.bucket, key: call.key, body: image.bytes, ...(image.ifMatch ? { ifMatch: image.ifMatch } : {}), ...(image.ifNoneMatch ? { ifNoneMatch: image.ifNoneMatch } : {}) });
   return {
     etag: result.etag,
     versionId: result.versionId,

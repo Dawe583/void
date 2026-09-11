@@ -62,15 +62,15 @@ describe("inverse and replay", () => {
     assert.equal(exec.committed, true);
   });
 
-  test("builds inserts in reverse dependency order", () => {
+  test("builds parent inserts before child rows", () => {
     const image = beforeImage("delete from public.orders where id = 1", [
       row("public.orders", { id: 1 }, { id: 1, status: "draft" }),
       row("public.order_items", { id: 10 }, { id: 10, order_id: 1 }, ["public.orders"]),
     ]);
     const steps = buildInverse(image.statement, image);
-    assert.equal(steps[0]?.table, "public.order_items");
+    assert.equal(steps[0]?.table, "public.orders");
     assert.equal(steps[0]?.operation, "insert");
-    assert.equal(steps[1]?.table, "public.orders");
+    assert.equal(steps[1]?.table, "public.order_items");
   });
 
   test("replay refuses when drift changed a captured field", async () => {

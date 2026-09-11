@@ -33,7 +33,7 @@ VOID does not make an agent safe by trusting the model. It protects the write pa
 
 ## Five-minute local path
 
-This repository already has dependencies installed in the current workspace. Release packaging is still private at version 0.0.0, so the public install command is not final yet. If dependencies are missing, the root owner runs the install step because this repo protects the lockfile.
+Use Node.js 24 or newer and `pnpm install --frozen-lockfile`. Packages are private at version 0.1.0. Start the responsive GUI with `pnpm gui`; see [the beta runbook](docs/BETA.md) for agent configuration, terminal controls, Vercel deployment and the reviewed feature boundaries.
 
 From the repository root, start with the simulated hold moment:
 
@@ -106,19 +106,16 @@ The development binary is `node packages/cli/bin/void.mjs`. Packaged releases wi
 | `@void/proxy` | MCP session plumbing, stdio and HTTP upstream transports, forwarding, interception, and approval pumping. |
 | `@void/connectors` | Connector registry, Postgres logic, S3 logic, probes, snapshots, and manifests. |
 | `@void/cli` | Development command handlers and terminal render models. |
+| `@void/workbench` | Provider discovery, bounded agent sessions and the shared GUI/CLI model loop. |
 | `@void/sdk` | In-process client wrapper for app builders: VoidClient, holdHandle, typed errors. |
 
-## Honest limitations
+## Beta scope
 
-- Packages are still private at `0.0.0`. The public install and publish flow is not complete.
-- Development signing uses `devKeyProvider`, backed by `VOID_SIGNING_KEY` or a local ed25519 key under the user home directory. Production KMS is an interface, not wired here.
-- The default ledger store is local JSONL. It is tamper evident and fsynced, but it is a dev-tier single-writer store. There is no real Postgres ledger store wired by default.
-- Postgres and S3 connector logic exists, but no real customer Postgres or S3 account is wired by default. Local proof uses fixtures and fakes.
-- Approvals are not authenticated in this repo. The CLI and SDK paths are development surfaces, not a hosted identity system.
-- Blocking holds pause the tool call. Speculative execution and provisional receipts are not implemented.
-- `void replay` builds inverse plans from captured snapshots, but applying them needs a real executor. The binary refuses with a typed error (for example `ExecutorNotConfigured`) when `VOID_PG_URL` or an S3 adapter is absent. Live drift against a real database is proven only in the local scripts.
-- The control-plane server and its pages are local development surfaces with no authentication. Do not expose them beyond localhost.
-- Real-browser verification of the control-plane pages is blocked in this development sandbox. The pages are covered by render tests plus a live API check against a real signed ledger.
+See [docs/BETA.md](docs/BETA.md) for supported features, verification evidence,
+remote authentication, runtime configuration and remaining roadmap work.
+The web app needs a persistent HTTPS runtime before it can run live agents.
+Native agent adapters and automatic snapshot capture for arbitrary MCP tools
+are not included in this beta.
 
 ## More docs
 

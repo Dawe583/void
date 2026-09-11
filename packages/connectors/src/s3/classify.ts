@@ -25,7 +25,7 @@ export type S3BucketVersioningResult = {
 
 export type S3Client = {
   readonly getObject: (input: S3GetObjectInput) => Promise<S3GetObjectResult>;
-  readonly putObject: (input: { readonly bucket: string; readonly key: string; readonly body: Uint8Array }) => Promise<{ readonly etag?: string; readonly versionId?: string }>;
+  readonly putObject: (input: { readonly bucket: string; readonly key: string; readonly body: Uint8Array; readonly ifMatch?: string; readonly ifNoneMatch?: string }) => Promise<{ readonly etag?: string; readonly versionId?: string }>;
   readonly deleteObject: (input: S3DeleteCall) => Promise<{ readonly versionId?: string; readonly deleteMarker?: boolean }>;
   readonly getBucketVersioning: (input: { readonly bucket: string }) => Promise<S3BucketVersioningResult>;
 };

@@ -61,6 +61,7 @@ export function renderApprovals(records, now, states = new Map(), error) {
 }
 
 export function renderVerification(result, error) {
+  if (!error && result?.setup === true) return '<span class="muted">No ledger yet. Start an agent session or select a workspace with recorded calls.</span>';
   if (!error && result?.ok === true && result?.verified === true && Number.isInteger(result.checked) && result.checked >= 0) {
     const scope = result.signed === true ? "chain ok, signatures checked" : "chain ok, signatures NOT checked";
     return `<span data-tone="ok">${scope}: ${result.checked} records checked</span>`;
@@ -83,6 +84,7 @@ function validateApprovals(body) {
 
 export function createApp({ document, fetch, now, timer, page, workspace, limit = 50 }) {
   const states = new Map();
+  const queued = new Set();
   let approvals = [];
   let entries = [];
   let feedSigned = false;
@@ -116,11 +118,24 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
     setHtml("feed-list", renderFeed(filtered));
     setText("activity-count", `${filtered.length} of ${entries.length} records in this view${paused ? " / paused" : ""}`);
     if (focused) document.getElementById("feed-list")?.querySelector?.(`[data-record="${Number(focused)}"]`)?.focus();
-    if (selectedRecord !== undefined) setHtml("record-details", renderRecord(entries.find(entry => entry.seq === selectedRecord), feedSigned));
+
   }
   async function request(url, options = {}) {
     const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000), ...options });
-    if (!response.ok) throw new Error(`HTTP ${response.status}. Data could not be loaded.`);
+    if (!response.ok) {
+      let body;
+      try { body = await response.json(); } catch { /* Gateways may return a non-JSON error. */ }
+      if (response.status === 401 || body?.error === "setup_required") {
+        const panel = document.getElementById("connection-panel");
+        if (panel) panel.hidden = false;
+        const form = document.getElementById("connection-form");
+        if (form) form.hidden = body?.error === "setup_required";
+        setText("connection-message", body?.message ?? "Connect your workspace to load its records.");
+      }
+      const error = new Error(body?.message ?? `HTTP ${response.status}. Data could not be loaded.`);
+      error.emptyLedger = body?.error === "ledger_not_found";
+      throw error;
+    }
     return response.json();
   }
   async function pollFeed(selectedWorkspace = workspace, selectedLimit = limit) {
@@ -135,6 +150,12 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
     } catch (error) {
       entries = [];
       feedSigned = false;
+      if (error.emptyLedger) {
+        setText("feed-scope", "No calls recorded in this workspace yet.");
+        setText("activity-count", "0 records");
+        setHtml("feed-list", renderFeed([]));
+        return true;
+      }
       setHtml("feed-scope", "Ledger verification is unavailable. Refresh to retry.");
       setText("activity-count", "Activity unavailable");
       setHtml("record-details", "<p>Ledger unavailable. Close this panel and retry the connection.</p>");
@@ -150,7 +171,8 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
     try {
       approvals = validateApprovals(await request("/api/approvals"));
       if (workspace) approvals = approvals.filter(record => record.call.workspace === workspace);
-      for (const [id, state] of completed) if (states.get(id) === state) states.set(id, decisionState(state, "refresh"));
+      for (const [id, state] of completed) if (!queued.has(id) && states.get(id) === state) states.set(id, decisionState(state, "refresh"));
+      for (const id of queued) if (!approvals.some(record => record.holdId === id)) queued.delete(id);
       approvalsError = undefined;
       drawApprovals();
       return true;
@@ -168,7 +190,7 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
       const query = workspace ? `?${new URLSearchParams({ workspace })}` : "";
       const result = await request(`/api/ledger/verify${query}`);
       setHtml("verify-status", renderVerification(result));
-      return result?.ok === true && result?.verified === true && Number.isInteger(result.checked) && result.checked >= 0;
+      return result?.setup === true || (result?.ok === true && result?.verified === true && Number.isInteger(result.checked) && result.checked >= 0);
     } catch (error) {
       setHtml("verify-status", renderVerification(null, errorMessage(error)));
       return false;
@@ -184,9 +206,10 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
     try {
       const { url, options } = decisionRequest(id, kind);
       const result = await request(url, options);
-      if (result?.ok !== true || result.result !== true) throw new Error("Decision not accepted. Refresh to check the hold status.");
+      if (result?.ok !== true || (result.result !== true && result.result?.queued !== true)) throw new Error("Decision not accepted. Refresh to check the hold status.");
+      if (result.result?.queued) queued.add(id);
       states.set(id, decisionState("submitting", "success"));
-      setText("decision-status", "Decision accepted by the API. Waiting for refresh.");
+      setText("decision-status", result.result?.queued ? "Decision queued. Waiting for the proxy to resolve the hold." : "Decision accepted by the API. Waiting for refresh.");
       return true;
     } catch (error) {
       states.set(id, decisionState("submitting", "failure"));
@@ -208,6 +231,23 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
   return {
     pollFeed, pollApprovals, verifyIndicator, decide, refresh, drawFeed,
     inspect(seq) { selectedRecord = Number(seq); setHtml("record-details", renderRecord(entries.find(entry => entry.seq === selectedRecord), feedSigned)); },
+    async recordAction(action, apply = false) {
+      if (selectedRecord === undefined) return;
+      const record = entries.find(entry => entry.seq === selectedRecord);
+      if (!record) return;
+      setText("record-action-result", "Loading...");
+      try {
+        const query = workspace ? `?${new URLSearchParams({ workspace })}` : "";
+        const body = await request(`/api/records/${selectedRecord}/${action}${query}`, apply ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ digest: record.digest }) } : {});
+        if (action === "taint") {
+          setText("record-action-result", `${body.note}\n\n${body.nodes.map(node => `#${node.seq} ${node.tool}`).join("\n")}\n\n${body.edges.length} tracked dependency edges. This is recorded context, not proof of causation.`);
+        } else {
+          setText("record-action-result", body.lines.join("\n"));
+          const button = document.getElementById("replay-apply");
+          if (button) { button.hidden = apply; button.disabled = !feedSigned; }
+        }
+      } catch (error) { setText("record-action-result", errorMessage(error)); }
+    },
     togglePause() { paused = !paused; drawFeed(); return paused; },
     start() {
       if (interval === undefined) interval = timer.setInterval(refresh, 2000);
@@ -236,10 +276,24 @@ if (typeof document !== "undefined") {
       event.currentTarget.setAttribute("aria-pressed", String(paused));
       if (!paused) void app.pollFeed();
     });
+    document.getElementById("record-taint")?.addEventListener("click", () => { void app.recordAction("taint"); });
+    document.getElementById("replay-preview")?.addEventListener("click", () => { void app.recordAction("replay"); });
+    document.getElementById("replay-apply")?.addEventListener("click", event => {
+      if (event.currentTarget.dataset.confirm !== "true") {
+        event.currentTarget.dataset.confirm = "true";
+        event.currentTarget.textContent = "Confirm replay on target";
+        return;
+      }
+      event.currentTarget.disabled = true;
+      void app.recordAction("replay", true);
+    });
     let inspectedRecord;
     document.getElementById("feed-list")?.addEventListener("click", event => {
       const button = event.target.closest("button[data-record]");
       if (!button) return;
+      document.getElementById("record-action-result").textContent = "";
+      const apply = document.getElementById("replay-apply");
+      apply.hidden = true; apply.dataset.confirm = "false"; apply.textContent = "Apply previewed inverse";
       inspectedRecord = Number(button.dataset.record);
       app.inspect(button.dataset.record);
       document.getElementById("record-dialog")?.showModal();
@@ -247,9 +301,23 @@ if (typeof document !== "undefined") {
     document.getElementById("record-dialog")?.addEventListener("close", () => {
       document.querySelector(`button[data-record="${inspectedRecord}"]`)?.focus();
     });
+    document.getElementById("connection-form")?.addEventListener("submit", async event => {
+      event.preventDefault();
+      const input = document.getElementById("access-token");
+      const status = document.getElementById("connection-status");
+      status.textContent = "Connecting...";
+      try {
+        const response = await window.fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: input.value }) });
+        input.value = "";
+        if (!response.ok) throw new Error("Token not accepted. Check the workspace configuration and retry.");
+        document.getElementById("connection-panel").hidden = true;
+        await app.refresh();
+      } catch (error) { status.textContent = errorMessage(error); }
+    });
     const input = document.getElementById("workspace");
     if (input) input.value = workspace ?? "";
     if (workspace) for (const link of document.querySelectorAll('a[href$=".html"]')) link.search = new URLSearchParams({ workspace }).toString();
+    if (workspace && document.getElementById("export-records")) document.getElementById("export-records").search = new URLSearchParams({ workspace }).toString();
     window.addEventListener("pagehide", () => app.stop(), { once: true });
     void app.start();
   }

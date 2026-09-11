@@ -1,0 +1,9 @@
+.git
+.opencode
+.playwright-mcp
+.prime
+scripts/team
+graphify-out
+node_modules
+dist
+.env*

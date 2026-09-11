@@ -13,10 +13,13 @@
     "tui:preview": "node src/tui/preview.ts"
   },
   "devDependencies": {
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "@types/pg": "8.15.5"
   },
   "dependencies": {
-    "@void/registry": "workspace:*"
+    "@aws-sdk/client-s3": "3.883.0",
+    "@void/registry": "workspace:*",
+    "pg": "8.16.3"
   },
   "description": "Inspect classifications, verify ledgers, and plan replay from the VOID command line.",
   "keywords": [

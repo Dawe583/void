@@ -23,3 +23,11 @@ test("live view never labels integrity-only data as signature checked", () => {
   assert.match(frame, /Signatures have not been checked/);
   assert.equal(liveRecords({ ...view, filter: "r3" }).length, 0);
 });
+
+test('pending approvals expose real risk and require an explicit confirmation', () => {
+  const hold = { holdId: 'h001', call: { tool: 'postgres.row.delete', klass: 'r3' as const, connector: 'postgres', workspace: 'local', blastRadius: 12 }, expiresAt: Date.now() + 60000, status: 'pending' as const, notify: [] };
+  const frame = renderLiveFeed({ ...view, approvalView: true, approvals: [hold], approvalSelected: 0, confirmDecision: 'denied' }, { interactive: true, ansi: false, colorDepth: 0, columns: 80, rows: 24, reason: 'no-color' });
+  assert.match(frame, /Blast radius: 12/);
+  assert.match(frame, /Confirm denied with y/);
+  assert.ok(frame.split('\n').every(line => visibleLength(line) <= 80));
+});

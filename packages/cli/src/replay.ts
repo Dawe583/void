@@ -1,3 +1,5 @@
+import { s3Executor } from "./s3.ts";
+import { postgresExecutor } from "./postgres.ts";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -111,6 +113,8 @@ export async function runReplayCommand(
   io: ReplayCommandIo,
   options: ReplayCommandOptions = {},
 ): Promise<number> {
+  let s3: ReturnType<typeof s3Executor> | undefined;
+  let connection: Awaited<ReturnType<typeof postgresExecutor>> | undefined;
   try {
     const env = io.env ?? process.env;
     if (argv.includes("--list-connectors")) {
@@ -123,12 +127,20 @@ export async function runReplayCommand(
     const record = findRecord(page, parsed.seq);
     const manifest = await (options.readManifest ?? readSnapshotManifest)(parsed.snapshotDir);
     const snapshot = findSnapshot(manifest, record);
+    if (!parsed.dryRun && options.connectors === undefined && options.exec === undefined && env.VOID_PG_URL && connectorFor(record.tool)?.connectorId === "postgres") {
+      connection = await postgresExecutor(env.VOID_PG_URL);
+      options = { ...options, exec: connection };
+    }
+    if (!parsed.dryRun && options.connectors === undefined && options.s3 === undefined && env.VOID_S3_ENABLED === "1" && connectorFor(record.tool)?.connectorId === "s3") {
+      s3 = s3Executor(env); options = { ...options, s3 };
+    }
     const connector = options.connectors === undefined
       ? configuredConnector(record.tool, parsed, env, options)
       : findConnector(options.connectors, record.tool);
     const plan = await connector.inverse(snapshot.reference);
 
     printReplayHeader(record, snapshot, io.stdout);
+    if (plan.connector === "s3") io.stdout("S3 restore returns captured bytes as a new object version; it is not a history-preserving inverse.");
     if (parsed.dryRun) {
       printPlan(plan, io.stdout);
       return 0;
@@ -143,7 +155,7 @@ export async function runReplayCommand(
       : error instanceof Error ? error.message : String(error);
     io.stderr(`void replay failed: ${reason}`);
     return 1;
-  }
+  } finally { s3?.close(); await connection?.close(); }
 }
 
 function printConnectors(
@@ -160,7 +172,7 @@ function printConnectors(
   stdout(options.exec !== undefined
     ? "postgres: executor configured (host injected)"
     : env.VOID_PG_URL
-      ? "postgres: executor absent (VOID_PG_URL set; adapter unavailable in this binary)"
+      ? "postgres: connection configured via VOID_PG_URL (validated on replay)"
       : "postgres: executor absent (VOID_PG_URL unset; host adapter required)");
   stdout(options.s3 !== undefined
     ? "s3: executor configured (host injected); persisted replay metadata unavailable"
@@ -306,9 +318,11 @@ function findSnapshot(
   manifest: readonly SnapshotManifestRecord[],
   record: LedgerFeedRecord,
 ): SnapshotManifestRecord {
-  const snapshot = manifest.find(
+  const matches = manifest.filter(
     (candidate) => candidate.digest === record.argsDigest && candidate.tool === record.tool,
   );
+  if (matches.length > 1) throw new Error(`ambiguous snapshot manifest match for seq ${record.seq}; refusing to choose a before image`);
+  const snapshot = matches[0];
   if (snapshot === undefined)
     throw new Error(`no snapshot manifest match for seq ${record.seq}, tool ${record.tool}, argsDigest ${record.argsDigest}`);
   return snapshot;

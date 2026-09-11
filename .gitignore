@@ -62,3 +62,5 @@ graphify-out/
 # git would refuse it without -f while git status stayed silent about why.
 packages/*/src/**/*.js
 packages/*/src/**/*.js.map
+.vercel
+.env*

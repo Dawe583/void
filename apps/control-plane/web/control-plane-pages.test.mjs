@@ -18,7 +18,7 @@ test("all pages are HTML5 documents with local design styles", () => {
     assert.match(html, /<html lang="en">/, page);
     assert.match(html, /<meta charset="utf-8">/, page);
     assert.match(html, /<meta name="viewport"/, page);
-    assert.match(html, /<style>[\s\S]*<\/style>/, page);
+    assert.doesNotMatch(html, /<style>/, page);
     assert.match(html, /<link rel="stylesheet" href="workbench.css">/, page);
     assert.doesNotMatch(html, /src="https?:/i, page);
     assert.doesNotMatch(html, /[\u2013\u2014]/u, page);

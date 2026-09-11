@@ -21,7 +21,13 @@ export type DriftReport = {
 };
 
 export function buildInverse(statement: BeforeImage["statement"], image: BeforeImage): InverseStep[] {
-  const orderedRows = statement.type === "delete" ? [...image.rows].reverse() : [...image.rows];
+  const orderedRows: CapturedRow[] = [];
+  const remaining = [...image.rows];
+  while (remaining.length) {
+    const index = remaining.findIndex(row => row.dependencies.every(table => !remaining.some(candidate => candidate.table === table)));
+    if (index < 0) throw new Error("cyclic snapshot dependencies cannot be replayed");
+    orderedRows.push(remaining.splice(index, 1)[0]!);
+  }
   return orderedRows.map((row, index) => ({
     id: `${statement.type}-${index}-${row.table}`,
     table: row.table,

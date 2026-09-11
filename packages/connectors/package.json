@@ -12,6 +12,7 @@
     "test": "node --test"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.7",
     "@types/node": "catalog:"
   },
   "dependencies": {

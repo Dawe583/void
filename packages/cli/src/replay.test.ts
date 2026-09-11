@@ -259,9 +259,9 @@ describe("persisted connector replay", () => {
   });
 
   test("connector listing does not confuse a URL with a working executor", async () => {
-    const result = await binaryReplay(["--list-connectors"], { VOID_PG_URL: "postgres://test:private-credential@localhost/example" });
+    const result = await binaryReplay(["--list-connectors"], { VOID_PG_URL: "postgres://test:private-credential@127.0.0.1:1/example" });
     assert.equal(result.code, 0);
-    assert.match(result.stdout, /postgres: executor absent.*adapter unavailable/);
+    assert.match(result.stdout, /postgres: connection configured.*validated on replay/);
     assert.doesNotMatch(result.stdout, /private-credential/);
   });
 
@@ -304,9 +304,9 @@ describe("persisted connector replay", () => {
   test("a URL alone cannot pretend an executor adapter exists or echo credentials", async (t) => {
     const fixture = await persistedFixture();
     t.after(() => rm(fixture.root, { recursive: true, force: true }));
-    const result = await binaryReplay(fixture.argv, { VOID_PG_URL: "postgres://test:private-credential@localhost/example" });
+    const result = await binaryReplay(fixture.argv, { VOID_PG_URL: "postgres://test:private-credential@127.0.0.1:1/example" });
     assert.equal(result.code, 1);
-    assert.match(result.stderr, /postgres executor adapter is not available/);
+    assert.match(result.stderr, /Postgres connection failed/);
     assert.doesNotMatch(result.stderr, /private-credential/);
   });
 
@@ -460,3 +460,16 @@ async function binaryReplay(argv: readonly string[], env: NodeJS.ProcessEnv = {}
     return { code: failure.code, stdout: failure.stdout, stderr: failure.stderr };
   }
 }
+
+
+test("ambiguous before images refuse replay before calling a connector", async () => {
+  let called = false;
+  const errors: string[] = [];
+  const entry = { digest: argsDigest, reference, tool: "postgres.row.update" };
+  const code = await runReplayCommand(["--ledger", "unused", "--snapshot-dir", "unused", "--seq", "7"],
+    { stdout: () => {}, stderr: line => errors.push(line) }, {
+      readFeed: async () => page, readManifest: async () => [entry, entry],
+      connectors: { postgres: fakeConnector({ apply: async () => { called = true; return { applied: [], refused: [] }; } }) },
+    });
+  assert.equal(code, 1); assert.equal(called, false); assert.match(errors.join("\n"), /ambiguous/);
+});

@@ -1,13 +1,21 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { stat, readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, join, normalize, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
+import { runReplayCommand } from "../../../packages/cli/src/replay.ts";
+import type { ReplayCommandOptions } from "../../../packages/cli/src/replay.ts";
+import { buildGraph, DATA_EDGE_HONESTY_NOTE } from "../../../packages/ledger/src/taint/graph.ts";
+import { neighbors } from "../../../packages/ledger/src/taint/query.ts";
+import { readLedgerEntries, verifyChain } from "../../../packages/ledger/src/verify.ts";
 import { GENESIS_PREV } from "../../../packages/ledger/src/canonical.ts";
 import { readLedgerFeed, type LedgerFeedRecord } from "../../../packages/ledger/src/feed.ts";
 import type { PublicKeyLookup } from "../../../packages/ledger/src/verify.ts";
+import { Workbench } from "../../../packages/workbench/src/index.ts";
+import { authorizedRemote } from "./auth.ts";
+import { localApprovals } from "./local-approvals.ts";
 import { keyProviderFromPkcs8 } from "../../../packages/ledger/src/sign.ts";
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
@@ -36,6 +44,7 @@ export type ControlPlaneOptions = {
   readonly webRoot?: string;
   readonly ledgerPath?: string;
   readonly approvals?: ApprovalBroker;
+  readonly replay?: ReplayCommandOptions;
 };
 
 export type ListenHandle = {
@@ -47,17 +56,19 @@ export type ListenHandle = {
 type JsonObject = Record<string, unknown>;
 
 type RouteOptions = {
+  readonly workbench: Workbench;
   readonly env: Readonly<NodeJS.ProcessEnv>;
   readonly webRoot: string;
   readonly ledgerPath?: string;
   readonly approvals?: ApprovalBroker;
+  readonly replay?: ReplayCommandOptions;
   readonly publicKey?: PublicKeyLookup;
 };
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const defaultWebRoot = resolve(here, "../web");
 const maxBodyBytes = 64 * 1024;
-const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js", "/workbench.css"]);
+const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js", "/workbench.css", "/theme.js", "/sessions.js", "/manifest.webmanifest", "/icon.svg"]);
 
 /**
  * Resolve a verification key without ever generating one. Reading is the
@@ -76,6 +87,12 @@ async function resolveVerifyKey(env: Readonly<NodeJS.ProcessEnv>): Promise<Publi
   if (explicit !== undefined && explicit !== "") {
     return new Uint8Array(Buffer.from(explicit, "base64"));
   }
+  if (env === process.env) {
+    try {
+      const provider = keyProviderFromPkcs8(await readFile(join(homedir(), ".void", "keys", "dev-ed25519.pkcs8")));
+      return keyId => provider.publicKey(keyId);
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  }
   return undefined;
 }
 
@@ -83,19 +100,22 @@ export function createControlPlaneServer(options: ControlPlaneOptions = {}): Ser
   const env = options.env ?? process.env;
   const webRoot = resolve(options.webRoot ?? defaultWebRoot);
 
-  return createServer((request, response) => {
-    if (!isLocalRequest(request)) {
+  const workbench = new Workbench(env);
+  const server = createServer((request, response) => {
+    if (env.VOID_CONTROL_TOKEN ? !authorizedRemote(request, env) : !isLocalRequest(request)) {
       sendJson(response, 403, { error: "local_origin_required" });
       return;
     }
     void resolveVerifyKey(env).then((publicKey) =>
-      route(request, response, { ...options, env, webRoot, publicKey })).catch(() => {
+      route(request, response, { ...options, env, webRoot, publicKey, workbench, approvals: workbench.list().length ? { pending: async () => [...await readPendingApprovals(options.approvals), ...workbench.pending()], decide: (id, decision) => id.includes(":") ? workbench.decide(id, decision) : options.approvals?.decide(id, decision) } : options.approvals })).catch(() => {
       sendJson(response, 500, {
         error: "internal_error",
         message: "The request failed; operator review required",
       });
     });
   });
+  server.once("close", () => workbench.close());
+  return server;
 }
 
 export async function listenControlPlane(options: ControlPlaneOptions = {}): Promise<ListenHandle> {
@@ -126,6 +146,77 @@ async function route(
   const parsed = parseRequestUrl(request);
   if (parsed === null) return sendJson(response, 400, { error: "bad_url" });
 
+  if (parsed.pathname === "/api/provider") {
+    try {
+      if (request.method === "GET") return sendJson(response, 200, await options.workbench.providerState());
+      if (request.method === "DELETE") { options.workbench.clearProvider(); return sendJson(response, 200, { ok: true }); }
+      if (request.method === "POST") {
+        const body = await readJsonBody(request) as { baseUrl?: string; apiKey?: string } | null;
+        if (typeof body?.baseUrl !== "string" || typeof body.apiKey !== "string") return sendJson(response, 400, { error: "invalid_provider" });
+        const models = await options.workbench.configure({ baseUrl: body.baseUrl, apiKey: body.apiKey });
+        return sendJson(response, 200, { connected: true, models, keyStorage: "runtime-memory" });
+      }
+    } catch (error) { return sendJson(response, 400, { error: "provider_unavailable", message: error instanceof Error ? error.message : "Provider unavailable" }); }
+  }
+  if (parsed.pathname === "/api/sessions") {
+    if (request.method === "GET") return sendJson(response, 200, { sessions: options.workbench.list() });
+    if (request.method === "POST") {
+      const body = await readJsonBody(request) as { prompt?: string; model?: string } | null;
+      if (typeof body?.prompt !== "string" || typeof body.model !== "string") return sendJson(response, 400, { error: "invalid_session" });
+      try { return sendJson(response, 201, { session: await options.workbench.start(body.prompt, body.model) }); }
+      catch (error) { return sendJson(response, 409, { error: "session_not_started", message: error instanceof Error ? error.message : "Session not started" }); }
+    }
+  }
+  const sessionMatch = /^\/api\/sessions\/([a-f0-9-]+)$/.exec(parsed.pathname);
+  if (sessionMatch) {
+    const id = sessionMatch[1]!;
+    const session = options.workbench.get(id);
+    if (!session) return sendJson(response, 404, { error: "session_not_found" });
+    if (request.method === "GET") return sendJson(response, 200, { session });
+    if (request.method === "DELETE") { options.workbench.cancel(id); return sendJson(response, 200, { ok: true }); }
+    if (request.method === "POST") {
+      const body = await readJsonBody(request) as { prompt?: string } | null;
+      if (typeof body?.prompt !== "string") return sendJson(response, 400, { error: "invalid_message" });
+      try { options.workbench.send(id, body.prompt); return sendJson(response, 202, { ok: true }); }
+      catch (error) { return sendJson(response, 409, { error: "session_not_ready", message: error instanceof Error ? error.message : "Session not ready" }); }
+    }
+  }
+  const recordAction = /^\/api\/records\/(\d+)\/(taint|replay)$/.exec(parsed.pathname);
+  if (recordAction && (request.method === "GET" || request.method === "POST")) {
+    const ledger = selectLedgerPath(options, parsed.searchParams.get("workspace"));
+    const seq = Number(recordAction[1]);
+    if (!ledger || !Number.isSafeInteger(seq) || seq < 1) return sendJson(response, 400, { error: "invalid_record" });
+    const entries = await readLedgerEntries(ledger);
+    const verified = await verifyChain(entries, { publicKey: options.publicKey });
+    if (!verified.ok) return sendJson(response, 409, { error: "ledger_verification_failed" });
+    const entry = entries.find(item => item.seq === seq);
+    if (!entry) return sendJson(response, 404, { error: "record_not_found" });
+    if (recordAction[2] === "taint" && request.method === "GET") {
+      const graph = neighbors(buildGraph(entries), entry.hash, 8);
+      return sendJson(response, 200, { ...graph, note: DATA_EDGE_HONESTY_NOTE, signed: options.publicKey !== undefined });
+    }
+    if (recordAction[2] === "replay") {
+      const apply = request.method === "POST";
+      if (apply) {
+        const body = await readJsonBody(request) as { digest?: string } | null;
+        if (body?.digest !== entry.hash) return sendJson(response, 409, { error: "preview_digest_required" });
+        if (!options.publicKey) return sendJson(response, 409, { error: "signature_key_required", message: "Replay requires verified signatures." });
+      }
+      const snapshots = options.env.VOID_SNAPSHOT_DIR;
+      if (!snapshots) return sendJson(response, 409, { error: "snapshots_not_configured", message: "Set VOID_SNAPSHOT_DIR on the runtime to preview captured inverses." });
+      const lines: string[] = [];
+      const errors: string[] = [];
+      const code = await runReplayCommand(["--ledger", ledger, "--snapshot-dir", snapshots, "--seq", String(seq), ...(apply ? [] : ["--dry-run"])], { stdout: line => lines.push(line), stderr: line => errors.push(line), env: options.env }, options.replay);
+      return sendJson(response, code === 0 ? 200 : 409, { ok: code === 0, digest: entry.hash, preview: !apply, lines, message: errors.join("\n") });
+    }
+  }
+  if (request.method === "GET" && parsed.pathname === "/api/ledger/export") {
+    const ledger = selectLedgerPath(options, parsed.searchParams.get("workspace"));
+    if (!ledger) return sendJson(response, 400, { error: "invalid_workspace" });
+    const page = await readLedgerFeed(ledger, { publicKey: options.publicKey });
+    response.setHeader("content-disposition", 'attachment; filename="void-records.json"');
+    return sendJson(response, 200, { format: "void.records.v1", note: "Record metadata export. Use void attest for offline signed attestation.", signed: page.signed, entries: page.records.map(toApiEntry) });
+  }
   if (request.method === "GET" && parsed.pathname === "/api/feed") {
     return handleFeed(response, options, parsed.searchParams);
   }
@@ -149,6 +240,11 @@ async function handleFeed(response: ServerResponse, options: RouteOptions, searc
   const limit = parseLimit(searchParams.get("limit"));
   const ledgerPath = selectLedgerPath(options, searchParams.get("workspace"));
   if (ledgerPath === null) return sendJson(response, 400, { error: "invalid_workspace" });
+  try { await stat(ledgerPath); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return sendJson(response, 404, { error: "ledger_not_found", message: "No recorded calls yet. Start an agent session or connect an existing VOID workspace." });
+    throw error;
+  }
   const page = await readLedgerFeed(ledgerPath, { publicKey: options.publicKey });
   const entries = page.records.slice(-limit).map(toApiEntry);
   sendJson(response, 200, { entries, verified: page.signed, integrity: true, signed: page.signed });
@@ -169,13 +265,14 @@ async function handleVerify(response: ServerResponse, options: RouteOptions, sea
     });
   } catch (error) {
     sendJson(response, 200, {
+      setup: (error as NodeJS.ErrnoException).code === "ENOENT",
       ok: false,
       verified: false,
       integrity: false,
       signed: false,
       checked: 0,
       head: GENESIS_PREV,
-      reason: error instanceof Error ? error.message : String(error),
+      reason: (error as NodeJS.ErrnoException).code === "ENOENT" ? "No ledger yet. Run an agent through void-proxy in this workspace, then refresh." : "Ledger integrity or signature validation failed. Inspect the ledger locally before trusting these records.",
     });
   }
 }
@@ -202,6 +299,7 @@ async function handleApprovalDecision(
   const decision = parseDecision(body);
   if (decision === null) return sendJson(response, 400, { error: "invalid_decision" });
   const result = await approvals.decide(holdId, decision);
+  response.setHeader("cache-control", "no-store");
   sendJson(response, 200, { ok: true, result });
 }
 
@@ -329,6 +427,8 @@ function applicationJsonContentType(header: string): boolean {
 }
 
 function sendJson(response: ServerResponse, statusCode: number, value: JsonObject): void {
+  response.setHeader("cache-control", "no-store");
+  response.setHeader("x-content-type-options", "nosniff");
   response.statusCode = statusCode;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.end(JSON.stringify(value));
@@ -351,6 +451,8 @@ function staticPath(webRoot: string, pathname: string): string | null {
 
 function contentType(filePath: string): string {
   if (extname(filePath) === ".html") return "text/html; charset=utf-8";
+  if (extname(filePath) === ".webmanifest") return "application/manifest+json";
+  if (extname(filePath) === ".svg") return "image/svg+xml";
   if (extname(filePath) === ".css") return "text/css; charset=utf-8";
   if (extname(filePath) === ".js") return "application/javascript; charset=utf-8";
   return "application/octet-stream";
@@ -366,7 +468,7 @@ function selectLedgerPath(options: RouteOptions, workspace: string | null): stri
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number.parseInt(process.env.PORT ?? "8081", 10);
-  createControlPlaneServer().listen(port, "127.0.0.1", () => {
+  createControlPlaneServer({ approvals: localApprovals(process.env) }).listen(port, process.env.VOID_CONTROL_TOKEN && process.env.VOID_CONTROL_TOKEN.length >= 32 ? process.env.VOID_CONTROL_HOST ?? "127.0.0.1" : "127.0.0.1", () => {
     console.log(`VOID control plane API listening on http://127.0.0.1:${port}`);
   });
 }

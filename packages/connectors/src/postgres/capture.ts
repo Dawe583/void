@@ -42,29 +42,64 @@ export async function captureBeforeImage(
   }
 
   const targetSchema = findSchema(schema, target);
-  const cascadeTables = statement.type === "delete" ? await listCascadeTables(exec, target) : [];
   const rows = await selectRows(exec, statement, targetSchema, []);
-
-  for (const cascadeTable of cascadeTables) {
-    const childSchema = schema.tables.find((item) => item.table === cascadeTable || item.table.endsWith(`.${cascadeTable}`));
-    if (childSchema !== undefined) {
-      rows.push(...await selectRows(exec, { ...statement, tables: [cascadeTable] }, childSchema, [target]));
+  const cascadeTables: string[] = [];
+  if (statement.type === "delete") {
+    const pending: { table: string; rows: readonly CapturedRow[]; ancestors: readonly string[] }[] = [{ table: targetSchema.table, rows: [...rows], ancestors: [] }];
+    const seen = new Set(rows.map(row => `${row.table}:${JSON.stringify(row.key)}`));
+    for (let i = 0; i < pending.length; i++) {
+      if (pending.length > 100) throw new Error("cascade traversal exceeds the supported table limit");
+      const parent = pending[i]!;
+      for (const edge of await cascadeEdges(exec, parent.table)) {
+        if (parent.ancestors.includes(edge.table) || edge.table === parent.table) throw new Error("cyclic cascade cannot be captured safely");
+        const childSchema = findSchema(schema, edge.table);
+        if (!cascadeTables.includes(edge.table)) cascadeTables.push(edge.table);
+        const children: CapturedRow[] = [];
+        for (const row of parent.rows) {
+          const values = edge.parentColumns.map(column => row.row[column]);
+          if (values.some(value => value === undefined)) throw new Error("cascade parent column was not captured");
+          const predicate = edge.childColumns.map((column, index) => `${quoteIdentifier(column)} = $${index + 1}`).join(" and ");
+          const matches = await exec.query<Record<string, unknown>>(`select * from ${quoteIdentifierPath(edge.table)} where ${predicate}`, values);
+          for (const match of matches) {
+            const child = { table: edge.table, key: rowKey(match, childSchema.primaryKey), row: match, dependencies: [parent.table] };
+            const identity = `${child.table}:${JSON.stringify(child.key)}`;
+            if (!seen.has(identity)) { seen.add(identity); children.push(child); rows.push(child); }
+            else {
+              const index = rows.findIndex(existing => `${existing.table}:${JSON.stringify(existing.key)}` === identity);
+              const existing = rows[index]!;
+              rows[index] = { ...existing, dependencies: [...new Set([...existing.dependencies, parent.table])] };
+            }
+          }
+        }
+        if (children.length) pending.push({ table: edge.table, rows: children, ancestors: [...parent.ancestors, parent.table] });
+      }
     }
   }
-
   return { statement, rows, cascadeTables, capturedAt: new Date().toISOString() };
 }
 
+type CascadeEdge = { readonly table: string; readonly childColumns: readonly string[]; readonly parentColumns: readonly string[] };
+
+async function cascadeEdges(exec: QueryExecutor, table: string): Promise<readonly CascadeEdge[]> {
+  // pg_constraint preserves column pairing for composite foreign keys. Reusing
+  // the parent's WHERE on the child captured unrelated rows with different ids.
+  return exec.query<CascadeEdge>(`
+    select ns.nspname || '.' || child.relname as "table",
+      array_agg(ca.attname order by keys.ordinality) as "childColumns",
+      array_agg(pa.attname order by keys.ordinality) as "parentColumns"
+    from pg_constraint c
+    join pg_class child on child.oid = c.conrelid
+    join pg_namespace ns on ns.oid = child.relnamespace
+    cross join lateral unnest(c.conkey, c.confkey) with ordinality as keys(childkey, parentkey, ordinality)
+    join pg_attribute ca on ca.attrelid = c.conrelid and ca.attnum = keys.childkey
+    join pg_attribute pa on pa.attrelid = c.confrelid and pa.attnum = keys.parentkey
+    where c.contype = 'f' and c.confdeltype = 'c' and c.confrelid = $1::regclass
+    group by c.oid, ns.nspname, child.relname
+    order by ns.nspname, child.relname`, [table]);
+}
+
 export async function listCascadeTables(exec: QueryExecutor, table: string): Promise<string[]> {
-  const sql = [
-    "select ccu.table_schema, ccu.table_name",
-    "from information_schema.table_constraints tc",
-    "join information_schema.referential_constraints rc on rc.constraint_schema = tc.constraint_schema and rc.constraint_name = tc.constraint_name",
-    "join information_schema.constraint_column_usage ccu on ccu.constraint_schema = rc.unique_constraint_schema and ccu.constraint_name = rc.unique_constraint_name",
-    "where tc.constraint_type = 'FOREIGN KEY' and rc.delete_rule = 'CASCADE' and ccu.table_name = $1",
-  ].join(" ");
-  const rows = await exec.query<CascadeRow>(sql, [unqualified(table)]);
-  return rows.map((row) => row.table_schema === undefined ? row.table_name : `${row.table_schema}.${row.table_name}`);
+  return (await cascadeEdges(exec, table)).map(edge => edge.table);
 }
 
 async function selectRows(
@@ -104,3 +139,5 @@ function quoteIdentifierPath(path: string): string {
 function unqualified(table: string): string {
   return table.split(".").at(-1) ?? table;
 }
+
+function quoteIdentifier(value: string): string { return `"${value.replace(/"/g, '""')}"`; }
