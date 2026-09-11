@@ -35,6 +35,60 @@ export function Settings({
   }
   return (
     <div className="settings">
+      <section aria-labelledby="install-heading">
+        <h2 id="install-heading">{t("Aplikace VOID", "VOID apps")}</h2>
+        <h3>macOS</h3>
+        <p>
+          {t(
+            "Lokální desktopová beta pro Apple Silicon. macOS 13.5 nebo novější. Obsahuje vlastní VOID runtime.",
+            "Local desktop beta for Apple Silicon. Requires macOS 13.5 or later. Includes its own VOID runtime.",
+          )}
+        </p>
+        <a
+          className="button"
+          href="https://github.com/Dawe583/void/releases/download/desktop-v0.1.0-beta.1/VOID_0.1.0_aarch64.dmg"
+        >
+          {t("Stáhnout pro macOS (.dmg)", "Download for macOS (.dmg)")}
+        </a>
+        <p className="muted">
+          {t(
+            "Beta zatím nemá notarizaci Apple. Gatekeeper může instalaci zablokovat. Verze pro Intel zatím není dostupná.",
+            "This beta is not Apple-notarized. Gatekeeper may block installation. An Intel build is not available yet.",
+          )}
+        </p>
+        <h3>iOS / iPadOS</h3>
+        <details>
+          <summary>
+            {t("Jak přidat VOID na plochu", "Install VOID on your Home Screen")}
+          </summary>
+          <ol>
+            <li>
+              {t(
+                "Otevřete void-tui.vercel.app v Safari.",
+                "Open void-tui.vercel.app in Safari.",
+              )}
+            </li>
+            <li>
+              {t(
+                "Klepněte na Sdílet a Přidat na plochu.",
+                "Tap Share, then Add to Home Screen.",
+              )}
+            </li>
+            <li>
+              {t(
+                "Zapněte Otevřít jako webovou aplikaci, pokud se tato volba zobrazí, a potvrďte Přidat.",
+                "Enable Open as Web App if shown, then tap Add.",
+              )}
+            </li>
+          </ol>
+          <p>
+            {t(
+              "Toto je webová verze a potřebuje internet. Nativní Swift aplikace zatím není vydaná. Lokální nástroje Prime potřebují zapnutý Mac s bridge službou.",
+              "This is the web version and requires internet. The native Swift app has not been released yet. Prime local tools require your Mac and its bridge service to stay online.",
+            )}
+          </p>
+        </details>
+      </section>
       <section>
         <h2>{t("Váš pracovní prostor", "Your workspace")}</h2>
         {agents.data && (
