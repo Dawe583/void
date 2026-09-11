@@ -113,7 +113,8 @@ The development binary is `node packages/cli/bin/void.mjs`. Packaged releases wi
 
 See [docs/BETA.md](docs/BETA.md) for supported features, verification evidence,
 remote authentication, runtime configuration and remaining roadmap work.
-The web app needs a persistent HTTPS runtime before it can run live agents.
+The web app and backend run on Vercel, with Workflow and a Neon database.
+Model generation requires an active Vercel AI Gateway account or a provider key.
 Native agent adapters and automatic snapshot capture for arbitrary MCP tools
 are not included in this beta.
 

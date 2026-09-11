@@ -7,3 +7,8 @@ graphify-out
 node_modules
 dist
 .env*
+
+.agents
+skills-lock.json
+.nitro
+.swc

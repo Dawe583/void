@@ -169,3 +169,7 @@ textarea { resize: vertical; width: 100%; min-width: 0; min-height: 96px; paddin
  #session-transcript { min-height: 100px; max-height: 360px; }
  .workbench-heading { align-items: start; }
 }
+#upstream-settings { border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+#upstream-settings summary { min-height: 44px; padding-block: 16px; font: 13px/1.6 var(--font-code); cursor: pointer; }
+#upstream-form { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; max-width: 720px; margin-top: 16px; }
+#upstream-form textarea { font: 13px/1.6 var(--font-code); }

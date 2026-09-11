@@ -26,24 +26,55 @@ For the live operator interface run `node packages/cli/bin/void.mjs watch` with
 its ledger options. Press `h` for holds, select with arrows, then `a` or `d` and
 `y` to confirm. Noninteractive agent execution denies holds.
 
-## Web deployment
+## Web deployment on Vercel
 
-The existing Vercel project is `void-tui` in the `sitespot` team. The separate
-`void` project serves the reference landing site and is not this application.
-Vercel builds static pages and a stateless API gateway from the repository root.
-A persistent runtime owns MCP child processes, approval brokers and local disk.
+The web application and backend run in the existing `void-tui` Vercel project,
+team `sitespot`. No Mac, Raspberry Pi or separate VOID server is required.
+Nitro builds the HTTP API into Vercel Functions. Vercel Workflow runs agent
+turns and durable approval waits. Neon, provisioned through Vercel Marketplace,
+stores sessions, transcripts, configuration and the signed ledger.
 
-Configure the runtime with `VOID_CONTROL_TOKEN` (at least 32 random characters),
-`VOID_CONTROL_HOST` only when binding beyond loopback, and a durable ledger path.
-Put it behind HTTPS. Configure Vercel with the same `VOID_CONTROL_TOKEN` and
-`VOID_CONTROL_ORIGIN` set to that HTTPS origin. Keep both in server environment
-variables. Enter the shared token in the web connection form; the gateway uses
-a Secure, HttpOnly, SameSiteStrict session cookie. It never exposes the upstream
-token to JavaScript. This is a single-operator beta, not multiuser identity/RBAC.
+The `void` project is the separate reference landing site and is untouched.
 
-Without these environment variables the deployed API returns a setup state.
-The frontend can be inspected, but cannot execute agents or claim live evidence.
-Do not point production at the disposable preview fixture.
+Server environment variables:
+
+- `DATABASE_URL`: supplied by the Neon integration.
+- `VOID_CONTROL_TOKEN`: single-operator access token, at least 32 characters.
+- `VOID_SECRET_KEY`: 32 random bytes, base64, for AES-256-GCM secret encryption.
+- `VOID_SIGNING_KEY`: Ed25519 PKCS8 DER, base64, stable across deployments.
+- Optional `AI_GATEWAY_API_KEY`: otherwise Vercel OIDC authenticates AI Gateway.
+
+`node --env-file=.env.local scripts/src/provision-cloud.mjs` installs the schema
+and sets the server secrets using Vercel environment management. Its local secret
+files are ignored and private. The operator access token is in `.env.void-access`;
+never share the signing or encryption keys. Enter the access token in the web
+connection form. Authentication uses Secure, HttpOnly, SameSiteStrict cookies.
+This beta is a single-operator workspace, not a multiuser RBAC product.
+
+The default cloud provider is Vercel AI Gateway. A model catalog can be available
+before the account is authorized to generate. If Gateway reports
+`customer_verification_required`, complete account verification in Vercel or
+enter a provider API key through Provider settings. Custom keys and tool-server
+credentials are encrypted before database storage. Prompts and tool results are
+sent to the selected provider.
+
+Connect an HTTPS MCP server in Tool server and policy. It is the system the
+agent operates on, not an external VOID runtime. Without tools, sessions support
+chat only. Tool names can map explicitly to VOID registry IDs; unknown or
+unclassified tools are denied. Target facts are operator declarations, never
+invented measurements. Policy changes apply to new sessions.
+
+One model session runs at a time, bounded to 20 model turns per message and 32
+tools per batch. The recent session list shows 100 sessions; transcripts retain
+200 visible events. Approvals survive function restarts. A dispatched tool is
+never retried after an ambiguous interruption. Cancellation stops further calls;
+an already dispatched mutation may finish and is recorded. Signed ledger rows
+are protected from updates/deletes by a database trigger and verified on read.
+
+Cloud API records actual `execute:completed` / `execute:failed` outcomes in
+addition to authorization. Arbitrary remote MCP servers do not provide before
+images, so their replay action explicitly refuses an uncaptured inverse. Local
+connector replay remains available as described below.
 
 ## Replay boundaries
 
@@ -74,19 +105,22 @@ approval wiring, session hold workspace identity, recursive Postgres capture and
 restore ordering, S3 captures surviving restart, conditional S3 writes, private
 snapshot permissions, and authenticated remote API forwarding.
 
-Verification includes the full `pnpm check` (482 tests passing), whole-product approval arc, final
+Verification includes the full `pnpm check` (487 tests passing), whole-product approval arc, final
 stdio/HTTP product sweep and connector replay sweep. PostgreSQL cascade behavior
 also runs on PGlite's actual SQL engine with foreign-key constraints and unrelated
 rows. Browser QA covers 320, 375, 390, 430, 768 and 1280 pixel widths, both themes,
 a real SDK session behind an explicitly labeled local model test double, signed
-ledger detail, dependency tracing and unavailable snapshot refusal. It does not
-claim validation against a paid model account or customer database/bucket.
+ledger detail, dependency tracing and unavailable snapshot refusal. The cloud safety sweep additionally uses the real provisioned Neon database and
+disposable HTTP tool/provider services. Both approval outcomes, immutable signed
+rows and interruption refusal pass. Vercel Workflow dispatch was exercised on
+deployed Vercel Functions; live generation encountered Gateway account verification.
+It does not claim a completed paid-model run or validation of customer buckets.
 
 ## Remaining roadmap
 
 This is not completion of every work package in the master plan. Native Codex,
 Claude Code and OpenCode process adapters, PTY embedding, desktop packaging,
-OS keychain persistence, token streaming, persistent transcripts, multi-agent
+OS keychain persistence, token streaming, multi-agent
 orchestration, production KMS and a multiwriter ledger backend remain open.
-Sessions/transcripts are bounded in memory; evidence persists on disk. Only one
-model session runs at a time. Speculative execution is not supported.
+Local sessions/transcripts are bounded in memory; cloud sessions persist in Neon.
+Only one model session runs at a time. Speculative execution is not supported.

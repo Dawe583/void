@@ -1,3 +1,11 @@
+export class ProviderRequestError extends Error {
+  readonly status: number;
+  readonly code: string | undefined;
+  constructor(status: number, code?: string) {
+    super(code === 'customer_verification_required' ? 'Vercel AI Gateway requires account verification. Add a card in Vercel AI Gateway settings or connect your own provider key.' : `Provider request failed (HTTP ${status}). Check credentials, model access or rate limits.`);
+    this.status = status; this.code = code;
+  }
+}
 export type ProviderConfig = { readonly baseUrl: string; readonly apiKey: string };
 export type Model = { readonly id: string; readonly name: string };
 export type ModelMessage = { readonly role: 'system' | 'user' | 'assistant' | 'tool'; readonly content: string | null; readonly tool_calls?: readonly ToolCall[]; readonly tool_call_id?: string };
@@ -17,7 +25,7 @@ export class CompatibleProvider {
   async models(): Promise<readonly Model[]> {
     const body = await this.json('models');
     if (!Array.isArray(body.data)) throw new Error('Provider returned an invalid model catalog.');
-    return body.data.filter((model: unknown): model is { id: string; name?: string } => typeof model === 'object' && model !== null && 'id' in model && typeof model.id === 'string').map((model: { id: string; name?: string }) => ({ id: model.id, name: typeof model.name === "string" ? model.name : model.id }));
+    return body.data.filter((model: unknown): model is { id: string; name?: string } => typeof model === 'object' && model !== null && 'id' in model && typeof model.id === 'string' && (!('type' in model) || model.type === 'language')).map((model: { id: string; name?: string }) => ({ id: model.id, name: typeof model.name === "string" ? model.name : model.id }));
   }
   async complete(model: string, messages: readonly ModelMessage[], tools: readonly unknown[], signal: AbortSignal): Promise<ModelReply> {
     const body = await this.json('chat/completions', { model, messages, ...(tools.length ? { tools } : {}), max_tokens: 4096, stream: false }, signal);
@@ -32,7 +40,11 @@ export class CompatibleProvider {
     try {
       response = await this.request(new URL(path, this.base), { method: body === undefined ? 'GET' : 'POST', headers: { authorization: `Bearer ${this.config.apiKey}`, 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }), redirect: 'error', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60000)]) : AbortSignal.timeout(15000) });
     } catch { throw new Error(signal?.aborted ? 'Session cancelled.' : 'Provider connection failed. Check its endpoint and availability.'); }
-    if (!response.ok) throw new Error(`Provider request failed (HTTP ${response.status}). Check credentials, model access or rate limits.`);
+    if (!response.ok) {
+      let code: string | undefined;
+      if (response.status === 403) { try { const error = await response.json() as { error?: { type?: string } }; if (error.error?.type === 'customer_verification_required') code = error.error.type; } catch {} }
+      throw new ProviderRequestError(response.status, code);
+    }
     // Provider JSON is untrusted. Runtime validation below narrows the fields
     // consumed by the workbench without exposing provider error payloads.
     try { return await response.json() as { data?: unknown; choices?: Array<{ message?: ModelMessage }>; usage?: ModelReply["usage"] }; }

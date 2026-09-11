@@ -1,5 +1,5 @@
-import { s3Executor } from "./s3.ts";
-import { postgresExecutor } from "./postgres.ts";
+import type { s3Executor } from "./s3.ts";
+import type { postgresExecutor } from "./postgres.ts";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -128,10 +128,12 @@ export async function runReplayCommand(
     const manifest = await (options.readManifest ?? readSnapshotManifest)(parsed.snapshotDir);
     const snapshot = findSnapshot(manifest, record);
     if (!parsed.dryRun && options.connectors === undefined && options.exec === undefined && env.VOID_PG_URL && connectorFor(record.tool)?.connectorId === "postgres") {
+      const { postgresExecutor } = await import("./postgres.ts");
       connection = await postgresExecutor(env.VOID_PG_URL);
       options = { ...options, exec: connection };
     }
     if (!parsed.dryRun && options.connectors === undefined && options.s3 === undefined && env.VOID_S3_ENABLED === "1" && connectorFor(record.tool)?.connectorId === "s3") {
+      const { s3Executor } = await import("./s3.ts");
       s3 = s3Executor(env); options = { ...options, s3 };
     }
     const connector = options.connectors === undefined

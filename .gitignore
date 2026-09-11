@@ -64,3 +64,6 @@ packages/*/src/**/*.js
 packages/*/src/**/*.js.map
 .vercel
 .env*
+/.swc
+
+/.nitro

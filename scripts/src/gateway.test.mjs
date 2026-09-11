@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import handler from '../../api/[...path].mjs';
+import handler from '../../apps/control-plane/api/remote-gateway.mjs';
 
 function response() {
   return { statusCode: 0, headers: {}, setHeader(key, value) { this.headers[key] = value; }, end(text) { this.body = JSON.parse(text); } };

@@ -934,3 +934,18 @@ function-local disk is durable. See BETA.md for configuration and open scope.
 Replay gains pg and AWS SDK transport adapters. PGlite is a development-only SQL
 engine used to validate real foreign-key behavior during cascade restoration.
 The reviewed core checks pass; external customer resources remain unverified.
+
+## Entire web application on Vercel, 2026-09-11
+
+The user clarified that the web app includes its backend on Vercel. This
+supersedes the external runtime gateway decision above. Nitro and Vercel
+Workflow host the cloud API and agent loop; Neon from Vercel Marketplace holds
+durable state and signed evidence. The old gateway is retained as an optional
+local module and is no longer a root Vercel API route.
+
+Keep provider and tool secrets encrypted in Neon with a separate environment
+key. Hold decisions persist across functions. Before dispatch, persist an
+execution marker and authorization record. If execution becomes ambiguous,
+refuse automatic retry. Model calls use Vercel AI Gateway OIDC by default or a
+validated custom provider. Catalog discovery alone does not prove billing or
+account verification permits generation.

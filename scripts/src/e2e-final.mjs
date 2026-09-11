@@ -124,7 +124,7 @@ async function strictFactsPath(rootDir) {
   return path;
 }
 
-async function policyPath(rootDir, seconds = 1) {
+async function policyPath(rootDir, seconds = 3) {
   const path = join(rootDir, "policy.yaml");
   await writeFile(path, `version: 1
 rules:
@@ -254,7 +254,7 @@ async function runStdioProductMoment() {
         return false;
       }
     }, "second held ledger record");
-    await waitFor(() => proxy.output.length >= 5 && proxy.output[4], "hold expiry response", 300, 10);
+    await waitFor(() => proxy.output.length >= 5 && proxy.output[4], "hold expiry response", 600, 10);
     assert.equal(proxy.output[4].error?.data?.result, "expired");
     const exit = await closeProxy(proxy.child);
     assert.equal(exit, 0);

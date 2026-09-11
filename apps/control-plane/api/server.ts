@@ -68,7 +68,7 @@ type RouteOptions = {
 const here = fileURLToPath(new URL(".", import.meta.url));
 const defaultWebRoot = resolve(here, "../web");
 const maxBodyBytes = 64 * 1024;
-const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js", "/workbench.css", "/theme.js", "/sessions.js", "/manifest.webmanifest", "/icon.svg"]);
+const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js", "/workbench.css", "/theme.js", "/sessions.js", "/cloud-settings.js", "/manifest.webmanifest", "/icon.svg"]);
 
 /**
  * Resolve a verification key without ever generating one. Reading is the

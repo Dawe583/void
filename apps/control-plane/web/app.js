@@ -312,6 +312,7 @@ if (typeof document !== "undefined") {
         if (!response.ok) throw new Error("Token not accepted. Check the workspace configuration and retry.");
         document.getElementById("connection-panel").hidden = true;
         await app.refresh();
+        window.dispatchEvent(new Event("void-connected"));
       } catch (error) { status.textContent = errorMessage(error); }
     });
     const input = document.getElementById("workspace");

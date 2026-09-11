@@ -93,3 +93,8 @@ test('long sessions keep advancing event cursors and refuse unbounded context', 
   assert.ok(events.at(-1)!.seq > 200);
   assert.throws(() => workbench.send(started.id, 'Too much context'), /context limit/);
 });
+
+test('chat catalog excludes embedding, image and video models', async () => {
+  const provider = new CompatibleProvider({baseUrl:'https://provider.test/v1',apiKey:secret}, async () => reply({data:[{id:'chat',type:'language'},{id:'embed',type:'embedding'},{id:'video',type:'video'},{id:'image',type:'image'},{id:'compatible-provider-model'}]}));
+  assert.deepEqual((await provider.models()).map(model=>model.id),['chat','compatible-provider-model']);
+});

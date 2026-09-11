@@ -14,7 +14,7 @@ if (root) {
   };
   const status = text => { byId('session-status').textContent = text; };
   function models(items) {
-    byId('session-model').replaceChildren(...items.map(model => {
+    byId('session-model').replaceChildren(...[...items].sort((a, b) => Number(b.id === 'openai/gpt-5.4-nano') - Number(a.id === 'openai/gpt-5.4-nano')).map(model => {
       const option = document.createElement('option'); option.value = model.id; option.textContent = model.name; return option;
     }));
   }
@@ -22,7 +22,12 @@ if (root) {
     try {
       const state = await api('/api/provider');
       models(state.models);
-      byId('provider-status').textContent = state.connected ? 'Provider validated. Keys remain in runtime memory until shutdown.' : 'Connect a model provider to start an agent.';
+      if (state.keyStorage === 'encrypted-cloud') {
+        byId('session-retention').textContent = 'Sessions, transcripts and signed evidence are saved in your cloud workspace.';
+        document.querySelector('label[for=provider-key]').textContent = 'API key (encrypted in your cloud workspace)';
+        byId('upstream-settings').hidden = false;
+      }
+      byId('provider-status').textContent = state.connected ? (state.keyStorage === 'encrypted-cloud' ? 'Cloud provider connected. Custom keys are encrypted before storage.' : 'Provider validated. Keys remain in runtime memory until shutdown.') : 'Connect a model provider to start an agent.';
       byId('provider-settings').open = !state.connected;
       byId('session-submit').disabled = !state.connected;
     } catch (error) { byId('provider-status').textContent = error.message; }
@@ -80,7 +85,7 @@ if (root) {
     const key = byId('provider-key');
     try {
       const result = await api('/api/provider', 'POST', { baseUrl: byId('provider-url').value, apiKey: key.value });
-      key.value = ''; models(result.models); byId('provider-status').textContent = 'Provider validated. Key stored only in runtime memory.';
+      key.value = ''; models(result.models); byId('provider-status').textContent = result.keyStorage === 'encrypted-cloud' ? 'Provider validated. Key encrypted in your cloud workspace.' : 'Provider validated. Key stored only in runtime memory.';
       byId('session-submit').disabled = false; byId('provider-settings').open = false;
     } catch (error) { key.value = ''; byId('provider-status').textContent = error.message; }
   });
@@ -108,5 +113,6 @@ if (root) {
   });
   const timer = setInterval(refresh, 2000);
   window.addEventListener('pagehide', () => { stopped = true; clearInterval(timer); }, { once: true });
+  window.addEventListener("void-connected", () => { void provider(); void refresh(); });
   void provider(); void refresh();
 }
