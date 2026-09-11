@@ -1,3 +1,4 @@
+import * as m from "motion/react-m";
 import {
   createContext,
   useContext,
@@ -8,6 +9,7 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, download, items, json, type Row } from "./api";
+export const MotionEnabled = createContext(true);
 export const Locale = createContext<"cs" | "en">("en");
 export function useText() {
   const locale = useContext(Locale);
@@ -65,6 +67,7 @@ export function Dialog({
   close: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const animate = useContext(MotionEnabled);
   const t = useText();
   useEffect(() => {
     const dialog = ref.current;
@@ -72,7 +75,9 @@ export function Dialog({
     return () => dialog?.close();
   }, []);
   return (
-    <dialog
+    <m.dialog
+      initial={animate ? { opacity: 0, y: 18, scale: 0.985 } : false}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
       ref={ref}
       onCancel={close}
       onClick={(e) => {
@@ -86,7 +91,7 @@ export function Dialog({
         </button>
       </div>
       {children}
-    </dialog>
+    </m.dialog>
   );
 }
 export function JsonDetail({ value }: { value: unknown }) {

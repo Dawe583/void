@@ -1,8 +1,10 @@
+import * as m from "motion/react-m";
 import { BrandMark } from "./brand";
 import { ApprovalReview } from "./approval-review";
 import { transcriptEvents } from "./events";
 import {
   Children,
+  useContext,
   isValidElement,
   useEffect,
   useRef,
@@ -13,7 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, download, json, type Row } from "./api";
-import { Badge, Dialog, ErrorBox, useApi, useText } from "./ui";
+import { Badge, Dialog, ErrorBox, MotionEnabled, useApi, useText } from "./ui";
 function CodeBlock({ children }: { children?: ReactNode }) {
   const ref = useRef<HTMLPreElement>(null),
     [wrap, setWrap] = useState(false),
@@ -94,6 +96,7 @@ export function Chat({
   navigate: (path: string) => void;
   onContext: () => void;
 }) {
+  const animate = useContext(MotionEnabled);
   const t = useText(),
     client = useQueryClient();
   const sessionQuery = useApi(
@@ -368,7 +371,7 @@ export function Chat({
   const models: Row[] = provider.data?.models ?? [];
   const catalog = models;
   return (
-    <section className="chat">
+    <section className={"chat " + (!id ? "chat-empty" : "chat-active")}>
       <div
         className="transcript"
         ref={transcript}
@@ -380,7 +383,11 @@ export function Chat({
       >
         <div className="messages">
           {!id && (
-            <div className="welcome">
+            <m.div
+              className="welcome"
+              initial={animate ? { opacity: 0, y: 12 } : false}
+              animate={{ opacity: 1, y: 0 }}
+            >
               <div className="welcome-emblem">
                 <BrandMark />
               </div>
@@ -419,8 +426,15 @@ export function Chat({
                       "Help me outline a new document.",
                     ),
                   ],
-                ].map(([label, prompt]) => (
-                  <button
+                ].map(([label, prompt], index) => (
+                  <m.button
+                    initial={animate ? { opacity: 0, y: 8 } : false}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: animate ? 0.3 : 0,
+                      delay: animate ? 0.1 + index * 0.05 : 0,
+                    }}
+                    whileTap={animate ? { scale: 0.97 } : undefined}
                     key={label}
                     onClick={() => {
                       setDraft(prompt);
@@ -434,10 +448,10 @@ export function Chat({
                     <span className="starter-arrow" aria-hidden="true">
                       ↗
                     </span>
-                  </button>
+                  </m.button>
                 ))}
               </div>
-            </div>
+            </m.div>
           )}
           <ErrorBox error={sessionQuery.error} />
           {!historyComplete && (
@@ -456,7 +470,9 @@ export function Chat({
             const text = event.text ?? event.payload?.text ?? "";
             const isTool = kind.includes("tool") || kind === "decision";
             return (
-              <article
+              <m.article
+                initial={animate ? { opacity: 0, y: 6 } : false}
+                animate={{ opacity: 1, y: 0 }}
                 key={event.id ?? event.seq ?? index}
                 className={
                   "message " +
@@ -534,7 +550,7 @@ export function Chat({
                     )}
                   </div>
                 )}
-              </article>
+              </m.article>
             );
           })}
           {running && (
@@ -728,7 +744,8 @@ export function Chat({
                 {t("Zastavit ■", "Stop ■")}
               </button>
             ) : (
-              <button
+              <m.button
+                whileTap={animate ? { scale: 0.9 } : undefined}
                 className="primary send"
                 disabled={
                   busy ||
@@ -739,7 +756,7 @@ export function Chat({
                 aria-label={t("Odeslat zprávu", "Send message")}
               >
                 {busy ? "…" : "↑"}
-              </button>
+              </m.button>
             )}
           </div>
         </form>

@@ -1,10 +1,25 @@
+import {
+  LazyMotion,
+  domAnimation,
+  MotionConfig,
+  useReducedMotion,
+} from "motion/react";
+import * as m from "motion/react-m";
 import { IntegrationContext } from "./integrations";
 import { BrandMark } from "./brand";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { api, ApiError, download, items, json } from "./api";
-import { Badge, Dialog, ErrorBox, Locale, useApi, useText } from "./ui";
+import {
+  Badge,
+  Dialog,
+  ErrorBox,
+  Locale,
+  MotionEnabled,
+  useApi,
+  useText,
+} from "./ui";
 import { Chat } from "./chat";
 import { Documents } from "./documents";
 import { Approvals, Ledger, Models, Overview, Runs, Sessions } from "./pages";
@@ -49,6 +64,7 @@ function App({
   setLocale: (s: "cs" | "en") => void;
 }) {
   const t = useText();
+  const reducedMotion = useReducedMotion();
   const contextRef = useRef<HTMLElement>(null),
     sidebarRef = useRef<HTMLElement>(null);
   const [sidebarWidth, setSidebarWidth] = useState(
@@ -59,6 +75,7 @@ function App({
     );
   const [path, setPath] = useState(location.pathname),
     [drawer, setDrawer] = useState(false),
+    [headerOptions, setHeaderOptions] = useState(false),
     [collapsed, setCollapsed] = useState(false),
     [context, setContext] = useState(false),
     [search, setSearch] = useState(false),
@@ -123,6 +140,7 @@ function App({
     historyPush(next + suffix);
     setPath(next);
     setDrawer(false);
+    setHeaderOptions(false);
     setSearch(false);
     setContext(false);
   }
@@ -166,7 +184,15 @@ function App({
         setSearch((s) => !s);
       }
       if (e.key === "Escape") {
+        if (
+          document.activeElement?.closest(".header-actions") &&
+          matchMedia("(max-width: 767px)").matches
+        )
+          document
+            .querySelector<HTMLButtonElement>(".mobile-options-toggle")
+            ?.focus();
         setDrawer(false);
+        setHeaderOptions(false);
         setContext(false);
       }
     }
@@ -208,492 +234,612 @@ function App({
       previous?.focus();
     };
   }, [drawer, context]);
+  useEffect(() => {
+    if (!headerOptions) return;
+    const outside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Element &&
+        !event.target.closest(".header-actions,.mobile-options-toggle")
+      )
+        setHeaderOptions(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [headerOptions]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const update = () => {
+      const editing =
+        document.activeElement instanceof HTMLTextAreaElement ||
+        document.activeElement instanceof HTMLInputElement;
+      const mobile = matchMedia("(max-width: 767px)").matches;
+      document.documentElement.style.setProperty(
+        "--mobile-height",
+        mobile && editing && viewport.scale === 1
+          ? `${viewport.height}px`
+          : "100dvh",
+      );
+    };
+    viewport.addEventListener("resize", update);
+    document.addEventListener("focusin", update);
+    document.addEventListener("focusout", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      document.removeEventListener("focusin", update);
+      document.removeEventListener("focusout", update);
+      document.documentElement.style.removeProperty("--mobile-height");
+    };
+  }, []);
   const needsAuth =
     provider.error instanceof ApiError &&
     (provider.error.status === 401 || provider.error.status === 403);
   return (
-    <div
-      style={
-        {
-          "--sidebar-width": sidebarWidth + "px",
-          "--context-width": contextWidth + "px",
-        } as CSSProperties
-      }
-      className={
-        "shell " +
-        (collapsed ? "collapsed " : "") +
-        (drawer ? "drawer-open" : "")
-      }
-    >
-      <a href="#main" className="skip-link">
-        {t("Přejít na obsah", "Skip to content")}
-      </a>
-      {drawer && (
-        <button
-          className="scrim"
-          aria-label={t("Zavřít menu", "Close menu")}
-          onClick={() => setDrawer(false)}
-        />
-      )}
-      <aside
-        ref={sidebarRef}
-        className="sidebar"
-        aria-label={t("Hlavní navigace", "Main navigation")}
+    <MotionEnabled value={motion && !reducedMotion}>
+      <MotionConfig
+        reducedMotion={motion ? "user" : "always"}
+        transition={
+          motion && !reducedMotion
+            ? { duration: 0.24, ease: [0.22, 1, 0.36, 1] }
+            : { duration: 0 }
+        }
       >
-        <div className="brand">
-          <a
-            href="/chat/new"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/chat/new");
-            }}
-          >
-            <BrandMark className="brand-mark" />
-            <strong>VOID</strong>
-          </a>
-          <button
-            className="collapse-button"
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={t("Sbalit navigaci", "Collapse navigation")}
-          >
-            ⇤
-          </button>
-          <button
-            className="drawer-close"
-            onClick={() => setDrawer(false)}
-            aria-label={t("Zavřít menu", "Close menu")}
-          >
-            ×
-          </button>
-        </div>
-        <p className="workspace-name">
-          {new URLSearchParams(location.search).get("workspace") ??
-            t("Osobní prostor", "Personal workspace")}
-        </p>
-        <button className="new-chat" onClick={() => navigate("/chat/new")}>
-          <span>＋</span>
-          <span>{t("Nová konverzace", "New conversation")}</span>
-        </button>
-        <button className="search-button" onClick={() => setSearch(true)}>
-          <span>⌕</span>
-          <span>{t("Hledat", "Search")}</span>
-          <kbd>⌘ K</kbd>
-        </button>
-        <nav>
-          {routes.slice(1, -1).map(([slug, icon, cs, en]) => (
-            <a
-              key={slug}
-              href={"/" + slug}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/" + slug);
-              }}
-              className={page === slug ? "active" : ""}
-              aria-current={page === slug ? "page" : undefined}
-              title={t(cs, en)}
-            >
-              <span className="nav-icon" aria-hidden="true">
-                {icon}
-              </span>
-              <span>{t(cs, en)}</span>
-              {slug === "approvals" && pending > 0 && (
-                <span className="count">{pending}</span>
-              )}
-            </a>
-          ))}
-        </nav>
-        <div className="recent">
-          <h2>{t("Nedávné konverzace", "Recent conversations")}</h2>
-          {items(sessions.data, "sessions").map((s) => (
-            <a
-              className={chatId === s.id ? "active" : ""}
-              key={s.id}
-              href={"/chat/" + s.id}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/chat/" + s.id);
-              }}
-              title={s.title ?? s.model}
-            >
-              <span aria-hidden="true">
-                {s.status === "running" ? "[>]" : s.pinned ? "⌖" : "·"}
-              </span>
-              <span>{s.title ?? s.model}</span>
-            </a>
-          ))}
-          {!items(sessions.data, "sessions").length && (
-            <p className="muted">
-              {t(
-                "Vaše práce začíná novou konverzací.",
-                "Your work starts with a new conversation.",
-              )}
-            </p>
-          )}
-        </div>
-        <div className="sidebar-bottom">
-          <details className="panel-size">
-            <summary>{t("Šířka panelu", "Panel width")}</summary>
-            <label>
-              {t("Navigace", "Navigation")}
-              <input
-                type="range"
-                min="216"
-                max="300"
-                step="8"
-                value={sidebarWidth}
-                onChange={(e) => {
-                  setSidebarWidth(Number(e.target.value));
-                  localStorage.setItem("void-sidebar-width", e.target.value);
-                }}
-              />
-            </label>
-          </details>
-          <a
-            href="/settings"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/settings");
-            }}
-          >
-            <span aria-hidden="true">⚙</span>
-            <span>{t("Nastavení", "Settings")}</span>
-          </a>
-          <div className="connection">
-            <span
-              className={
-                online && provider.data?.connected
-                  ? "connected-dot"
-                  : "disconnected-dot"
-              }
-            />
-            <span>
-              {!online
-                ? t("Offline", "Offline")
-                : provider.isLoading
-                  ? t("Připojuji…", "Connecting…")
-                  : provider.data?.connected
-                    ? t("Poskytovatel připojen", "Provider connected")
-                    : t("Nastavit připojení", "Set up connection")}
-            </span>
-          </div>
-        </div>
-      </aside>
-      <main id="main" tabIndex={-1} inert={drawer}>
-        <header
-          className="topbar"
-          inert={context && matchMedia("(max-width:767px)").matches}
+        <div
+          style={
+            {
+              "--sidebar-width": sidebarWidth + "px",
+              "--context-width": contextWidth + "px",
+            } as CSSProperties
+          }
+          className={
+            "shell " +
+            (page === "chat" || path === "/" ? "chat-shell " : "") +
+            (collapsed ? "collapsed " : "") +
+            (drawer ? "drawer-open" : "")
+          }
         >
-          <button
-            className="menu-toggle"
-            onClick={() => setDrawer(true)}
-            aria-label={t("Otevřít menu", "Open menu")}
+          <a href="#main" className="skip-link">
+            {t("Přejít na obsah", "Skip to content")}
+          </a>
+          {drawer && (
+            <m.button
+              initial={motion && !reducedMotion ? { opacity: 0 } : false}
+              animate={{ opacity: 1 }}
+              className="scrim"
+              aria-label={t("Zavřít menu", "Close menu")}
+              onClick={() => setDrawer(false)}
+            />
+          )}
+          <m.aside
+            initial={false}
+            animate={
+              drawer && motion && !reducedMotion
+                ? { opacity: [0, 1], x: [-28, 0] }
+                : { opacity: 1, x: 0 }
+            }
+            ref={sidebarRef}
+            className="sidebar"
+            aria-label={t("Hlavní navigace", "Main navigation")}
           >
-            ☰
-          </button>
-          <div className="page-title">
-            <span>
-              {page === "chat" || path === "/"
-                ? (current?.title ?? t("Nová konverzace", "New conversation"))
-                : t(active[2], active[3])}
-            </span>
-            {current && <Badge value={current.status} />}
-          </div>
-          <div className="header-actions">
-            <button
-              className="locale-toggle"
-              title={t("Přepnout do angličtiny", "Switch to Czech")}
-              aria-label={t("Přepnout do angličtiny", "Switch to Czech")}
-              onClick={() => {
-                const next = locale === "cs" ? "en" : "cs";
-                setLocale(next);
-                if (!needsAuth)
-                  void api("/api/preferences", "PATCH", { locale: next }).catch(
-                    setError,
-                  );
-              }}
-            >
-              {locale === "cs" ? "EN" : "CS"}
-            </button>
-            <button
-              className="theme-toggle"
-              aria-label={t("Přepnout vzhled", "Toggle theme")}
-              onClick={() =>
-                setAppearance(
-                  document.documentElement.dataset.theme === "dark"
-                    ? "light"
-                    : "dark",
-                )
-              }
-            >
-              ◐
-            </button>
-            <button
-              className="motion-toggle"
-              aria-label={t("Animace", "Animations")}
-              title={t(
-                "Zapnout nebo vypnout animace",
-                "Turn animations on or off",
-              )}
-              aria-pressed={motion}
-              onClick={() => setMotion(!motion)}
-            >
-              ⌁
-            </button>
-            {chatId && (
-              <button
-                onClick={async () => {
-                  try {
-                    const result = await api("/api/sessions/" + chatId);
-                    download(
-                      "void-" + chatId + ".json",
-                      json(result.session),
-                      "application/json",
-                    );
-                  } catch (e) {
-                    setError(e);
-                  }
+            <div className="brand">
+              <a
+                href="/chat/new"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/chat/new");
                 }}
-                aria-label={t("Export konverzace", "Export conversation")}
               >
-                ⇩
+                <BrandMark className="brand-mark" />
+                <strong>VOID</strong>
+              </a>
+              <button
+                className="collapse-button"
+                onClick={() => setCollapsed(!collapsed)}
+                aria-label={t("Sbalit navigaci", "Collapse navigation")}
+              >
+                ⇤
               </button>
-            )}
-            <button
-              onClick={() => setContext(!context)}
-              aria-expanded={context}
-              aria-label={t("Otevřít kontext", "Open context")}
-            >
-              ◧ <span>{t("Kontext", "Context")}</span>
-            </button>
-          </div>
-        </header>
-        {!online && (
-          <div className="offline" role="status">
-            {t(
-              "Jste offline. Koncept zůstává uložený v této kartě.",
-              "You are offline. Your draft is preserved in this tab.",
-            )}
-          </div>
-        )}
-        <ErrorBox error={error} />
-        {needsAuth ? (
-          <div className="connection-gate">
-            <BrandMark className="gate-logo" />
-            <h1>
-              {t("Připojte svůj pracovní prostor.", "Connect your workspace.")}
-            </h1>
-            <p>
-              {t(
-                "Zadejte přístupový token pro tento server.",
-                "Enter the access token for this server.",
-              )}
+              <button
+                className="drawer-close"
+                onClick={() => setDrawer(false)}
+                aria-label={t("Zavřít menu", "Close menu")}
+              >
+                ×
+              </button>
+            </div>
+            <p className="workspace-name">
+              {new URLSearchParams(location.search).get("workspace") ??
+                t("Osobní prostor", "Personal workspace")}
             </p>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setConnecting(true);
-                setError(undefined);
-                try {
-                  await api("/api/session", "POST", { token });
-                  setToken("");
-                  await queryClient.invalidateQueries();
-                } catch (e) {
-                  setError(e);
-                } finally {
-                  setConnecting(false);
-                }
-              }}
-            >
-              <label>
-                {t("Přístupový token", "Access token")}
-                <input
-                  type="password"
-                  required
-                  autoComplete="off"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                />
-              </label>
-              <button className="primary" disabled={connecting}>
-                {t("Připojit", "Connect")}
-              </button>
-            </form>
-          </div>
-        ) : (
-          <div className={"work-area " + (context ? "with-context" : "")}>
-            {page === "chat" || path === "/" ? (
-              <div
-                className="chat-container"
-                inert={context && matchMedia("(max-width:767px)").matches}
-              >
-                <Chat
-                  key={chatId ?? "new"}
-                  id={chatId}
-                  navigate={navigate}
-                  onContext={() => setContext(true)}
-                />
-              </div>
-            ) : (
-              <div
-                key={page}
-                className="page-content"
-                inert={context && matchMedia("(max-width:767px)").matches}
-              >
-                <h1>{t(active[2], active[3])}</h1>
-                {page === "overview" ? (
-                  <Overview navigate={navigate} />
-                ) : page === "sessions" ? (
-                  <Sessions navigate={navigate} />
-                ) : page === "runs" ? (
-                  <Runs navigate={navigate} />
-                ) : page === "documents" ? (
-                  <Documents />
-                ) : page === "approvals" ? (
-                  <Approvals />
-                ) : page === "ledger" ? (
-                  <Ledger />
-                ) : page === "connections" ? (
-                  <Connections />
-                ) : page === "models" ? (
-                  <Models />
-                ) : page === "settings" ? (
-                  <Settings
-                    appearance={appearance}
-                    setAppearance={setAppearance}
-                    locale={locale}
-                    setLocale={setLocale}
-                  />
-                ) : (
-                  <p>{t("Stránka nenalezena.", "Page not found.")}</p>
-                )}
-              </div>
-            )}
-            {context && (
-              <aside
-                ref={contextRef}
-                className="context-panel"
-                role={
-                  matchMedia("(max-width:767px)").matches ? "dialog" : undefined
-                }
-                aria-modal={
-                  matchMedia("(max-width:767px)").matches ? true : undefined
-                }
-                aria-label={t("Kontext", "Context")}
-              >
-                <div className="dialog-heading">
-                  <h2>{t("Kontext", "Context")}</h2>
-                  <button
-                    aria-label={t("Zavřít kontext", "Close context")}
-                    onClick={() => setContext(false)}
-                  >
-                    ×
-                  </button>
-                </div>
-                <label className="panel-size">
-                  {t("Šířka kontextu", "Context width")}
+            <button className="new-chat" onClick={() => navigate("/chat/new")}>
+              <span>＋</span>
+              <span>{t("Nová konverzace", "New conversation")}</span>
+            </button>
+            <button className="search-button" onClick={() => setSearch(true)}>
+              <span>⌕</span>
+              <span>{t("Hledat", "Search")}</span>
+              <kbd>⌘ K</kbd>
+            </button>
+            <nav>
+              {routes.slice(1, -1).map(([slug, icon, cs, en]) => (
+                <a
+                  key={slug}
+                  href={"/" + slug}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/" + slug);
+                  }}
+                  className={page === slug ? "active" : ""}
+                  aria-current={page === slug ? "page" : undefined}
+                  title={t(cs, en)}
+                >
+                  <span className="nav-icon" aria-hidden="true">
+                    {icon}
+                  </span>
+                  <span>{t(cs, en)}</span>
+                  {slug === "approvals" && pending > 0 && (
+                    <span className="count">{pending}</span>
+                  )}
+                </a>
+              ))}
+            </nav>
+            <div className="recent">
+              <h2>{t("Nedávné konverzace", "Recent conversations")}</h2>
+              {items(sessions.data, "sessions").map((s) => (
+                <a
+                  className={chatId === s.id ? "active" : ""}
+                  key={s.id}
+                  href={"/chat/" + s.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/chat/" + s.id);
+                  }}
+                  title={s.title ?? s.model}
+                >
+                  <span aria-hidden="true">
+                    {s.status === "running" ? "[>]" : s.pinned ? "⌖" : "·"}
+                  </span>
+                  <span>{s.title ?? s.model}</span>
+                </a>
+              ))}
+              {!items(sessions.data, "sessions").length && (
+                <p className="muted">
+                  {t(
+                    "Vaše práce začíná novou konverzací.",
+                    "Your work starts with a new conversation.",
+                  )}
+                </p>
+              )}
+            </div>
+            <div className="sidebar-bottom">
+              <details className="panel-size">
+                <summary>{t("Šířka panelu", "Panel width")}</summary>
+                <label>
+                  {t("Navigace", "Navigation")}
                   <input
                     type="range"
-                    min="320"
-                    max="520"
+                    min="216"
+                    max="300"
                     step="8"
-                    value={contextWidth}
+                    value={sidebarWidth}
                     onChange={(e) => {
-                      setContextWidth(Number(e.target.value));
+                      setSidebarWidth(Number(e.target.value));
                       localStorage.setItem(
-                        "void-context-width",
+                        "void-sidebar-width",
                         e.target.value,
                       );
                     }}
                   />
                 </label>
-                <IntegrationContext
-                  sessionId={chatId}
-                  status={current?.status}
-                  onManage={() => navigate("/connections")}
+              </details>
+              <a
+                href="/settings"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/settings");
+                }}
+              >
+                <span aria-hidden="true">⚙</span>
+                <span>{t("Nastavení", "Settings")}</span>
+              </a>
+              <div className="connection">
+                <span
+                  className={
+                    online && provider.data?.connected
+                      ? "connected-dot"
+                      : "disconnected-dot"
+                  }
                 />
-                {chatId ? (
-                  <>
-                    <p className="muted">
-                      {t(
-                        "Dokumenty této konverzace",
-                        "Documents in this conversation",
-                      )}
-                    </p>
-                    <Documents sessionId={chatId} />
-                    <button onClick={() => navigate("/ledger")}>
-                      {t("Otevřít ledger", "Open ledger")}
-                    </button>
-                  </>
-                ) : (
-                  <p>
-                    {t(
-                      "Otevřete konverzaci pro zobrazení dokumentů a změn.",
-                      "Open a conversation to see its documents and changes.",
-                    )}
-                  </p>
-                )}
-              </aside>
-            )}
-          </div>
-        )}
-        <nav
-          inert={context}
-          className="mobile-nav"
-          aria-label={t("Mobilní navigace", "Mobile navigation")}
-        >
-          {[
-            ["/chat/new", "◇", t("Chat", "Chat")],
-            ["/overview", "◫", t("Přehled", "Overview")],
-            ["/approvals", "◈", t("Schválení", "Approvals")],
-          ].map(([href, icon, label]) => (
-            <a
-              key={href}
-              href={href}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(href);
-              }}
+                <span>
+                  {!online
+                    ? t("Offline", "Offline")
+                    : provider.isLoading
+                      ? t("Připojuji…", "Connecting…")
+                      : provider.data?.connected
+                        ? t("Poskytovatel připojen", "Provider connected")
+                        : t("Nastavit připojení", "Set up connection")}
+                </span>
+              </div>
+            </div>
+          </m.aside>
+          <main id="main" tabIndex={-1} inert={drawer}>
+            <header
+              className="topbar"
+              inert={context && matchMedia("(max-width:767px)").matches}
             >
-              <span aria-hidden="true">{icon}</span>
-              {label}
-              {href === "/approvals" && pending > 0 ? " " + pending : ""}
-            </a>
-          ))}
-          <button onClick={() => setDrawer(true)}>
-            <span aria-hidden="true">≡</span>
-            {t("Více", "More")}
-          </button>
-        </nav>
-      </main>
-      {search && (
-        <Dialog
-          title={t("Hledat konverzaci", "Find a conversation")}
-          close={() => setSearch(false)}
-        >
-          <input
-            autoFocus
-            type="search"
-            placeholder={t("Název nebo obsah…", "Title or content…")}
-            aria-label={t("Hledat konverzaci", "Find a conversation")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <ErrorBox error={history.error} />
-          <div className="search-results">
-            {items(history.data, "sessions").map((s) => (
-              <button key={s.id} onClick={() => navigate("/chat/" + s.id)}>
-                <strong>{s.title ?? s.model}</strong>
-                <Badge value={s.status} />
+              <button
+                className="menu-toggle"
+                onClick={() => setDrawer(true)}
+                aria-label={t("Otevřít menu", "Open menu")}
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  aria-hidden="true"
+                >
+                  <path d="M4 7h16M4 12h11M4 17h16" />
+                </svg>
               </button>
-            ))}
-          </div>
-        </Dialog>
-      )}
-    </div>
+              <div className="page-title">
+                <span>
+                  {page === "chat" || path === "/"
+                    ? (current?.title ??
+                      t("Nová konverzace", "New conversation"))
+                    : t(active[2], active[3])}
+                </span>
+                {current && <Badge value={current.status} />}
+              </div>
+              <button
+                className="mobile-new-chat"
+                aria-label={t("Nová konverzace", "New conversation")}
+                onClick={() => navigate("/chat/new")}
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  aria-hidden="true"
+                >
+                  <path d="M13 5H5v14h14v-8M14 4l6 6M10 14l2-5 6-6 3 3-6 6-5 2Z" />
+                </svg>
+              </button>
+              <button
+                className="mobile-options-toggle"
+                aria-label={t("Možnosti zobrazení", "View options")}
+                aria-expanded={headerOptions}
+                aria-controls="header-actions"
+                onClick={() => setHeaderOptions(!headerOptions)}
+              >
+                ···
+              </button>
+              <div
+                id="header-actions"
+                className="header-actions"
+                data-open={headerOptions}
+              >
+                <button
+                  className="locale-toggle"
+                  title={t("Přepnout do angličtiny", "Switch to Czech")}
+                  aria-label={t("Přepnout do angličtiny", "Switch to Czech")}
+                  onClick={() => {
+                    const next = locale === "cs" ? "en" : "cs";
+                    setLocale(next);
+                    if (!needsAuth)
+                      void api("/api/preferences", "PATCH", {
+                        locale: next,
+                      }).catch(setError);
+                  }}
+                >
+                  {locale === "cs" ? "EN" : "CS"}
+                </button>
+                <button
+                  className="theme-toggle"
+                  aria-label={t("Přepnout vzhled", "Toggle theme")}
+                  onClick={() =>
+                    setAppearance(
+                      document.documentElement.dataset.theme === "dark"
+                        ? "light"
+                        : "dark",
+                    )
+                  }
+                >
+                  ◐
+                </button>
+                <button
+                  className="motion-toggle"
+                  aria-label={t("Animace", "Animations")}
+                  title={t(
+                    "Zapnout nebo vypnout animace",
+                    "Turn animations on or off",
+                  )}
+                  aria-pressed={motion}
+                  onClick={() => setMotion(!motion)}
+                >
+                  ⌁
+                </button>
+                {chatId && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const result = await api("/api/sessions/" + chatId);
+                        download(
+                          "void-" + chatId + ".json",
+                          json(result.session),
+                          "application/json",
+                        );
+                      } catch (e) {
+                        setError(e);
+                      }
+                    }}
+                    aria-label={t("Export konverzace", "Export conversation")}
+                  >
+                    ⇩
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setHeaderOptions(false);
+                    setContext(!context);
+                  }}
+                  aria-expanded={context}
+                  aria-label={t("Otevřít kontext", "Open context")}
+                >
+                  ◧ <span>{t("Kontext", "Context")}</span>
+                </button>
+              </div>
+            </header>
+            {!online && (
+              <div className="offline" role="status">
+                {t(
+                  "Jste offline. Koncept zůstává uložený v této kartě.",
+                  "You are offline. Your draft is preserved in this tab.",
+                )}
+              </div>
+            )}
+            <ErrorBox error={error} />
+            {needsAuth ? (
+              <div className="connection-gate">
+                <BrandMark className="gate-logo" />
+                <h1>
+                  {t(
+                    "Připojte svůj pracovní prostor.",
+                    "Connect your workspace.",
+                  )}
+                </h1>
+                <p>
+                  {t(
+                    "Zadejte přístupový token pro tento server.",
+                    "Enter the access token for this server.",
+                  )}
+                </p>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setConnecting(true);
+                    setError(undefined);
+                    try {
+                      await api("/api/session", "POST", { token });
+                      setToken("");
+                      await queryClient.invalidateQueries();
+                    } catch (e) {
+                      setError(e);
+                    } finally {
+                      setConnecting(false);
+                    }
+                  }}
+                >
+                  <label>
+                    {t("Přístupový token", "Access token")}
+                    <input
+                      type="password"
+                      required
+                      autoComplete="off"
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                    />
+                  </label>
+                  <button className="primary" disabled={connecting}>
+                    {t("Připojit", "Connect")}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className={"work-area " + (context ? "with-context" : "")}>
+                {page === "chat" || path === "/" ? (
+                  <div
+                    className="chat-container"
+                    inert={context && matchMedia("(max-width:767px)").matches}
+                  >
+                    <Chat
+                      key={chatId ?? "new"}
+                      id={chatId}
+                      navigate={navigate}
+                      onContext={() => setContext(true)}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    key={page}
+                    className="page-content"
+                    inert={context && matchMedia("(max-width:767px)").matches}
+                  >
+                    <h1>{t(active[2], active[3])}</h1>
+                    {page === "overview" ? (
+                      <Overview navigate={navigate} />
+                    ) : page === "sessions" ? (
+                      <Sessions navigate={navigate} />
+                    ) : page === "runs" ? (
+                      <Runs navigate={navigate} />
+                    ) : page === "documents" ? (
+                      <Documents />
+                    ) : page === "approvals" ? (
+                      <Approvals />
+                    ) : page === "ledger" ? (
+                      <Ledger />
+                    ) : page === "connections" ? (
+                      <Connections />
+                    ) : page === "models" ? (
+                      <Models />
+                    ) : page === "settings" ? (
+                      <Settings
+                        appearance={appearance}
+                        setAppearance={setAppearance}
+                        locale={locale}
+                        setLocale={setLocale}
+                      />
+                    ) : (
+                      <p>{t("Stránka nenalezena.", "Page not found.")}</p>
+                    )}
+                  </div>
+                )}
+                {context && (
+                  <m.aside
+                    initial={
+                      motion && !reducedMotion ? { opacity: 0, x: 24 } : false
+                    }
+                    animate={{ opacity: 1, x: 0 }}
+                    ref={contextRef}
+                    className="context-panel"
+                    role={
+                      matchMedia("(max-width:767px)").matches
+                        ? "dialog"
+                        : undefined
+                    }
+                    aria-modal={
+                      matchMedia("(max-width:767px)").matches ? true : undefined
+                    }
+                    aria-label={t("Kontext", "Context")}
+                  >
+                    <div className="dialog-heading">
+                      <h2>{t("Kontext", "Context")}</h2>
+                      <button
+                        aria-label={t("Zavřít kontext", "Close context")}
+                        onClick={() => setContext(false)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <label className="panel-size">
+                      {t("Šířka kontextu", "Context width")}
+                      <input
+                        type="range"
+                        min="320"
+                        max="520"
+                        step="8"
+                        value={contextWidth}
+                        onChange={(e) => {
+                          setContextWidth(Number(e.target.value));
+                          localStorage.setItem(
+                            "void-context-width",
+                            e.target.value,
+                          );
+                        }}
+                      />
+                    </label>
+                    <IntegrationContext
+                      sessionId={chatId}
+                      status={current?.status}
+                      onManage={() => navigate("/connections")}
+                    />
+                    {chatId ? (
+                      <>
+                        <p className="muted">
+                          {t(
+                            "Dokumenty této konverzace",
+                            "Documents in this conversation",
+                          )}
+                        </p>
+                        <Documents sessionId={chatId} />
+                        <button onClick={() => navigate("/ledger")}>
+                          {t("Otevřít ledger", "Open ledger")}
+                        </button>
+                      </>
+                    ) : (
+                      <p>
+                        {t(
+                          "Otevřete konverzaci pro zobrazení dokumentů a změn.",
+                          "Open a conversation to see its documents and changes.",
+                        )}
+                      </p>
+                    )}
+                  </m.aside>
+                )}
+              </div>
+            )}
+            <nav
+              inert={context}
+              className="mobile-nav"
+              aria-label={t("Mobilní navigace", "Mobile navigation")}
+            >
+              {[
+                ["/chat/new", "◇", t("Chat", "Chat")],
+                ["/overview", "◫", t("Přehled", "Overview")],
+                ["/approvals", "◈", t("Schválení", "Approvals")],
+              ].map(([href, icon, label]) => (
+                <a
+                  key={href}
+                  aria-current={
+                    path === href || (href === "/chat/new" && page === "chat")
+                      ? "page"
+                      : undefined
+                  }
+                  href={href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(href);
+                  }}
+                >
+                  <span aria-hidden="true">{icon}</span>
+                  {label}
+                  {href === "/approvals" && pending > 0 ? " " + pending : ""}
+                </a>
+              ))}
+              <button onClick={() => setDrawer(true)}>
+                <span aria-hidden="true">≡</span>
+                {t("Více", "More")}
+              </button>
+            </nav>
+          </main>
+          {search && (
+            <Dialog
+              title={t("Hledat konverzaci", "Find a conversation")}
+              close={() => setSearch(false)}
+            >
+              <input
+                autoFocus
+                type="search"
+                placeholder={t("Název nebo obsah…", "Title or content…")}
+                aria-label={t("Hledat konverzaci", "Find a conversation")}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <ErrorBox error={history.error} />
+              <div className="search-results">
+                {items(history.data, "sessions").map((s) => (
+                  <button key={s.id} onClick={() => navigate("/chat/" + s.id)}>
+                    <strong>{s.title ?? s.model}</strong>
+                    <Badge value={s.status} />
+                  </button>
+                ))}
+              </div>
+            </Dialog>
+          )}
+        </div>
+      </MotionConfig>
+    </MotionEnabled>
   );
 }
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
-    <Root />
+    <LazyMotion features={domAnimation} strict>
+      <Root />
+    </LazyMotion>
   </QueryClientProvider>,
 );
