@@ -1,10 +1,15 @@
+import { mountPrimeRoutes, enqueuePrime, primeStatus } from "./prime.mjs";
+import { mutateCloudDocument, managedCloudUndo } from "./recovery.mjs";
 import { workspaceSessionCookie } from "../apps/control-plane/api/session-cookie.mjs";
 import {
   mountIntegrationCallback,
   mountIntegrationRoutes,
   integrationCatalogs,
 } from "./integrations.mjs";
-import { DEFAULT_MODEL_ID } from "../packages/workbench/src/provider-defaults.ts";
+import {
+  DEFAULT_MODEL_ID,
+  PROVIDER_PRESETS,
+} from "../packages/workbench/src/provider-defaults.ts";
 import {
   page,
   filterRows,
@@ -92,17 +97,11 @@ app.use((req, res, next) => {
         error: "invalid_token",
         message: "The access token was not accepted.",
       });
-    res.setHeader(
-      "set-cookie",
-      workspaceSessionCookie(token),
-    );
+    res.setHeader("set-cookie", workspaceSessionCookie(token));
     return res.json({ ok: true });
   }
   if (req.path === "/api/session" && req.method === "DELETE") {
-    res.setHeader(
-      "set-cookie",
-      workspaceSessionCookie(),
-    );
+    res.setHeader("set-cookie", workspaceSessionCookie());
     return res.json({ ok: true });
   }
   let cookie;
@@ -123,16 +122,19 @@ app.use((req, res, next) => {
       error: "authentication_required",
       message: "Enter your workspace access token to connect.",
     });
-  if (matches(cookie, token)) res.setHeader("set-cookie", workspaceSessionCookie(token));
+  if (matches(cookie, token))
+    res.setHeader("set-cookie", workspaceSessionCookie(token));
   next();
 });
 mountIntegrationRoutes(app);
+mountPrimeRoutes(app);
 
 const queryOf = (req) =>
   new URLSearchParams(req.originalUrl.split("?")[1] ?? "");
 const preferences = async () => ({
   defaultModel: DEFAULT_MODEL_ID,
   defaultProvider: "tokenrouter",
+  defaultAgent: "cloud",
   locale: "cs",
   appearance: "system",
   sendBehavior: "enter",
@@ -239,30 +241,16 @@ app.patch("/api/sessions/:id/documents", async (req, res) => {
       error.status = 409;
       throw error;
     }
-    const changed = executeWorkspaceTool(state, {
-      id: randomUUID(),
-      name: "void_workspace_write",
-      arguments: input,
-    });
-    if (changed.result.isError)
-      throw new Error(changed.result.content[0]?.text);
-    await append(
-      {
-        workspace: s.workspace,
-        at: new Date().toISOString(),
-        tool: "void_workspace_write",
-        klass: "r1",
-        decision: "execute:completed",
-        approvedBy: "web-operator",
-        argsDigest: await sha256Hex(
-          canonicalJson({ path: input.path, content: input.content }),
-        ),
-        operationId: changed.operation.id,
-        captureDigest: await sha256Hex(canonicalJson(changed.operation)),
-      },
+    const changed = await mutateCloudDocument(
+      s,
       c,
+      {
+        id: randomUUID(),
+        name: "void_workspace_write",
+        arguments: input,
+      },
+      "web-operator",
     );
-    await write(`workspace:${s.id}`, encrypt(changed.state), c);
     event(
       s,
       "tool",
@@ -367,25 +355,15 @@ app.post("/api/sessions/:id/branches", async (req, res) => {
       const saved = await read(`workspace:${parent.id}`, c),
         original = saved ? decrypt(saved) : createWorkspace();
       for (const [path, content] of Object.entries(original.files)) {
-        const changed = executeWorkspaceTool(state, {
-          id: randomUUID(),
-          name: "void_workspace_write",
-          arguments: { path, content },
-        });
-        if (changed.result.isError) throw new Error("Snapshot failed.");
-        await append(
-          {
-            workspace: child.workspace,
-            at: new Date().toISOString(),
-            tool: "void_workspace_write",
-            klass: "r1",
-            decision: "execute:completed",
-            approvedBy: "web-operator",
-            argsDigest: await sha256Hex(canonicalJson({ path, content })),
-            operationId: changed.operation.id,
-            captureDigest: await sha256Hex(canonicalJson(changed.operation)),
-          },
+        const changed = await mutateCloudDocument(
+          child,
           c,
+          {
+            id: randomUUID(),
+            name: "void_workspace_write",
+            arguments: { path, content },
+          },
+          "web-operator",
         );
         state = changed.state;
       }
@@ -429,7 +407,22 @@ app.post("/api/provider", async (req, res) => {
   });
   const client = await provider({ secret });
   const models = await client.models();
-  await write("provider", { secret });
+  if (req.body.activate !== false) {
+    await write("provider", { secret });
+    const current = await preferences();
+    const selected =
+      models.find((m) => m.id === current.defaultModel) ??
+      models.find((m) => m.id === "muse-spark-1.3-contributor-free") ??
+      models[0];
+    if (selected)
+      await write("preferences", {
+        ...current,
+        defaultModel: selected.id,
+        defaultProvider:
+          PROVIDER_PRESETS.find((p) => p.baseUrl === req.body.baseUrl)?.id ??
+          "custom",
+      });
+  }
   profiles[req.body.baseUrl] = secret;
   await write("provider-profiles", profiles);
   res.json({ connected: true, models, keyStorage: "encrypted-cloud" });
@@ -634,13 +627,22 @@ async function undoProof(id, operationId, client) {
 }
 app.get("/api/sessions/:id/undo/:operation", async (req, res) => {
   res.json(
-    await undoProof(req.params.id, req.params.operation).then((p) => p.preview),
+    await transaction(req.params.id, async (c) => {
+      const proof = await undoProof(req.params.id, req.params.operation, c);
+      await managedCloudUndo(proof.s, c, req.params.operation, true);
+      return proof.preview;
+    }),
   );
 });
 async function applyManagedUndo(id, operationId) {
   await transaction(id, async (c) => {
     const { s, state } = await undoProof(id, operationId, c);
     if (s.status === "running") throw new Error("Wait for the agent to stop.");
+    if (await managedCloudUndo(s, c, operationId)) {
+      event(s, "tool", "Document Undo verified.");
+      await write(`session:${s.id}`, s, c);
+      return;
+    }
     const changed = applyWorkspaceUndo(state, {
       id: `undo-${operationId}`,
       operationId: operationId,
@@ -682,6 +684,7 @@ app.get("/api/sessions", async (req, res) =>
   res.json(await sessionPage(queryOf(req))),
 );
 async function launch(session) {
+  if (session.agent === "prime-agent") return enqueuePrime(session);
   try {
     const run = await start(runCloudSession, [session.id, session.generation]);
     await transaction(session.id, async (c) => {
@@ -758,7 +761,16 @@ app.post("/api/sessions/:id/integrations", async (req, res) => {
 });
 app.post("/api/sessions", async (req, res) => {
   const { prompt } = req.body ?? {};
-  const model = req.body?.model ?? (await preferences()).defaultModel;
+  const prefs = await preferences();
+  const model = req.body?.model ?? prefs.defaultModel;
+  const agent = req.body?.agent ?? prefs.defaultAgent ?? "cloud";
+  if (!["cloud", "prime-agent"].includes(agent))
+    return res.status(400).json({ message: "Invalid agent." });
+  if (agent === "prime-agent" && !(await primeStatus()).online)
+    return res.status(409).json({
+      message:
+        "Your local prime-agent is offline. Start the VOID bridge on your PC.",
+    });
   if (
     typeof prompt !== "string" ||
     !prompt.trim() ||
@@ -769,7 +781,7 @@ app.post("/api/sessions", async (req, res) => {
       .status(400)
       .json({ message: "Enter a message and select a model." });
   const key = requestKey(req),
-    digest = await sha256Hex(canonicalJson({ prompt, model }));
+    digest = await sha256Hex(canonicalJson({ prompt, model, agent }));
   const prior = await priorRequest(key, digest);
   if (prior)
     return res
@@ -780,24 +792,30 @@ app.post("/api/sessions", async (req, res) => {
     return res
       .status(409)
       .json({ message: "Select a model from the connected provider." });
-  const upstream = await read("upstream"),
+  const upstream = agent === "prime-agent" ? undefined : await read("upstream"),
     listed = upstream ? await catalog(decrypt(upstream)) : { tools: [] };
   const connected = {};
-  const tools = workspaceTools.map((tool) => ({ ...tool, builtin: true }));
+  const tools =
+    agent === "prime-agent"
+      ? []
+      : workspaceTools.map((tool) => ({ ...tool, builtin: true }));
   if (upstream) {
     connected.legacy = { config: upstream, sessionId: listed.sessionId };
     tools.push(
       ...listed.tools.map((tool) => ({ ...tool, connectorId: "legacy" })),
     );
   }
-  for (const item of (await read("connectors")) ?? []) {
+  for (const item of (agent === "prime-agent"
+    ? []
+    : await read("connectors")) ?? []) {
     const data = await catalog(decrypt(item.secret));
     connected[item.id] = { config: item.secret, sessionId: data.sessionId };
     tools.push(
       ...data.tools.map((tool) => ({ ...tool, connectorId: item.id })),
     );
   }
-  const integrations = await integrationCatalogs();
+  const integrations =
+    agent === "prime-agent" ? [] : await integrationCatalogs();
   for (const item of integrations) {
     connected[item.id] = { config: item.config, sessionId: item.sessionId };
     tools.push(...item.tools);
@@ -807,6 +825,9 @@ app.post("/api/sessions", async (req, res) => {
       id,
       workspace: `agent-${id}`,
       createdAt: new Date().toISOString(),
+      agent,
+      primeProvider:
+        state.providerId === "opencode-zen" ? "opencode" : state.providerId,
       model,
       title: prompt.trim().slice(0, 80),
       status: "running",
@@ -898,7 +919,9 @@ app.delete("/api/sessions/:id", async (req, res) => {
     event(
       s,
       "tool",
-      "Cancellation requested. An already dispatched tool may finish; no further tools will start.",
+      s.agent === "prime-agent"
+        ? "Cancellation requested. The local worker stops on its next heartbeat; already dispatched changes may remain."
+        : "Cancellation requested. An already dispatched tool may finish; no further tools will start.",
     );
     await write(`session:${s.id}`, s, c);
   });

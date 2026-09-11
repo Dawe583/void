@@ -745,6 +745,12 @@ export function Chat({
         </form>
         <div className="composer-footnote">
           <span>{providerLabel}</span>
+          <span>
+            {(session?.agent ?? preferences.data?.preferences?.defaultAgent) ===
+            "prime-agent"
+              ? "prime-agent · Local PC"
+              : "VOID Cloud"}
+          </span>
           <button onClick={onContext}>
             {t("Dokumenty a kontext", "Documents and context")}
           </button>

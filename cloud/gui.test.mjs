@@ -110,9 +110,9 @@ test(
       `/api/ledger/verify?workspace=${session.workspace}`,
     );
     assert.equal(proof.body.verified, true);
-    assert.equal(proof.body.checked, 1);
+    assert.equal(proof.body.checked, 6);
     const feed = await ledgerPage(session.workspace, new URLSearchParams());
-    assert.equal(feed.items.length, 1);
+    assert.equal(feed.items.length, 6);
     assert.equal(feed.verified, false);
     const undo = await request(
       `/api/sessions/${session.id}/undo/${edited.body.document.revision}`,

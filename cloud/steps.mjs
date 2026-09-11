@@ -1,3 +1,4 @@
+import { mutateCloudDocument } from "./recovery.mjs";
 import { resolveIntegration } from "./integrations.mjs";
 import { integrationClass } from "./oauth.mjs";
 import { vercelCall } from "./vercel-integration.mjs";
@@ -277,29 +278,37 @@ export async function advance(id, generation) {
             return;
           const saved = await read(`workspace:${id}`, c),
             state = saved ? decrypt(saved) : createWorkspace();
-          const transition = executeWorkspaceTool(state, {
+          const input = {
             id: `${id}-${generation}-${s.turn}-${claim.call.id}`,
             name: claim.name,
             arguments: claim.args,
-          });
-          await append(
-            {
-              ...claim.body,
-              at: new Date().toISOString(),
-              decision: transition.result.isError
-                ? "execute:failed"
-                : "execute:completed",
-              ...(transition.operation
-                ? {
-                    operationId: transition.operation.id,
-                    captureDigest: await sha256Hex(
-                      canonicalJson(transition.operation),
-                    ),
-                  }
-                : {}),
-            },
-            c,
-          );
+          };
+          const managed = [
+            "void_workspace_write",
+            "void_workspace_delete",
+          ].includes(claim.name);
+          const transition = managed
+            ? await mutateCloudDocument(current, c, input, "cloud-agent")
+            : executeWorkspaceTool(state, input);
+          if (!managed)
+            await append(
+              {
+                ...claim.body,
+                at: new Date().toISOString(),
+                decision: transition.result.isError
+                  ? "execute:failed"
+                  : "execute:completed",
+                ...(transition.operation
+                  ? {
+                      operationId: transition.operation.id,
+                      captureDigest: await sha256Hex(
+                        canonicalJson(transition.operation),
+                      ),
+                    }
+                  : {}),
+              },
+              c,
+            );
           await write(`workspace:${id}`, encrypt(transition.state), c);
           event(
             current,

@@ -201,6 +201,7 @@ export function view(session) {
     workspace,
     model,
     providerName,
+    agent: session.agent ?? "cloud",
     title,
     status,
     events,

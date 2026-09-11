@@ -17,7 +17,8 @@ export function Settings({
   const t = useText(),
     client = useQueryClient();
   const provider = useApi("/api/provider"),
-    preferences = useApi("/api/preferences");
+    preferences = useApi("/api/preferences"),
+    agents = useApi("/api/agents");
   const [baseUrl, setBaseUrl] = useState("https://api.tokenrouter.com/v1"),
     [kind, setKind] = useState("openai"),
     [key, setKey] = useState(""),
@@ -36,6 +37,49 @@ export function Settings({
     <div className="settings">
       <section>
         <h2>{t("Váš pracovní prostor", "Your workspace")}</h2>
+        {agents.data && (
+          <>
+            <label>
+              {t("Výchozí agent", "Default agent")}
+              <select
+                value={preferences.data?.preferences?.defaultAgent ?? "cloud"}
+                onChange={(e) => preference({ defaultAgent: e.target.value })}
+              >
+                <option value="cloud">VOID Cloud</option>
+                <option value="prime-agent">prime-agent (local PC)</option>
+              </select>
+            </label>
+            <p>
+              prime-agent: {agents.data.prime?.online ? "Online" : "Offline"}
+            </p>
+            <p>
+              {t(
+                "PC musí být zapnuté. Lokální nástroje nemají automatické VOID Undo.",
+                "Your PC must stay online. Local tools do not have automatic VOID Undo.",
+              )}
+            </p>
+            <details>
+              <summary>
+                {t(
+                  "Nakonfigurované lokální nástroje",
+                  "Configured local tools",
+                )}
+              </summary>
+              <ul>
+                {(agents.data.prime?.tools ?? []).map((name: string) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+              <p>
+                {t(
+                  "Konfigurace není ověření přístupu. Služby mohou vyžadovat vlastní OAuth.",
+                  "Configuration is not access verification. Services may require their own OAuth.",
+                )}
+              </p>
+            </details>
+          </>
+        )}
+
         <label>
           {t("Vzhled", "Appearance")}
           <select

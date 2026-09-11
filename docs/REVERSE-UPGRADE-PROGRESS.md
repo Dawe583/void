@@ -7,7 +7,7 @@ by the existence of a prototype or a narrow passing test.
 | --- | --- | --- |
 | R00 | Contract, coverage, context corrections, descriptor vs executable adapter distinction | Machine-readable provider certification and public-site alignment |
 | R01 | Signed local journal, immutable operation identity, unknown results, adapter reconciliation | Cloud transactional journal, full persistence fault matrix |
-| R02 | Shared runtime used by managed CLI/MCP, TS SDK and local workbench document writes/Undo | Legacy proxy and cloud integration; HTTP conformance |
+| R02 | Shared runtime used by managed CLI/MCP, TS SDK and local workbench document writes/Undo | Legacy proxy and general external-tool cloud conformance |
 | R03 | Encrypted durable artifacts, reserved capture/outcome/recovery capacity, shared quota, legacy reads, key rotation | Streaming, pin lifecycle, GC, retention, quota migration |
 | R04 | Structured row mutations, revision trigger, atomic outbox, verified restore, real prepare serialization conflict, managed deadlock and terminated database sessions | Cascade/tenant certification, migration, client process kill and network partition |
 | R05 | Not started | Filesystem/Git with declared scope and conflict handling |
@@ -36,8 +36,8 @@ by the existence of a prototype or a narrow passing test.
 1. Complete the remaining client-process crash and persistence fault cases before
    promoting M1 from verified subset to release milestone. Real database-session
    termination and a managed-dispatch deadlock now have executable coverage.
-2. Extend the completed local document integration to the cloud transaction
-   host, preserving signed evidence and existing UI API compatibility.
+2. Cloud document integration now uses the shared runtime in one database
+   transaction. Extend conformance before covering external cloud tools.
 3. Implement filesystem/Git with an explicit cooperative vs enforced boundary;
    never claim an atomic filesystem CAS that the OS interface cannot provide.
 4. Add persistent multi-operation planning and resource/provenance dependencies.
@@ -50,9 +50,10 @@ configuration remain separate from the reverse engine implementation.
 
 ## Verification checkpoint
 
-Latest local `pnpm check`: typechecks passed; 578 package/application/script
+Latest local `pnpm check`: typechecks passed; 579 package/application/script
 tests passed; nine OAuth tests passed and two opt-in cloud integration tests
-were skipped. The real PostgreSQL verification was rerun successfully with the
+were skipped at that checkpoint. The three isolated cloud GUI, recovery and Prime
+protocol scenarios were subsequently run successfully. The real PostgreSQL verification was rerun successfully with the
 OS-backed writer mutex and relation certification checks. Fifty-three tests cover
 the newly added runtime, managed SQL, MCP and SDK paths, including three separate
 process tests. This does not certify unfinished work packages or production
@@ -83,9 +84,8 @@ their original Undo path. Runtime artifacts use the existing workspace key.
 
 Five new integration tests cover sequential/repeated Undo after restart, failed
 capture with no document write, human conflicts, missing runtime evidence and
-legacy compatibility. Cloud `server.mjs`/`steps.mjs` still use their original
-transaction path. No claim is made that this local integration is deployed on
-Vercel. The production workspace login was separately verified with HTTP 200.
+legacy compatibility. At this checkpoint cloud `server.mjs`/`steps.mjs` used their original transaction
+path. The cloud follow-up below supersedes that limitation for managed documents. The production workspace login was separately verified with HTTP 200.
 
 ### PostgreSQL connection faults, 2026-09-12
 
@@ -109,3 +109,22 @@ listeners. No production data or credentials were used by this verifier. This
 is connection-fault coverage, not a physical network partition, PostgreSQL server
 crash, client SIGKILL test, or completion of M1. Shared-runtime cloud integration
 remains the next feature work; the deployed web login is unchanged.
+
+### Cloud documents and local Prime execution, 2026-09-12
+
+Cloud editor writes, branch copies and agent document mutations now use the same
+managed document adapter and recovery runtime as the local workbench. Encrypted
+artifacts, capacity reservations, signed lifecycle events and document state share
+one SQL transaction under the session lock. This is valid for managed documents
+only: an external side effect must not use this transaction-bound journal. The
+vault limits each artifact to 4 MiB and each session to 64 MiB of logical reserved
+and retained encrypted storage; retention and key migration remain future work.
+Legacy signed document Undo remains supported. A managed marker never silently
+falls back to legacy recovery when artifacts or lifecycle evidence are missing.
+
+The isolated cloud GUI and recovery tests passed, including atomic rollback,
+capacity failure, missing artifacts, conflicting history, branch copies and
+idempotent Undo. The local Prime worker protocol separately tests authentication,
+single claim, stale-result refusal and no replay of a lost job. Prime tool calls
+are outside captured document Undo; its outer run is signed as R3, and individual
+tool notifications are informational rather than captured recovery receipts.

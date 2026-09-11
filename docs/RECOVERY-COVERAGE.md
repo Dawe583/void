@@ -14,6 +14,8 @@ not a declaration that all work packages in REVERSE-TOOL-UPGRADE-PLAN are done.
 | Real PostgreSQL | Verified subset | Isolated Neon database; separate connections, ABA, restart, terminated backend sessions and managed deadlock | `scripts/src/verify-managed-postgres.mjs` |
 | Legacy PostgreSQL/S3 replay | Existing separate path | Earlier capture/apply contract; no automatic managed-runtime guarantees | `REVERSE-ENGINE-VALIDATION.md` |
 | Local workbench documents | Shared runtime integrated | Writes, deletes, branch copies and operator Undo; legacy signed history preserved | `packages/workbench/src/managed-documents.test.ts` |
+| Cloud workbench documents | Shared runtime integrated | Atomic SQL document/evidence transaction, reserved encrypted artifacts; no external effects | `cloud/recovery.test.mjs`, `cloud/gui.test.mjs` |
+| Local Prime web bridge | Separate execution boundary | Signed R3 run, no automatic local-tool Undo; private outbound worker | `cloud/prime.test.mjs`, `scripts/src/prime-bridge.test.mjs` |
 | Filesystem/Git managed execution | Pending | No general shell or coding-agent restore claim | WP-R05 |
 | GitHub/Vercel/Supabase OAuth | Connection mechanism only | Provider consent and service scopes do not certify recovery | `OAUTH-INTEGRATIONS.md` |
 | Local R3 budget | Implemented subset | UTC authorization-day, workspace and per-agent limits, durable reservations | `packages/runtime/src/budget.test.ts`, 100-request contention |

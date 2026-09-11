@@ -84,11 +84,13 @@ export function sessionPatch(body: Record<string, unknown>) {
 export function preferencePatch(body: Record<string, unknown>) {
   const result: Record<string, string> = {};
   const enums: Record<string, string[]> = {
+    defaultAgent: ["cloud", "prime-agent"],
     locale: ["cs", "en"],
     appearance: ["system", "light", "dark"],
     sendBehavior: ["enter", "mod-enter"],
   };
   for (const key of [
+    "defaultAgent",
     "defaultProvider",
     "defaultModel",
     "locale",
