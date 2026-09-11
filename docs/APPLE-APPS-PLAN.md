@@ -1,5 +1,10 @@
 # VOID for macOS and iOS
 
+Priority update, 12 September 2026: macOS and the advertised recovery contract
+take precedence. iOS implementation and distribution are deferred until the
+macOS product passes the capability release gates. The iOS sections below are
+future design, not current work or an announced release commitment.
+
 Status: implementation plan, 12 September 2026. Swift migration is not yet
 implemented. The downloadable macOS beta uses the existing Tauri shell and
 bundled Node runtime. Home Screen installation on iOS is the online web app.

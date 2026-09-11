@@ -35,6 +35,7 @@ export function Settings({
   }
   return (
     <div className="settings">
+      <DesktopSetup />
       <section aria-labelledby="install-heading">
         <h2 id="install-heading">{t("Aplikace VOID", "VOID apps")}</h2>
         <h3>macOS</h3>
@@ -46,7 +47,7 @@ export function Settings({
         </p>
         <a
           className="button"
-          href="https://github.com/Dawe583/void/releases/download/desktop-v0.1.0-beta.1/VOID_0.1.0_aarch64.dmg"
+          href="https://github.com/Dawe583/void/releases/download/desktop-v0.1.0-beta.2/VOID_0.1.0_aarch64.dmg"
         >
           {t("Stáhnout pro macOS (.dmg)", "Download for macOS (.dmg)")}
         </a>
@@ -314,6 +315,108 @@ export function Settings({
         <Capabilities />
       </section>
     </div>
+  );
+}
+function DesktopSetup() {
+  const t = useText(),
+    client = useQueryClient();
+  const capabilities = useApi("/api/capabilities");
+  const setup = useApi(
+    "/api/desktop/setup",
+    capabilities.data?.desktopSetup === true,
+    60000,
+  );
+  const provider = useApi("/api/provider");
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState<unknown>(),
+    [done, setDone] = useState(false);
+  if (!capabilities.data?.desktopSetup) return null;
+  async function importProvider(source: string) {
+    setBusy(true);
+    setError(undefined);
+    setDone(false);
+    try {
+      await api("/api/desktop/setup", "POST", { source });
+      await client.invalidateQueries();
+      setDone(true);
+    } catch (error) {
+      setError(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section aria-labelledby="desktop-setup-heading" aria-busy={busy}>
+      <h2 id="desktop-setup-heading">
+        {t("Začněte na tomto Macu", "Get started on this Mac")}
+      </h2>
+      <p>
+        {t(
+          "Importujte uložený API klíč z OpenCode nebo Prime. VOID ověří poskytovatele a vybere dostupný model pro nové konverzace.",
+          "Import a saved API key from OpenCode or Prime. VOID validates the provider and selects an available model for new conversations.",
+        )}
+      </p>
+      <p className="muted">
+        {t(
+          "Import přepne aktivního poskytovatele. Klíč zůstane v šifrovaném lokálním úložišti a odešle se pouze jeho poskytovateli, nikoli do VOID Cloud. OAuth přihlášení se nepřenášejí.",
+          "Import switches the active provider. The key stays in encrypted local storage and is sent only to its provider, not to VOID Cloud. OAuth logins are not transferred.",
+        )}
+      </p>
+      <ErrorBox error={setup.error ?? error} />
+      {!setup.data && !setup.error && (
+        <p role="status">
+          {t("Hledám místní nastavení…", "Checking local setup…")}
+        </p>
+      )}
+      {setup.data && (
+        <ul>
+          {items(setup.data, "sources").map((source) => (
+            <li key={source.id}>
+              {source.name} · {source.source}{" "}
+              {source.available ? (
+                <button
+                  disabled={busy}
+                  onClick={() => void importProvider(source.id)}
+                >
+                  {t("Importovat", "Import")} {source.name} ({source.source})
+                </button>
+              ) : (
+                <span className="muted">
+                  {t(
+                    "Podporovaný API klíč nenalezen",
+                    "No supported API key found",
+                  )}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p role="status">
+        {done
+          ? t(
+              "Hotovo. Můžete otevřít nový projekt v chatu.",
+              "Ready. You can start a new project in chat.",
+            )
+          : provider.data?.connected
+            ? t("Poskytovatel je připojený.", "Provider is connected.")
+            : t(
+                "Bez místního nastavení připojte poskytovatele níže.",
+                "No local setup? Connect a provider below.",
+              )}
+      </p>
+      <p>
+        {t(
+          "Dokumenty VOID: lokální ukládání a řízené Undo jsou připravené. Libovolné soubory na disku a externí nástroje zatím nemají automatické Undo.",
+          "VOID documents: local storage and guarded Undo are ready. Arbitrary disk files and external tools do not yet have automatic Undo.",
+        )}
+      </p>
+      {provider.data?.connected && (
+        <a className="button" href="/chat/new">
+          {t("Začít projekt v chatu", "Start a project in chat")}
+        </a>
+      )}
+    </section>
   );
 }
 function Capabilities() {

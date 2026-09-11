@@ -17,6 +17,7 @@ import type { PublicKeyLookup } from "../../../packages/ledger/src/verify.ts";
 import { Workbench } from "../../../packages/workbench/src/index.ts";
 import { authorizedRemote } from "./auth.ts";
 import { localApprovals } from "./local-approvals.ts";
+import { desktopSetup, importDesktopProvider } from './desktop-setup.ts';
 import { keyProviderFromPkcs8 } from "../../../packages/ledger/src/sign.ts";
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
@@ -150,7 +151,18 @@ async function route(
 
   const query = parsed.searchParams, wb = options.workbench;
   try {
-    if (parsed.pathname === '/api/capabilities' && request.method === 'GET') return sendJson(response, 200, capabilities('local'));
+    const desktop = !!options.env.VOID_DESKTOP_WEB_ROOT && !options.env.VOID_CONTROL_TOKEN && isLocalRequest(request);
+    if (parsed.pathname === '/api/capabilities' && request.method === 'GET') return sendJson(response, 200, { ...capabilities('local'), desktopSetup: desktop });
+    if (parsed.pathname === '/api/desktop/setup') {
+      if (!desktop) return sendJson(response, 404, { error: 'not_available' });
+      if (request.method === 'GET') return sendJson(response, 200, await desktopSetup(options.env));
+      if (request.method === 'POST') {
+        const body = await readJsonBody(request) as Record<string, unknown> | null;
+        if (!body || typeof body !== 'object' || Object.keys(body).some(key => key !== 'source')) return sendJson(response, 400, { error: 'invalid_import' });
+        return sendJson(response, 200, await importDesktopProvider(body.source, options.env, wb));
+      }
+      return sendJson(response, 405, { error: 'method_not_allowed' });
+    }
     if (parsed.pathname === '/api/preferences') {
       if (request.method === 'GET') return sendJson(response, 200, { preferences: wb.getPreferences() });
       if (request.method === 'PATCH') return sendJson(response, 200, { preferences: wb.patchPreferences(await readJsonBody(request) as Record<string, unknown>) });

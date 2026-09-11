@@ -30,6 +30,21 @@ beta, not a notarized installer. Windows/Linux packages are not yet verified.
 
 ## Runtime boundary
 
+### First-run provider import
+
+Settings offers local API-key import from OpenCode and Prime for supported
+TokenRouter, OpenCode Zen and OpenRouter profiles. This explicit action replaces
+the active provider after catalog validation and chooses an available model.
+The key stays in the encrypted local workspace and is sent only to its fixed
+provider endpoint. Existing OpenCode/Prime files are not modified. OAuth tokens,
+command expressions and custom endpoints are not imported. No import API is
+available to the cloud or remote-token server mode.
+
+See `docs/MACOS-ALL-IN-ONE-RESEARCH.md` for current support and the next project
+setup/recovery stages. iOS implementation is deferred until macOS release gates.
+
+### Execution
+
 Provider selection, model catalogs, connectors, sessions, approvals, signed
 history and guarded undo are implemented in the shared workbench/backend. The
 shell neither bypasses nor duplicates VOID policy or replay logic. Basic local

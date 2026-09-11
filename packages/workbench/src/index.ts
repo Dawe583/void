@@ -75,7 +75,12 @@ export class Workbench {
     config = { ...config, apiKey: config.apiKey || this.profiles[config.baseUrl]?.apiKey || '' };
     const provider = new CompatibleProvider(config, this.fetcher);
     const models = await provider.models();
-    this.provider = provider; this.config = config; this.profiles[config.baseUrl] = config; this.catalog = models; this.persist();
+    if (!models.length) throw new Error('Provider returned no available models. Previous configuration was kept.');
+    const previous = { provider: this.provider, config: this.config, profiles: this.profiles, catalog: this.catalog, preferences: this.preferences };
+    const preferred = [this.preferences.defaultModel, DEFAULT_MODEL_ID, 'muse-spark-1.3-contributor-free'].find(id => models.some(model => model.id === id)) ?? models[0]!.id;
+    this.provider = provider; this.config = config; this.profiles = { ...this.profiles, [config.baseUrl]: config }; this.catalog = models;
+    this.preferences = { ...this.preferences, defaultModel: preferred, defaultProvider: PROVIDER_PRESETS.find(p => p.baseUrl === config.baseUrl)?.id ?? 'custom' };
+    try { this.persist(); } catch (error) { Object.assign(this, previous); throw error; }
     return models;
   }
   async providerState() {
