@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, download, items, json, type Row } from "./api";
-export const Locale = createContext<"cs" | "en">("cs");
+export const Locale = createContext<"cs" | "en">("en");
 export function useText() {
   const locale = useContext(Locale);
   return (cs: string, en: string) => (locale === "cs" ? cs : en);

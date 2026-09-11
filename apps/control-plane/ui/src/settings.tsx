@@ -22,7 +22,7 @@ export function Settings({
     [key, setKey] = useState(""),
     [error, setError] = useState<unknown>(),
     [busy, setBusy] = useState(false),
-    [message, setMessage] = useState("");
+    [message, setMessage] = useState<"" | "connected" | "disconnected">("");
   async function preference(body: Row) {
     try {
       await api("/api/preferences", "PATCH", body);
@@ -58,7 +58,7 @@ export function Settings({
               void preference({ locale: e.target.value });
             }}
           >
-            <option value="cs">Čeština</option>
+            <option value="cs">{t("Čeština", "Czech")}</option>
             <option value="en">English</option>
           </select>
         </label>
@@ -109,12 +109,7 @@ export function Settings({
                 kind,
                 apiKey: key,
               });
-              setMessage(
-                t(
-                  "Poskytovatel připojen. Klíč je uložen šifrovaně na serveru.",
-                  "Provider connected. The key is encrypted on the server.",
-                ),
-              );
+              setMessage("connected");
               await client.invalidateQueries();
             } catch (e) {
               setError(e);
@@ -190,12 +185,7 @@ export function Settings({
                 try {
                   await api("/api/provider", "DELETE");
                   await client.invalidateQueries();
-                  setMessage(
-                    t(
-                      "Poskytovatel odpojen pro nové konverzace.",
-                      "Provider disconnected for new conversations.",
-                    ),
-                  );
+                  setMessage("disconnected");
                 } catch (e) {
                   setError(e);
                 }
@@ -209,7 +199,15 @@ export function Settings({
       <ErrorBox error={error} />
       {message && (
         <p role="status" className="notice">
-          {message}
+          {message === "connected"
+            ? t(
+                "Poskytovatel připojen. Klíč je uložen šifrovaně na serveru.",
+                "Provider connected. The key is encrypted on the server.",
+              )
+            : t(
+                "Poskytovatel odpojen pro nové konverzace.",
+                "Provider disconnected for new conversations.",
+              )}
         </p>
       )}
       <section>

@@ -1,3 +1,4 @@
+import { BrandMark } from "./brand";
 import { ApprovalReview } from "./approval-review";
 import { transcriptEvents } from "./events";
 import {
@@ -108,7 +109,13 @@ export function Chat({
   const [approval, setApproval] = useState<Row>();
   const session = sessionQuery.data?.session;
   const providerEndpoint = id ? session?.provider : provider.data?.baseUrl;
-  const providerLabel = session?.providerName ?? provider.data?.presets?.find((preset:Row)=>preset.baseUrl===providerEndpoint)?.name ?? providerEndpoint ?? t('Poskytovatel neověřen', 'Provider unverified');
+  const providerLabel =
+    session?.providerName ??
+    provider.data?.presets?.find(
+      (preset: Row) => preset.baseUrl === providerEndpoint,
+    )?.name ??
+    providerEndpoint ??
+    t("Poskytovatel neověřen", "Provider unverified");
   const running =
     session?.status === "running" || session?.status === "cancelling";
   const draftKey =
@@ -374,9 +381,9 @@ export function Chat({
         <div className="messages">
           {!id && (
             <div className="welcome">
-              <pre aria-hidden="true">
-                {"┌───────┐\n│  V O  │\n│  I D  │\n└───────┘"}
-              </pre>
+              <div className="welcome-emblem">
+                <BrandMark />
+              </div>
               <h1>
                 {t(
                   "Prostor pro vaše další myšlenky.",
@@ -420,8 +427,13 @@ export function Chat({
                       textarea.current?.focus();
                     }}
                   >
-                    {label}
-                    <span aria-hidden="true">↗</span>
+                    <span className="starter-copy">
+                      <strong>{label}</strong>
+                      <span>{prompt}</span>
+                    </span>
+                    <span className="starter-arrow" aria-hidden="true">
+                      ↗
+                    </span>
                   </button>
                 ))}
               </div>
@@ -732,9 +744,7 @@ export function Chat({
           </div>
         </form>
         <div className="composer-footnote">
-          <span>
-            {providerLabel}
-          </span>
+          <span>{providerLabel}</span>
           <button onClick={onContext}>
             {t("Dokumenty a kontext", "Documents and context")}
           </button>

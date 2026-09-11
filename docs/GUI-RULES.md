@@ -79,3 +79,20 @@ FOOTER: parchment, 17px/2.41 dense links, 64px padding, legal 12px #7a7a7a.
 ACTIVE STATE: transform scale(0.95) on every button. Min touch target 44x44.
 
 BREAKPOINTS: 1440 lock, 1068, 834, 734, 640, 480. Hero 56 -> 40 (1068) -> 34 (640) -> 28 (419).
+
+## Canonical brand and motion (2026-09-11 refinement)
+
+The only approved logo is the aperture in `Dawe583/void-empty` at commit
+`25b5e62d49d614f88804b72b55609c74092d98d8`,
+`artifacts/void/src/components/site/shell.tsx` (`Brand`). Preserve its exact SVG
+geometry: four brackets, orange square, central dot. Use `ui/src/brand.tsx` on
+all new GUI brand surfaces; favicon is the original `public/favicon.svg` from
+that repository. Do not substitute ASCII `[V]`, letter tiles, or a new symbol.
+
+Match the website's self-hosted Instrument Serif, Inter, and JetBrains Mono.
+English is the default for a fresh browser; Czech remains available through the
+header and Settings. Existing stored language preferences remain respected.
+Motion uses CSS transitions and keyframes, with an explicit user toggle and
+`prefers-reduced-motion`. Animate entrances and interaction feedback; never
+animate or invent telemetry values. Keep workspace credentials server-side and
+use the authenticated HttpOnly session for immediate testing.

@@ -1,3 +1,4 @@
+import { BrandMark } from "./brand";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -25,11 +26,13 @@ const routes = [
 ];
 function Root() {
   const [locale, setLocale] = useState<"cs" | "en">(() =>
-    localStorage.getItem("void-locale") === "en" ? "en" : "cs",
+    localStorage.getItem("void-locale") === "cs" ? "cs" : "en",
   );
   useEffect(() => {
     localStorage.setItem("void-locale", locale);
     document.documentElement.lang = locale;
+    document.title =
+      locale === "en" ? "VOID — Workspace" : "VOID — Pracovní prostor";
   }, [locale]);
   return (
     <Locale value={locale}>
@@ -66,6 +69,13 @@ function App({
     [token, setToken] = useState(""),
     [error, setError] = useState<unknown>(),
     [connecting, setConnecting] = useState(false);
+  const [motion, setMotion] = useState(
+    () => localStorage.getItem("void-motion") !== "off",
+  );
+  useEffect(() => {
+    document.documentElement.dataset.motion = motion ? "on" : "off";
+    localStorage.setItem("void-motion", motion ? "on" : "off");
+  }, [motion]);
   const provider = useApi("/api/provider");
   const prefs = useApi("/api/preferences");
   const initialPreferences = useRef({
@@ -237,9 +247,7 @@ function App({
               navigate("/chat/new");
             }}
           >
-            <span className="brand-mark" aria-hidden="true">
-              [V]
-            </span>
+            <BrandMark className="brand-mark" />
             <strong>VOID</strong>
           </a>
           <button
@@ -390,6 +398,46 @@ function App({
             {current && <Badge value={current.status} />}
           </div>
           <div className="header-actions">
+            <button
+              className="locale-toggle"
+              title={t("Přepnout do angličtiny", "Switch to Czech")}
+              aria-label={t("Přepnout do angličtiny", "Switch to Czech")}
+              onClick={() => {
+                const next = locale === "cs" ? "en" : "cs";
+                setLocale(next);
+                if (!needsAuth)
+                  void api("/api/preferences", "PATCH", { locale: next }).catch(
+                    setError,
+                  );
+              }}
+            >
+              {locale === "cs" ? "EN" : "CS"}
+            </button>
+            <button
+              className="theme-toggle"
+              aria-label={t("Přepnout vzhled", "Toggle theme")}
+              onClick={() =>
+                setAppearance(
+                  document.documentElement.dataset.theme === "dark"
+                    ? "light"
+                    : "dark",
+                )
+              }
+            >
+              ◐
+            </button>
+            <button
+              className="motion-toggle"
+              aria-label={t("Animace", "Animations")}
+              title={t(
+                "Zapnout nebo vypnout animace",
+                "Turn animations on or off",
+              )}
+              aria-pressed={motion}
+              onClick={() => setMotion(!motion)}
+            >
+              ⌁
+            </button>
             {chatId && (
               <button
                 onClick={async () => {
@@ -429,7 +477,7 @@ function App({
         <ErrorBox error={error} />
         {needsAuth ? (
           <div className="connection-gate">
-            <span className="brand-mark">[V]</span>
+            <BrandMark className="gate-logo" />
             <h1>
               {t("Připojte svůj pracovní prostor.", "Connect your workspace.")}
             </h1>
@@ -486,6 +534,7 @@ function App({
               </div>
             ) : (
               <div
+                key={page}
                 className="page-content"
                 inert={context && matchMedia("(max-width:767px)").matches}
               >
