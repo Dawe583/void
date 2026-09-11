@@ -5,6 +5,7 @@ import type {
 } from "./types.ts";
 
 export const VOID_PALETTE = {
+  accent: "#bd4206",
   paper: "#1d1d1f",
   ink: "#f5f5f7",
   muted: "#86868b",
@@ -31,6 +32,7 @@ export const DECISION_MARKER: Record<CallDecision, string> = {
 type Tone = keyof typeof VOID_PALETTE;
 
 const ANSI_16: Record<Tone, number> = {
+  accent: 33,
   paper: 30,
   ink: 97,
   muted: 37,
@@ -42,6 +44,7 @@ const ANSI_16: Record<Tone, number> = {
 };
 
 const ANSI_256: Record<Tone, number> = {
+  accent: 166,
   paper: 233,
   ink: 255,
   muted: 102,

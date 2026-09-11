@@ -1,3 +1,4 @@
+import { brandHeader } from "./brand.ts";
 import {
   box,
   columns,
@@ -7,7 +8,6 @@ import {
   pad,
   rule,
   sanitizeText,
-  visibleLength,
 } from "./layout.ts";
 import { CLASS_MARKER, classLabel, decisionLabel, paint } from "./theme.ts";
 import type {
@@ -45,7 +45,6 @@ function header(
     0,
     Math.floor((now - state.session.startedAt) / 1000),
   );
-  const logo = paint("V O I D", "ink", capabilities, true);
   const posture =
     state.session.posture === "enforce"
       ? paint("ENFORCE", "r0", capabilities, true)
@@ -54,12 +53,9 @@ function header(
   // starts from, so a persistent escape injected there blanks the whole
   // alternate screen on every diff repaint, not just one row.
   const right = `${state.session.transport} | ${sanitizeText(state.session.agent)} | ${age}s | ${posture}`;
-  const gap = Math.max(
-    1,
-    capabilities.columns - visibleLength(logo) - visibleLength(right),
-  );
   return [
-    `${logo}${" ".repeat(gap)}${right}`,
+    ...brandHeader("VOID", capabilities),
+    right,
     paint(rule(capabilities.columns), "rule", capabilities),
   ];
 }

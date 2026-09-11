@@ -100,3 +100,7 @@ class filters; p pauses display updates; v refreshes verification; ? opens help;
 q exits. Exiting leaves the proxy running. The live watch does not offer approval
 or replay shortcuts until those actions are actually connected. Existing preview
 renderers remain available for the richer planned dashboard.
+
+### Aperture identity
+
+The GUI header uses the exact SVG paths and viewBox from `Dawe583/void-empty`, `artifacts/void/src/components/site/shell.tsx` (Brand). The PWA icon copies `artifacts/void/public/void-aperture-mark.svg`. `brand.ts` rasterizes those same brackets, square, and center dot into terminal half blocks, with an orange inner square when color is available. The mark remains monochrome with NO_COLOR and in redirected output.

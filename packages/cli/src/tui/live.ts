@@ -1,3 +1,4 @@
+import { brandHeader } from "./brand.ts";
 import type { FeedPage } from "../../../ledger/src/feed.ts";
 import type { TerminalCapabilities } from "./types.ts";
 import { crop, fit, pad, rule, sanitizeText } from "./layout.ts";
@@ -30,7 +31,7 @@ export function renderLiveFeed(view: LiveView, caps: TerminalCapabilities): stri
   const rows = liveRecords(view);
   const selected = rows[Math.min(view.selected, Math.max(0, rows.length - 1))];
   const lines = [
-    paint(`VOID  /  ${sanitizeText(view.workspace)}`, "ink", caps, true),
+    ...brandHeader(`VOID / ${view.workspace}`, caps),
     `${view.paused ? "Paused view" : "Live ledger"}  |  ${view.filter || "All classes"}  |  ${rows.length} records`,
     paint(rule(width), "rule", caps),
     view.error ? `Read failed: ${sanitizeText(view.error)}. Press v to retry.`
