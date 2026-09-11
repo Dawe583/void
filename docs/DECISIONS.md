@@ -965,3 +965,18 @@ transaction). Undo verifies the full captured operation against signed history
 and rejects drift, duplicate inverses and newer changes. This does not imply
 that arbitrary external MCP tools or host files are reversible. Native Anthropic
 is normalized to the same model/tool interface as compatible providers.
+
+## Managed recovery runtime, 2026-09-11
+
+Executable adapters share one prepare/capture/execute/reconcile/recover contract
+in `packages/runtime` and `packages/connectors/src/recovery.ts`. The first
+integration uses structured PostgreSQL mutations with transactionally recorded
+outcomes and row revision triggers. Arbitrary SQL and legacy capture-only
+connectors do not inherit these guarantees.
+
+Local durability reuses the signed JSONL ledger and an authenticated encrypted
+artifact vault. An uncertain external outcome remains unknown until durable
+provider evidence resolves it. Recovery has its own signed receipt and can also
+be reconciled without repeating the inverse. The first MCP entry point is local
+stdio with operator-owned workspace and policy; interactive holds, cloud
+transport and multi-operation recovery are separate integration work.

@@ -3,7 +3,7 @@ import { readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 const root = resolve(import.meta.dirname, '../..');
-const packages = ['ledger', 'policy', 'registry', 'proxy', 'connectors', 'cli', 'sdk', 'workbench'];
+const packages = ['ledger', 'policy', 'registry', 'proxy', 'connectors', 'runtime', 'cli', 'sdk', 'workbench'];
 let failed=false,total=0;
 for(const name of packages){
  const dir=join(root,'packages',name),files=readdirSync(join(dir,'src'),{recursive:true}).filter(file=>/\.test\.(ts|mjs)$/.test(file)&&!/(^|\/)(tui|gui|provider)(\/|[.-])/.test(file)).map(file=>join(dir,'src',file));

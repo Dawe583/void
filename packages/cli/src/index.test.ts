@@ -20,7 +20,7 @@ describe("@void/cli", () => {
     assert.equal(parsed.ok, false);
     assert.match(
       parsed.ok ? "" : parsed.reason,
-      /unknown command "verfiy".*run, classify, feed, watch, approvals, approve, ledger, replay, policy, export, attest, taint, verify/,
+      /unknown command "verfiy".*run, classify, feed, watch, approvals, approve, ledger, replay, recovery, policy, export, attest, taint, verify/,
     );
   });
 

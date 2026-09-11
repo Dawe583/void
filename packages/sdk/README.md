@@ -46,3 +46,16 @@ This package is landing in wave 4. Its README documents only the public barrel e
 - Replay refusal reports can be converted to `RefusedError`.
 
 See `docs/SDK.md` for usage notes.
+
+## Managed execution
+
+`managedClient({ workspace, agentId, journal, vault, adapters, authorize })`
+wraps the shared recovery runtime. Its methods are `execute(adapterId,
+operationId, runId, arguments)`, `planRecovery(operationId)`,
+`recover(plan, authorize)`, `reconcile(operationId)` and
+`reconcileRecovery(operationId)`. The host supplies authorization; there is no
+default allow. Operation IDs must remain stable across retries.
+
+This is separate from the legacy `VoidClient` interception API. Only registered
+executable `RecoveryAdapter` implementations provide managed capture and
+recovery. See `docs/MANAGED-RECOVERY.md` and `docs/RECOVERY-COVERAGE.md`.

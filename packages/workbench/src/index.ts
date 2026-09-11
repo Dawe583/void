@@ -1,3 +1,5 @@
+import { managedDocumentAdapter } from './managed-documents.ts';
+import { recoveryRuntime, localOperationJournal, digest, type Json } from '../../runtime/src/index.ts';
 import { DEFAULT_MODEL_ID, TOKENROUTER_URL, PROVIDER_PRESETS } from './provider-defaults.ts';
 import { documentView, sessionPatch, preferencePatch, page, filterRows, providerFailure, connectorInput, publicConnector } from './gui.ts';
 import { LocalStorage } from './storage.ts';
@@ -167,14 +169,14 @@ export class Workbench {
   documentsList() { return [...this.sessions.values()].flatMap(s => Object.keys(this.workspace(s.view.id).files).map(path => { const { content, ...item } = documentView(this.workspace(s.view.id), path, s.view.id); return { ...item, workspace: s.view.workspace }; })); }
   document(id: string, path: string) { return documentView(this.workspace(id), path, id); }
   async editDocument(id: string, input: { path: string; content: string; expectedRevision: string | null }) {
-    return this.locked(async () => { const s = this.sessions.get(id); if (!s) throw new Error('Session not found.'); if (s.view.status === 'running') throw new Error('Wait for the agent to stop.'); const state = this.workspace(id); if (documentView(state, input.path, id).revision !== input.expectedRevision) throw new Error('Document revision conflict. Refresh before saving.'); const changed = executeWorkspaceTool(state, { id: randomUUID(), name: 'void_workspace_write', arguments: input }); if (changed.result.isError) throw new Error(changed.result.content[0]?.text); await this.commitWorkspace(s, changed.state, 'void_workspace_write', { path: input.path, content: input.content }, 'execute:completed', changed.operation, { by: 'web-operator' }); this.event(s, 'tool', `Updated ${input.path}.`, { path: input.path, operationId: changed.operation?.id }, 'document.changed'); this.persist(); return this.document(id, input.path); });
+    return this.locked(async () => { const s = this.sessions.get(id); if (!s) throw new Error('Session not found.'); if (s.view.status === 'running') throw new Error('Wait for the agent to stop.'); const state = this.workspace(id); if (documentView(state, input.path, id).revision !== input.expectedRevision) throw new Error('Document revision conflict. Refresh before saving.'); const operationId=randomUUID(); await this.mutateDocument(s,operationId,'void_workspace_write',{path:input.path,content:input.content},{by:'web-operator'}); this.event(s, 'tool', `Updated ${input.path}.`, { path: input.path, operationId }, 'document.changed'); this.persist(); return this.document(id, input.path); });
   }
   async branch(id: string, body: { seq: number; prompt?: string; snapshotDocuments?: boolean }) {
     return this.locked(async () => { const parent = this.sessions.get(id); if (!parent || !Number.isSafeInteger(body.seq) || !parent.view.events.some(e => e.seq === body.seq)) throw new Error('Choose an existing message.'); const messages = parent.view.events.filter(e => e.seq <= body.seq && ['user','assistant'].includes(e.kind) && (!e.type || e.type === 'message.completed'));
       if (body.prompt !== undefined) { if (!body.prompt.trim() || body.prompt.length > 32000 || messages.at(-1)?.kind !== 'user') throw new Error('Choose a user message to edit.'); messages[messages.length-1] = { ...messages.at(-1)!, text: body.prompt }; }
       const childId = randomUUID(), workspace = `agent-${childId}`; const child: Session = { ...parent, client: undefined, controller: new AbortController(), view: { ...parent.view, id: childId, workspace, parentId: id, title: `${parent.view.title ?? 'Conversation'} (branch)`, status: 'idle', pinned: false, archived: false, createdAt: new Date().toISOString(), events: [] }, messages: [parent.messages[0]!, ...messages.map(e => ({ role: e.kind as 'user'|'assistant', content: e.text }))] };
       this.sessions.set(childId, child); this.documents[workspace] = createWorkspace();
-      if (body.snapshotDocuments) for (const [path, content] of Object.entries(this.workspace(id).files)) { const change = executeWorkspaceTool(this.documents[workspace]!, { id: randomUUID(), name: 'void_workspace_write', arguments: { path, content } }); if (change.result.isError) throw new Error('Snapshot failed.'); await this.commitWorkspace(child, change.state, 'void_workspace_write', { path, content }, 'execute:completed', change.operation, { by: 'web-operator' }); }
+      if (body.snapshotDocuments) for (const [path, content] of Object.entries(this.workspace(id).files)) { await this.mutateDocument(child,randomUUID(),'void_workspace_write',{path,content},{by:'web-operator'}); }
       for (const e of messages) this.event(child, e.kind, e.text, { importedFrom: id, originalSeq: e.seq }); this.persist(); return child.view;
     });
   }
@@ -216,11 +218,30 @@ export class Workbench {
     if (!s) throw new Error('Session not found.');
     return this.documents[s.view.workspace] ?? createWorkspace();
   }
+  private async documentRuntime(session: Session, approval?: {by?:string;reason?:string}) {
+    const workspace=session.view.workspace,key=await devKeyProvider({dir:join(this.storage.directory,'keys'),env:this.env});
+    const adapter=managedDocumentAdapter({
+      read:async()=>{await this.ledger(workspace);return this.workspace(session.view.id)},
+      verify:async operation=>{const proof=await this.ledger(workspace),captureDigest=await sha256Hex(canonicalJson(operation));return !!proof?.entries.some(entry=>{const body=entry.body as Record<string,unknown>;return body.operationId===operation.id&&body.captureDigest===captureDigest&&body.decision==='execute:completed'})},
+      commit:async (change,input)=>{await this.commitWorkspace(session,change.state,input.name,input.arguments,'execute:completed',change.operation,approval,{managedRuntimeOperationId:digest(input.name==='void_workspace_undo'?String(input.arguments.operationId):input.id)})},
+    });
+    return recoveryRuntime({journal:localOperationJournal(join(this.storage.directory,'recovery','journal'),key),vault:this.storage.recoveryVault(),adapters:[adapter],authorize:async()=>approval?.by==='web-operator'||!session.controller.signal.aborted});
+  }
+  private async mutateDocument(session:Session,id:string,name:string,args:Record<string,unknown>,approval?:{by?:string;reason?:string}) {
+    const runtime=await this.documentRuntime(session,approval);
+    const result=await runtime.execute({workspace:session.view.workspace,operationId:digest(id),agentId:approval?.by??'workbench-agent',runId:session.view.id,adapterId:'managed-documents',arguments:{id,name,arguments:args,at:new Date().toISOString()} as Json});
+    if(result.status!=='succeeded')throw new Error(`Managed document operation ${result.status}${result.reason?': '+result.reason:''}. Reconcile its evidence before retrying.`);
+    return result.result;
+  }
   async undoPreview(id: string, operationId: string) {
     const state = this.workspace(id), operation = state.operations.find(op => op.id === operationId);
     const proof = await this.ledger(this.sessions.get(id)!.view.workspace);
-    const digest = operation ? await sha256Hex(canonicalJson(operation)) : '';
-    if (!operation || !proof?.entries.some(e => { const b = e.body as Record<string, unknown>; return b.operationId === operationId && b.decision === 'execute:completed' && b.captureDigest === digest; })) throw new Error('Captured inverse does not match signed evidence.');
+    const captureDigest = operation ? await sha256Hex(canonicalJson(operation)) : '';
+    if (!operation || !proof?.entries.some(e => { const b = e.body as Record<string, unknown>; return b.operationId === operationId && b.decision === 'execute:completed' && b.captureDigest === captureDigest; })) throw new Error('Captured inverse does not match signed evidence.');
+    const runtime=await this.documentRuntime(this.sessions.get(id)!);
+    const status=await runtime.status(this.sessions.get(id)!.view.workspace,digest(operationId));
+    if(!status&&proof.entries.some(e=>(e.body as Record<string,unknown>).managedRuntimeOperationId===digest(operationId)))throw new Error('Managed operation journal is missing. Restore its verified backup before Undo.');
+    if(status==='succeeded')await runtime.planRecovery(this.sessions.get(id)!.view.workspace,digest(operationId));
     return previewWorkspaceUndo(state, operationId);
   }
   private serial: Promise<unknown> = Promise.resolve();
@@ -231,7 +252,16 @@ export class Workbench {
     return this.locked(async () => {
       const session = this.sessions.get(id);
       if (!session || session.view.status === 'running') throw new Error('Wait for the session to stop before undoing a change.');
-      await this.undoPreview(id, operationId);
+      const preview=await this.undoPreview(id, operationId);
+      if(!preview.canApply&&!this.workspace(id).operations.some(op=>op.undoes===operationId))throw new Error(preview.reason);
+      const runtime=await this.documentRuntime(session,{by:'web-operator'}),runtimeId=digest(operationId);
+      let status=await runtime.status(session.view.workspace,runtimeId);
+      if(status){
+        if(status==='unknown'||status==='dispatched')status=(await runtime.reconcile(session.view.workspace,runtimeId)).status;
+        const result=status==='succeeded'?await runtime.recover(await runtime.planRecovery(session.view.workspace,runtimeId),async()=>true):await runtime.reconcileRecovery(session.view.workspace,runtimeId);
+        if(result.status!=='restored')throw new Error(`Managed document recovery ${result.status}.`);
+        this.event(session,'tool',`Undid ${operationId}.`);this.persist();return {ok:true,workspace:this.workspace(id)};
+      }
       const prior = this.workspace(id);
       const transition = applyWorkspaceUndo(this.workspace(id), { id: `undo-${operationId}`, operationId });
       if (transition.result.isError) throw new Error(transition.result.content[0]?.text ?? 'Undo refused.');
@@ -288,6 +318,7 @@ export class Workbench {
     }
     if (!tool.connectorId) return this.locked(async () => {
       await this.ledger(session.view.workspace);
+      if(tool.name==='void_workspace_write'||tool.name==='void_workspace_delete')return this.mutateDocument(session,id,tool.name,args);
       const transition = executeWorkspaceTool(this.workspace(session.view.id), { id, name: tool.name, arguments: args });
       await this.commitWorkspace(session, transition.state, tool.name, args, transition.result.isError ? 'execute:failed' : 'execute:completed', transition.operation);
       return transition.result;

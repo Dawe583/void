@@ -3,6 +3,7 @@
  * The void binary. The runnable surface grows package by package, and any
  * command not wired yet fails loudly rather than pretending to succeed.
  */
+import { runRecoveryCommand } from "../src/recovery.ts";
 import { runAgentCommand } from "../src/agent.ts";
 import { runOperation } from "../src/operations.ts";
 import { runWatchCommand } from "../src/watch.ts";
@@ -16,7 +17,8 @@ if (!parsed.ok) {
   process.exit(2);
 }
 try {
-  if (parsed.command === "agent") process.exit(await runAgentCommand(parsed.args));
+  if (parsed.command === "recovery") process.exitCode = await runRecoveryCommand(parsed.args);
+  else if (parsed.command === "agent") process.exit(await runAgentCommand(parsed.args));
   else if (parsed.command === "run") { await import("../../proxy/bin/void-proxy.mjs"); }
   else if (["attest", "export", "policy"].includes(parsed.command)) process.exit(await runOperation(parsed.command, parsed.args, process.env, text => console.log(text)));
   else if (parsed.command === "ledger") {

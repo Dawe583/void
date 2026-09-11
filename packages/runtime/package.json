@@ -1,5 +1,5 @@
 {
-  "name": "@void/workbench",
+  "name": "@void/runtime",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,22 +14,20 @@
   "devDependencies": {
     "@types/node": "catalog:"
   },
-  "description": "Run model sessions through the VOID policy and signed ledger.",
-  "keywords": [
-    "void",
-    "agents",
-    "workbench"
-  ],
   "engines": {
     "node": ">=24"
   },
+  "description": "Durable managed execution, encrypted captures, signed recovery and reconciliation.",
+  "keywords": [
+    "void",
+    "recovery",
+    "runtime",
+    "mcp"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Dawe583/void.git",
-    "directory": "packages/workbench"
+    "directory": "packages/runtime"
   },
-  "homepage": "https://github.com/Dawe583/void/tree/main/packages/workbench",
-  "dependencies": {
-    "@void/runtime": "workspace:*"
-  }
+  "homepage": "https://github.com/Dawe583/void/tree/main/packages/runtime"
 }

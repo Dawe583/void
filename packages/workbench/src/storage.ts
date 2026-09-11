@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, renameSync, openSync, closeSync, fsyncSync, unlinkSync, lstatSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
+import { reservedRecoveryVault } from '../../runtime/src/index.ts';
 
 // One atomic encrypted snapshot commits managed files and their signed history
 // together. A failed write cannot expose a changed document without its inverse.
@@ -9,6 +10,7 @@ export class LocalStorage {
   private revision: string | undefined;
   private readonly path: string;
   readonly directory: string;
+  recoveryVault() { return reservedRecoveryVault(join(this.directory,'recovery','vault'),{workspace:this.key},'workspace',{maxArtifactBytes:4*1024*1024,maxTotalBytes:1024*1024*1024}); }
   constructor(directory: string, externalKey?: string) {
     this.directory = directory;
     mkdirSync(directory, { recursive: true, mode: 0o700 });

@@ -18,6 +18,7 @@ export const COMMANDS = [
   "approve",
   "ledger",
   "replay",
+  "recovery",
   "policy",
   "export",
   "attest",

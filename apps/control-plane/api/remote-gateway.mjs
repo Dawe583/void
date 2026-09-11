@@ -1,3 +1,4 @@
+import { workspaceSessionCookie } from "./session-cookie.mjs";
 import { timingSafeEqual } from 'node:crypto';
 
 const sameToken = (value, token) => {
@@ -34,17 +35,18 @@ export default async function handler(request, response) {
       if (typeof body === 'string') body = JSON.parse(body);
     } catch { return json(response, 400, { error: 'invalid_json' }); }
     if (!sameToken(body?.token, token)) return json(response, 401, { error: 'invalid_token', message: 'The access token was not accepted.' });
-    response.setHeader('set-cookie', `__Host-void-session=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=28800`);
+    response.setHeader('set-cookie', workspaceSessionCookie(token));
     return json(response, 200, { ok: true });
   }
   if (url.pathname === '/api/session' && request.method === 'DELETE') {
-    response.setHeader('set-cookie', '__Host-void-session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0');
+    response.setHeader('set-cookie', workspaceSessionCookie());
     return json(response, 200, { ok: true });
   }
   let cookie;
   try { cookie = decodeURIComponent(request.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith('__Host-void-session='))?.split('=').slice(1).join('=') ?? ''); }
   catch { return json(response, 401, { error: 'authentication_required' }); }
   if (!sameToken(cookie, token)) return json(response, 401, { error: 'authentication_required', message: 'Enter your workspace access token to connect.' });
+  response.setHeader('set-cookie', workspaceSessionCookie(token));
   const allowed = /^\/api\/(provider|sessions(?:\/[a-f0-9-]+)?|feed|approvals|ledger\/(verify|export)|records\/\d+\/(taint|replay)|approvals\/[^/]+\/decision)$/;
   if (!allowed.test(url.pathname)) return json(response, 404, { error: 'not_found' });
   if (!['GET', 'POST', 'DELETE'].includes(request.method)) return json(response, 405, { error: 'method_not_allowed' });

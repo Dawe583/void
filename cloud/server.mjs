@@ -1,3 +1,4 @@
+import { workspaceSessionCookie } from "../apps/control-plane/api/session-cookie.mjs";
 import {
   mountIntegrationCallback,
   mountIntegrationRoutes,
@@ -93,14 +94,14 @@ app.use((req, res, next) => {
       });
     res.setHeader(
       "set-cookie",
-      `__Host-void-session=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=28800`,
+      workspaceSessionCookie(token),
     );
     return res.json({ ok: true });
   }
   if (req.path === "/api/session" && req.method === "DELETE") {
     res.setHeader(
       "set-cookie",
-      "__Host-void-session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0",
+      workspaceSessionCookie(),
     );
     return res.json({ ok: true });
   }
@@ -122,6 +123,7 @@ app.use((req, res, next) => {
       error: "authentication_required",
       message: "Enter your workspace access token to connect.",
     });
+  if (matches(cookie, token)) res.setHeader("set-cookie", workspaceSessionCookie(token));
   next();
 });
 mountIntegrationRoutes(app);

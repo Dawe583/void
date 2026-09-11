@@ -25,6 +25,7 @@ test('hosted gateway fails closed, authenticates, scopes requests and hides upst
   const login = await call('/api/session', { method: 'POST', headers: { host: 'void.example.test', 'content-type': 'application/json' }, body: { token } });
   assert.equal(login.statusCode, 200);
   assert.match(login.headers['set-cookie'], /HttpOnly; Secure; SameSite=Strict/);
+  assert.match(login.headers['set-cookie'], /Max-Age=34560000$/);
   const headers = { host: 'void.example.test', cookie: `__Host-void-session=${token}` };
   assert.equal((await call('/api/unknown', { headers })).statusCode, 404);
   t.mock.method(globalThis, 'fetch', async (url, options) => {
@@ -35,6 +36,9 @@ test('hosted gateway fails closed, authenticates, scopes requests and hides upst
   });
   const result = await call('/api/feed?workspace=beta', { headers });
   assert.equal(result.statusCode, 200);
+  assert.equal(result.headers['set-cookie'], login.headers['set-cookie']);
+  const logout = await call('/api/session', { method: 'DELETE' });
+  assert.match(logout.headers['set-cookie'], /Max-Age=0$/);
   assert.deepEqual(result.body.entries, []);
   t.mock.method(globalThis, 'fetch', async () => { throw new Error(token); });
   const unavailable = await call('/api/feed', { headers });

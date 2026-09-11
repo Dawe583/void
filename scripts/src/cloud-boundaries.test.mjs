@@ -101,6 +101,25 @@ test("cloud API authenticates cookies and bearer tokens and rejects cross-origin
   assert.equal(login.status, 200);
   const cookie = login.headers.get("set-cookie");
   assert.match(cookie, /HttpOnly; Secure; SameSite=Strict/);
+  assert.match(cookie, /Max-Age=34560000/);
+  const renewed = await fetch(url + "/api/capabilities", {
+    headers: { cookie: cookie.split(";")[0] },
+  });
+  assert.equal(renewed.status, 200);
+  assert.equal(renewed.headers.get("set-cookie"), cookie);
+  const denied = await fetch(url + "/api/capabilities", {
+    headers: { cookie: "__Host-void-session=invalid" },
+  });
+  assert.equal(denied.status, 401);
+  assert.equal(denied.headers.get("set-cookie"), null);
+  const logout = await fetch(url + "/api/session", { method: "DELETE" });
+  assert.match(logout.headers.get("set-cookie"), /Max-Age=0$/);
+  process.env.VOID_CONTROL_TOKEN = "rotated-token-".repeat(4);
+  assert.equal((await fetch(url + "/api/capabilities", {
+    headers: { cookie: cookie.split(";")[0] },
+  })).status, 401);
+  process.env.VOID_CONTROL_TOKEN = token;
+
   assert.equal(
     (
       await fetch(url + "/api/not-found", {

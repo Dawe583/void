@@ -18,7 +18,8 @@
     "@void/connectors": "workspace:*",
     "@void/ledger": "workspace:*",
     "@void/policy": "workspace:*",
-    "@void/proxy": "workspace:*"
+    "@void/proxy": "workspace:*",
+    "@void/runtime": "workspace:*"
   },
   "description": "Wrap VOID interception and held call decisions in an in-process client.",
   "keywords": [

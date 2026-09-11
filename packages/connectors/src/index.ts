@@ -2,19 +2,23 @@
  * Connectors: one per tool surface, each knowing how to snapshot the state a
  * call is about to change and how to build the inverse of that call.
  *
- * No connector is implemented yet. WP-06 lands Postgres, WP-07 lands S3. What
- * this file carries is the resolution seam: the proxy holds connector ids and
+ * This file carries the descriptor resolution seam: the proxy holds connector ids and
  * looks a connector up in a list it is handed, so it never imports a connector
  * directly and adding a tool surface stays additive.
  */
 
 export type ConnectorId = string;
 
-export interface Connector {
+export interface ConnectorDescriptor {
   readonly id: ConnectorId;
   /** Registry entry id prefix this connector answers for, for example "postgres.row". */
   readonly surface: string;
 }
+
+/** Compatibility alias for descriptor consumers. Execution uses RecoveryAdapter;
+ * legacy capture/apply integrations use registry.ts Connector. */
+export type Connector = ConnectorDescriptor;
+export type { RecoveryAdapter, Observation, Reversibility, Readiness } from './recovery.ts';
 
 /**
  * Takes the list as a parameter rather than reading a module level registry:

@@ -14,7 +14,8 @@ three places it is ahead of what is buildable.
 ## Vocabulary, used precisely
 
 - **Intercept**: terminate the agent's tool call, decide, then forward, hold or
-  refuse it. VOID never originates one.
+  refuse it. VOID does not invent business intent. Its authorized managed
+  executor performs the requested mutation and later its verified recovery.
 - **Classify**: assign a class to one call by evaluating that tool's registry
   cases against the target's state.
 - **Class R0 to R3**: fully reversible, reversible with trace, mitigable only,
@@ -28,8 +29,9 @@ three places it is ahead of what is buildable.
 - **Compensation**: reduces the harm of a call with no inverse. R2 has
   compensations, not inverses.
 - **Hold**: pause a call and wait for a human decision. Version one blocks.
-- **Blast radius**: the measured count of what a call would touch, such as rows
-  matched in an aborted transaction. Never estimated.
+- **Blast radius**: the count of resources affected, with explicit exact,
+  bounded or unknown precision. Sampling cannot prove an exact count or satisfy
+  an exact policy limit. Unknown is not zero.
 - **Ledger**: the append only, hash chained, per entry signed record of every
   intercepted call.
 - **Taint**: a later call's tracked dependency on an earlier one's result, which
@@ -38,6 +40,12 @@ three places it is ahead of what is buildable.
   software and without trusting us.
 
 ## Layout after WP-00
+
+The executable recovery contract and current coverage are maintained in
+`RECOVERY-CONTRACT.md` and `RECOVERY-COVERAGE.md`. Registry metadata, a connected
+account and a working inverse are distinct capabilities. The managed runtime
+in `packages/runtime` is being integrated incrementally; legacy hosts are not
+automatically covered by its guarantees.
 
 ```
 api/          Vercel Functions, and still the registry data (DECISIONS 6b)
@@ -63,3 +71,5 @@ never imports one. The ledger exposes `append` and `read`, never `update`.
 
 Does this make the write path more accountable, or is it a feature that happens
 to be nearby? If the second, it does not ship. (BUILD-PLAN.md section 1.)
+
+Cloud workspace login uses a Secure, HttpOnly, same-site cookie with a 400-day lifetime renewed on authenticated use. The workspace token remains in server configuration and survives deployments. Logout clears this browser session; token rotation revokes all sessions. Browser data removal or browser expiry policies can still require login. Never embed the token in public assets, source, or URLs.

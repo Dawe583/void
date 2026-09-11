@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.883.0",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "@void/registry": "workspace:*",
     "pg": "8.16.3"
   },

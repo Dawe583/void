@@ -170,6 +170,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 3.883.0
         version: 3.883.0
+      '@modelcontextprotocol/sdk':
+        specifier: 1.30.0
+        version: 1.30.0
       '@void/registry':
         specifier: workspace:*
         version: link:../registry
@@ -238,6 +241,12 @@ importers:
         specifier: 'catalog:'
         version: 25.9.5
 
+  packages/runtime:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.5
+
   packages/sdk:
     dependencies:
       '@void/connectors':
@@ -252,12 +261,19 @@ importers:
       '@void/proxy':
         specifier: workspace:*
         version: link:../proxy
+      '@void/runtime':
+        specifier: workspace:*
+        version: link:../runtime
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.5
 
   packages/workbench:
+    dependencies:
+      '@void/runtime':
+        specifier: workspace:*
+        version: link:../runtime
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

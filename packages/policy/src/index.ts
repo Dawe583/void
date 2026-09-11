@@ -1,8 +1,8 @@
 /**
  * Policy: which calls are allowed, held or denied.
  *
- * Nothing is implemented yet. WP-05 lands the YAML loader, the strict zod
- * schema, the matcher and the blocking hold. What is fixed here is the grammar
+ * The YAML loader, strict schema, matcher and blocking hold are exported below.
+ * What is fixed here is the grammar
  * it validates against and the three defaults, because those are what make the
  * format growable without a breaking change (decision 4): keys AND together, so
  * a sixth key is additive, and an unknown key or value is a loud load error, so
