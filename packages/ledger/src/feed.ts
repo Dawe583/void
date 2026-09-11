@@ -9,6 +9,7 @@ export type LedgerFeedRecord = {
   readonly klass: string;
   readonly decision: string;
   readonly argsDigest: string;
+  readonly captureDigest?: string;
   readonly prevDigest: string;
   readonly digest: string;
 };
@@ -118,6 +119,7 @@ function toFeedRecord(entry: JsonlEntry): LedgerFeedRecord {
     klass,
     decision,
     argsDigest,
+    ...(typeof body.captureDigest === "string" ? { captureDigest: body.captureDigest } : {}),
     prevDigest: entry.prev_hash,
     digest: entry.hash,
   };

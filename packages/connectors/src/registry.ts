@@ -159,7 +159,7 @@ function makePostgresConnector(deps: ConnectorDeps, captures: Map<string, Stored
       const exec = requireDependency(deps.exec, "postgres exec");
       const statement = parseStatement(sqlArgument(call));
       const image = await captureBeforeImage(exec, statement, schemaArgument(call));
-      const bytes = encodeJson(image);
+      const bytes = encodeJson({ version: "void.postgres.capture.v1", call, image });
       const result = await deps.store.put(snapshotNamespace(call, "postgres"), bytes, {
         tool: call.tool,
         connector: "postgres",
@@ -171,7 +171,7 @@ function makePostgresConnector(deps: ConnectorDeps, captures: Map<string, Stored
       return { reference: result.reference, digest: result.digest, facts, capturedAt: image.capturedAt };
     },
     inverse: async (reference) => {
-      const stored = captures.get(captureKey(reference)) ?? await readPostgresCapture(deps.store, reference);
+      const stored = await readPostgresCapture(deps.store, reference);
       const steps = stored.steps.map(postgresStepToPlanStep);
       return {
         connector: "postgres",
@@ -184,7 +184,9 @@ function makePostgresConnector(deps: ConnectorDeps, captures: Map<string, Stored
     },
     apply: async (plan) => {
       const exec = requireDependency(deps.exec, "postgres exec");
-      const stored = postgresPlan(plan).postgres;
+      postgresPlan(plan);
+      const stored = await readPostgresCapture(deps.store, plan.capture);
+      if (JSON.stringify(plan.steps) !== JSON.stringify(stored.steps.map(postgresStepToPlanStep))) throw new Error("Inverse plan differs from its captured snapshot.");
       try {
         return postgresApplyReport(await applyInverse(exec, stored.steps, stored.image));
       } catch {
@@ -227,7 +229,7 @@ function makeS3Connector(deps: ConnectorDeps, captures: Map<string, StoredS3Capt
       return { reference: envelope.reference, digest: envelope.digest, facts: result.facts, capturedAt: result.capturedAt };
     },
     inverse: async (reference) => {
-      const stored = captures.get(captureKey(reference)) ?? await readS3Capture(deps.store, reference);
+      const stored = await readS3Capture(deps.store, reference);
       return {
         connector: "s3",
         call: stored.call,
@@ -245,7 +247,10 @@ function makeS3Connector(deps: ConnectorDeps, captures: Map<string, StoredS3Capt
     },
     apply: async (plan) => {
       const client = requireDependency(deps.s3, "s3 client");
-      return s3ApplyReport(await applyRestore(deps.store, client, s3Plan(plan).s3.input));
+      s3Plan(plan);
+      const stored = await readS3Capture(deps.store, plan.capture);
+      if (plan.steps.length !== 1 || plan.steps[0]?.inputDigest !== stored.input.reference.digest || plan.steps[0]?.target !== `s3://${stored.input.call.bucket}/${stored.input.call.key}`) throw new Error("Inverse plan differs from its captured snapshot.");
+      return s3ApplyReport(await applyRestore(deps.store, client, stored.input));
     },
   };
 }
@@ -262,14 +267,15 @@ async function readS3Capture(store: SnapshotStore, reference: SnapshotReference)
 
 async function readPostgresCapture(store: SnapshotStore, reference: SnapshotReference): Promise<StoredPostgresCapture> {
   const parsed = JSON.parse(new TextDecoder().decode(await store.get(reference)));
-  const image = parsed as BeforeImage;
+  const image = (parsed.version === "void.postgres.capture.v1" ? parsed.image : parsed) as BeforeImage;
+  if (!image || !Array.isArray(image.rows) || !["update", "delete"].includes(image.statement?.type)) throw new Error("invalid persisted Postgres capture");
   const call: ConnectorCall = {
     tool: image.statement.sql.startsWith("delete") ? "postgres.row.delete" : "postgres.row.update",
     connector: "postgres",
     arguments: { sql: image.statement.sql },
     workspace: undefined,
   };
-  return { call, image, steps: buildInverse(image.statement, image) };
+  return { call: parsed.version === "void.postgres.capture.v1" ? parsed.call : call, image, steps: buildInverse(image.statement, image) };
 }
 
 function sqlArgument(call: ConnectorCall): string {
@@ -295,7 +301,7 @@ function s3Call(call: ConnectorCall): S3DeleteCall {
 }
 
 function snapshotNamespace(call: ConnectorCall, fallback: ConnectorId): string {
-  return call.workspace === undefined ? fallback : `${call.workspace}/${fallback}`;
+  return call.workspace === undefined ? fallback : `${fallback}-${call.workspace}`;
 }
 
 function factsFromRecord(record: Readonly<Record<string, string>>, verifiedAt: string): readonly ConnectorFact[] {

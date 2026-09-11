@@ -13,9 +13,20 @@ export type ApplyInverseReport = {
   readonly refused: readonly { readonly stepId: string; readonly reason: "drift" | "internal_error"; readonly report: string }[];
 };
 
-export async function applyInverse(exec: ReplayExecutor, steps: readonly InverseStep[], image: BeforeImage): Promise<ApplyInverseReport> {
-  await exec.begin?.();
+const replayQueues = new WeakMap<ReplayExecutor, Promise<unknown>>();
+
+export function applyInverse(exec: ReplayExecutor, steps: readonly InverseStep[], image: BeforeImage): Promise<ApplyInverseReport> {
+  const pending = (replayQueues.get(exec) ?? Promise.resolve()).catch(() => {}).then(() => applyTransaction(exec, steps, image));
+  replayQueues.set(exec, pending);
+  void pending.finally(() => { if (replayQueues.get(exec) === pending) replayQueues.delete(exec); }).catch(() => {});
+  return pending;
+}
+
+async function applyTransaction(exec: ReplayExecutor, steps: readonly InverseStep[], image: BeforeImage): Promise<ApplyInverseReport> {
+  if (steps.length && (!exec.begin || !exec.commit || !exec.rollback)) return { applied: [], refused: [{ stepId: "transaction", reason: "internal_error", report: "Replay requires a dedicated transactional executor with begin, commit and rollback." }] };
+  let began = false;
   try {
+    await exec.begin?.(); began = true;
     const currentRows = await currentRowsForImage(exec, image);
     const drift = buildReplayDriftReport(image, currentRows);
     if (drift.drifted) {
@@ -32,8 +43,8 @@ export async function applyInverse(exec: ReplayExecutor, steps: readonly Inverse
     await exec.commit?.();
     return { applied, refused: [] };
   } catch (error) {
-    await exec.rollback?.();
-    return { applied: [], refused: [{ stepId: "transaction", reason: "internal_error", report: error instanceof Error ? error.message : String(error) }] };
+    if (began) await exec.rollback?.().catch(() => {});
+    return { applied: [], refused: [{ stepId: "transaction", reason: "internal_error", report: "Transaction failed or its outcome is unknown. Inspect the target before retrying." }] };
   }
 }
 

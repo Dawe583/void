@@ -1,5 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, rename, writeFile, open, unlink } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
 import type { SnapshotReference } from "./snapshot/store.ts";
@@ -16,12 +16,24 @@ export type ManifestWriter = {
 
 const MANIFEST_FILE = "manifest.jsonl";
 
+const writers = new Map<string, Promise<void>>();
+
 export function manifestWriter(snapshotDir: string): ManifestWriter {
   return {
-    write: async (entry) => {
-      await mkdir(snapshotDir, { recursive: true });
-      const records = await manifestReader(snapshotDir);
-      await writeManifest(snapshotDir, [...records, validateEntry(entry, records.length + 1)]);
+    write: (entry) => {
+      const key = resolve(snapshotDir);
+      const next = (writers.get(key) ?? Promise.resolve()).catch(() => {}).then(async () => {
+        await mkdir(snapshotDir, { recursive: true, mode: 0o700 });
+        // Another process must fail closed, rather than overwrite a newer manifest.
+        // A stale lock requires operator inspection; never guess its owner is dead.
+        const lock = join(snapshotDir, `${MANIFEST_FILE}.lock`);
+        const handle = await open(lock, 'wx', 0o600);
+        try { const records = await manifestReader(snapshotDir); await writeManifest(snapshotDir, [...records, validateEntry(entry, records.length + 1)]); }
+        finally { await handle.close(); await unlink(lock); }
+      });
+      writers.set(key, next);
+      void next.finally(() => { if (writers.get(key) === next) writers.delete(key); }).catch(() => {});
+      return next;
     },
   };
 }
@@ -61,7 +73,11 @@ async function writeManifest(snapshotDir: string, records: readonly SnapshotMani
   const temporary = join(snapshotDir, `${MANIFEST_FILE}.${process.pid}.${randomUUID()}.tmp`);
   const text = records.map((record) => JSON.stringify(record)).join("\n") + (records.length === 0 ? "" : "\n");
   await writeFile(temporary, text, { mode: 0o600 });
+  const handle = await open(temporary, "r");
+  try { await handle.sync(); } finally { await handle.close(); }
   await rename(temporary, target);
+  const directory = await open(snapshotDir, "r");
+  try { await directory.sync(); } finally { await directory.close(); }
 }
 
 function validateEntry(value: unknown, line: number): SnapshotManifestEntry {

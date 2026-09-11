@@ -17,6 +17,7 @@ export function useApi(
   path: string,
   enabled = true,
   interval: number | ((data: Row | undefined) => number) = 15000,
+  retry: number | boolean = 1,
 ) {
   return useQuery({
     queryKey: [path],
@@ -27,7 +28,7 @@ export function useApi(
         ? (query) => interval(query.state.data)
         : interval,
     refetchIntervalInBackground: false,
-    retry: 1,
+    retry,
   });
 }
 export function Badge({ value }: { value: unknown }) {

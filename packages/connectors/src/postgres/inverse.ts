@@ -67,7 +67,7 @@ export async function currentRowsForImage(exec: QueryExecutor, image: BeforeImag
   for (const row of image.rows) {
     const where = Object.keys(row.key).map((column, index) => `${quoteIdentifier(column)} = $${index + 1}`).join(" and ");
     const values = Object.values(row.key);
-    const found = await exec.query<Record<string, unknown>>(`select * from ${quoteIdentifierPath(row.table)} where ${where}`, values);
+    const found = await exec.query<Record<string, unknown>>(`select * from ${quoteIdentifierPath(row.table)} where ${where} for update`, values);
     rows.push(...found.map((current) => ({ table: row.table, key: row.key, row: current, dependencies: row.dependencies })));
   }
   return rows;

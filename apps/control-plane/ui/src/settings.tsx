@@ -1,3 +1,4 @@
+import { Integrations } from "./integrations";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, items, json, type Row } from "./api";
@@ -273,6 +274,8 @@ export function Connections() {
     [mapping, setMapping] = useState("{}");
   return (
     <>
+      <Integrations />
+      <h2>{t("Vlastní MCP konektory", "Custom MCP connectors")}</h2>
       <ErrorBox error={query.error ?? error} />
       <input
         type="search"

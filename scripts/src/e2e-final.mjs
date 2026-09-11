@@ -370,7 +370,8 @@ async function runDriftMoment() {
       at: "2026-09-08T00:00:00.000Z",
       tool: "postgres.row.update",
       klass: "r1",
-      decision: "allow:resolved",
+      decision: "execute:completed",
+      captureDigest: snapshot.reference.digest,
       argsDigest: digest,
     });
     const manifest = { digest, reference: snapshot.reference, tool: "postgres.row.update" };
@@ -381,7 +382,7 @@ async function runDriftMoment() {
     assert.match(dry.stdout, /tool: postgres\.row\.update/);
     assert.match(dry.stdout, /step .*: update public\.orders/);
 
-    const apply = await runCli(["replay", "--ledger", join(dir, "ledger", `${workspace}.jsonl`), "--snapshot-dir", join(dir, "snapshots"), "--seq", "1"], {});
+    const apply = await runCli(["replay", "--ledger", join(dir, "ledger", `${workspace}.jsonl`), "--snapshot-dir", join(dir, "snapshots"), "--seq", "1", "--key", Buffer.from(await signer.publicKey(await signer.currentKeyId())).toString("base64")], {});
     assert.equal(apply.code, 1);
     assert.match(`${apply.stdout}\n${apply.stderr}`, /ExecutorNotConfigured: postgres executor not configured: VOID_PG_URL is absent/);
     return { dry, apply };

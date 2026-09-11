@@ -29,6 +29,14 @@ export type ApplyRestoreInput = {
 };
 
 export async function applyRestore(store: SnapshotStore, client: S3Client, input: ApplyRestoreInput): Promise<ApplyReport> {
+  try { return await restore(store, client, input); }
+  catch (error) {
+    const status = (error as { $metadata?: { httpStatusCode?: number }; statusCode?: number })?.$metadata?.httpStatusCode ?? (error as { statusCode?: number })?.statusCode;
+    return { applied: [], refused: [{ stepId: input.stepId, reason: status === 401 || status === 403 ? "permission_denied" : "internal_error", changed: [] }] };
+  }
+}
+
+async function restore(store: SnapshotStore, client: S3Client, input: ApplyRestoreInput): Promise<ApplyReport> {
   const current = await client.getObject(input.call).catch((error: unknown) => {
     if (isNotFound(error)) {
       return undefined;

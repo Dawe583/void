@@ -1,3 +1,6 @@
+import { resolveIntegration } from "./integrations.mjs";
+import { integrationClass } from "./oauth.mjs";
+import { vercelCall } from "./vercel-integration.mjs";
 import { providerFailure } from "../packages/workbench/src/gui.ts";
 import {
   createWorkspace,
@@ -90,10 +93,15 @@ export async function advance(id, generation) {
       const name = config.mapping?.[tool.name] ?? tool.name;
       const classification = tool.builtin
         ? { outcome: "classified", tone: workspaceToolClass(tool.name) }
-        : classifyTool(name, {
-            facts: config.facts ?? {},
-            args,
-          });
+        : config.oauthProvider
+          ? {
+              outcome: "classified",
+              tone: integrationClass(config.oauthProvider, tool.name),
+            }
+          : classifyTool(name, {
+              facts: config.facts ?? {},
+              args,
+            });
       const policy = loadPolicy(config.policy ?? CLOUD_POLICY);
       if (!policy.ok) throw new Error("Invalid cloud policy.");
       const callInfo = {
@@ -103,6 +111,10 @@ export async function advance(id, generation) {
         klass:
           classification.outcome === "classified" ? classification.tone : "r3",
         blastRadius: undefined,
+        arguments: args,
+        ...(config.oauthProvider
+          ? { automaticUndo: false, provider: config.oauthProvider }
+          : {}),
       };
       const decision =
         classification.outcome === "classified"
@@ -125,6 +137,7 @@ export async function advance(id, generation) {
         {
           tool: tool.name,
           callId: call.id,
+          arguments: args,
           klass: callInfo.klass,
           decision: decision.kind,
         },
@@ -323,13 +336,23 @@ export async function advance(id, generation) {
       const connection = claim.connectorId
         ? s.connected?.[claim.connectorId]
         : undefined;
-      const config = decrypt(connection?.config ?? s.upstream);
-      const result = await rpc(
-        config,
-        "tools/call",
-        { name: claim.name, arguments: claim.args },
-        connection?.sessionId ?? s.mcpSession,
+      const config = await resolveIntegration(
+        decrypt(connection?.config ?? s.upstream),
       );
+      const rawResult =
+        config.oauthProvider === "vercel"
+          ? { result: await vercelCall(config, claim.name, claim.args) }
+          : await rpc(
+              config,
+              "tools/call",
+              { name: claim.name, arguments: claim.args },
+              connection?.sessionId ?? s.mcpSession,
+            );
+      const result = config.token
+        ? JSON.parse(
+            JSON.stringify(rawResult).split(config.token).join("[redacted]"),
+          )
+        : rawResult;
       await transaction(id, async (c) => {
         const current = await read(`session:${id}`, c);
         await append(

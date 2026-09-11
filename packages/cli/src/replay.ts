@@ -1,3 +1,4 @@
+import type { PublicKeyLookup } from '../../ledger/src/verify.ts';
 import type { s3Executor } from "./s3.ts";
 import type { postgresExecutor } from "./postgres.ts";
 import { readFile, stat } from "node:fs/promises";
@@ -75,6 +76,7 @@ export type ReplayCommandIo = {
 
 export type ReplayCommandOptions = {
   readonly readFeed?: typeof readLedgerFeed;
+  readonly publicKey?: PublicKeyLookup;
   readonly readManifest?: (snapshotDir: string) => Promise<readonly SnapshotManifestRecord[]>;
   readonly connectors?: ReplayConnectorRegistry;
   readonly exec?: QueryExecutor;
@@ -104,9 +106,10 @@ type ReplayArgs = {
   readonly snapshotDir: string;
   readonly seq: number;
   readonly dryRun: boolean;
+  readonly key?: string;
 };
 
-const USAGE = "usage: void replay --ledger <path> --snapshot-dir <dir> --seq <n> [--dry-run], or void replay --list-connectors";
+const USAGE = "usage: void replay --ledger <path> --snapshot-dir <dir> --seq <n> [--dry-run] [--key base64-spki], or void replay --list-connectors";
 
 export async function runReplayCommand(
   argv: readonly string[],
@@ -123,10 +126,16 @@ export async function runReplayCommand(
       return 0;
     }
     const parsed = await parseReplayArgs(argv, env);
-    const page = await (options.readFeed ?? readLedgerFeed)(parsed.ledger);
+    const trustedKey = options.publicKey ?? (parsed.key || env.VOID_VERIFY_KEY ? new Uint8Array(Buffer.from(parsed.key ?? env.VOID_VERIFY_KEY!, "base64")) : undefined);
+    const page = await (options.readFeed ?? readLedgerFeed)(parsed.ledger, { publicKey: trustedKey });
     const record = findRecord(page, parsed.seq);
     const manifest = await (options.readManifest ?? readSnapshotManifest)(parsed.snapshotDir);
     const snapshot = findSnapshot(manifest, record);
+    if (!parsed.dryRun) {
+      if (!page.signed) throw new Error("Replay apply requires authenticated ledger signatures. Supply --key or VOID_VERIFY_KEY; legacy history remains available with --dry-run.");
+      if (record.decision !== "execute:completed") throw new Error("Replay apply requires signed execution completion, not an authorization decision.");
+      if (record.captureDigest !== snapshot.reference.digest) throw new Error("Snapshot manifest is not bound to the signed captureDigest. Refusing replay apply.");
+    }
     if (!parsed.dryRun && options.connectors === undefined && options.exec === undefined && env.VOID_PG_URL && connectorFor(record.tool)?.connectorId === "postgres") {
       const { postgresExecutor } = await import("./postgres.ts");
       connection = await postgresExecutor(env.VOID_PG_URL);
@@ -229,6 +238,7 @@ async function parseReplayArgs(argv: readonly string[], env: Readonly<NodeJS.Pro
   let snapshotDir: string | undefined;
   let seq: number | undefined;
   let dryRun = false;
+  let key: string | undefined;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]!;
     if (arg === "--ledger") {
@@ -243,6 +253,8 @@ async function parseReplayArgs(argv: readonly string[], env: Readonly<NodeJS.Pro
       if (!Number.isInteger(value) || value < 1) throw new Error("--seq needs a positive integer");
       seq = value;
       index += 1;
+    } else if (arg === "--key") {
+      key = needValue(argv, index, "--key"); index += 1;
     } else if (arg === "--dry-run") {
       dryRun = true;
     } else {
@@ -251,7 +263,7 @@ async function parseReplayArgs(argv: readonly string[], env: Readonly<NodeJS.Pro
   }
   if (seq === undefined) throw new Error(USAGE);
   if (snapshotDir === undefined) throw new Error(USAGE);
-  return { ledger: await resolveLedgerPath(ledger, env), snapshotDir, seq, dryRun };
+  return { ledger: await resolveLedgerPath(ledger, env), snapshotDir, seq, dryRun, ...(key ? { key } : {}) };
 }
 
 function needValue(argv: readonly string[], index: number, name: string): string {

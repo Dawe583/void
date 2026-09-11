@@ -18,3 +18,10 @@ test('a concurrent S3 writer makes conditional restoration refuse instead of ove
   const result = await applyRestore({ get: async () => bytes, put: async () => ({ reference, digest: reference.digest }) }, client, { stepId: 'restore', call: { bucket: 'fixture', key: 'fixture' }, reference, capturedEtag: 'known-etag' });
   assert.deepEqual(result, { applied: [], refused: [{ stepId: 'restore', reason: 'drift', changed: [] }] });
 });
+
+test('S3 read failures refuse without leaking upstream credentials or performing writes',async()=>{
+  let writes=0;const client:S3Client={getObject:async()=>{throw Object.assign(new Error('private-service-credential'),{statusCode:403})},putObject:async()=>{writes++;return{}},deleteObject:async()=>({}),getBucketVersioning:async()=>({})};
+  const bytes=new Uint8Array(),reference={namespace:'test',uri:'memory://test',digest:sha256(bytes)};
+  const report=await applyRestore({get:async()=>bytes,put:async()=>({reference,digest:reference.digest})},client,{stepId:'restore',call:{bucket:'fixture',key:'fixture'},reference});
+  assert.equal(writes,0);assert.equal(report.refused[0]?.reason,'permission_denied');assert.doesNotMatch(JSON.stringify(report),/private-service/);
+});

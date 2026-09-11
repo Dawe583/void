@@ -14,6 +14,7 @@ const DEFAULT_MAX_BYTES = 1024 * 1024 * 1024;
 
 export function LocalSnapshotStore(root: string, options: LocalSnapshotStoreOptions = {}): SnapshotStore {
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) throw new Error("Snapshot byte budget must be a nonnegative safe integer.");
   const redaction = options.redaction;
   const clock = options.clock ?? (() => new Date());
 
@@ -31,6 +32,7 @@ export function LocalSnapshotStore(root: string, options: LocalSnapshotStoreOpti
         throw makePutError("RedactionFailed", namespace, "snapshot redaction failed", error);
       }
 
+      if (redacted.byteLength > maxBytes) throw makePutError("RetentionFailed", namespace, "Snapshot exceeds the configured byte budget; no capture was stored.");
       const digest = sha256Digest(redacted);
       const digestHex = digest.slice("sha256:".length);
       const dir = namespaceDir(root, namespace);

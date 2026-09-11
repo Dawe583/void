@@ -1,3 +1,4 @@
+import { IntegrationContext } from "./integrations";
 import { BrandMark } from "./brand";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createRoot } from "react-dom/client";
@@ -605,6 +606,11 @@ function App({
                     }}
                   />
                 </label>
+                <IntegrationContext
+                  sessionId={chatId}
+                  status={current?.status}
+                  onManage={() => navigate("/connections")}
+                />
                 {chatId ? (
                   <>
                     <p className="muted">

@@ -2209,3 +2209,137 @@ dialog::backdrop {
     height: 32px;
   }
 }
+
+.integrations {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.integration-intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.integration-intro h2 {
+  margin-bottom: 8px;
+}
+.integration-intro p {
+  max-width: 660px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.integration-intro > button {
+  flex: none;
+  font-size: 12px;
+}
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+  margin-top: 16px;
+  align-items: start;
+}
+.integration-card {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 20px;
+  min-width: 0;
+}
+.integration-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.integration-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.integration-card > p {
+  font-size: 14px;
+}
+.integration-card .actions {
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.integration-card button {
+  font-size: 12px;
+}
+.integration-card summary {
+  font-size: 13px;
+}
+.integration-tool-list {
+  max-height: 200px;
+  overflow: auto;
+  padding-left: 20px;
+  font-size: 12px;
+}
+.integration-policy {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 20px 0 0;
+  max-width: 820px;
+}
+.integration-setup {
+  border-top: 1px solid var(--line);
+  padding-top: 4px;
+  margin-top: 12px;
+}
+.integration-setup p,
+.integration-setup a {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.integration-setup label {
+  font-size: 12px;
+  margin: 14px 0;
+}
+.integration-setup input {
+  font-size: 13px;
+}
+.integration-context {
+  border-bottom: 1px solid var(--line);
+  padding: 16px 0;
+  margin-bottom: 20px;
+}
+.integration-context ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+}
+.integration-context li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 0;
+}
+.integration-context li span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.integration-context > button {
+  font-size: 12px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+.integration-context > p {
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+@media (max-width: 767px) {
+  .integration-intro {
+    flex-direction: column;
+    gap: 0;
+  }
+  .integration-card {
+    padding: 16px;
+  }
+  .integration-setup input {
+    font-size: 16px;
+  }
+}

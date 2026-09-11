@@ -1,6 +1,6 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,8 @@ import {
 } from "./replay.ts";
 import type { FeedPage } from "../../ledger/src/feed.ts";
 import { jsonlStore } from "../../ledger/src/store.ts";
+import { entryHash } from "../../ledger/src/canonical.ts";
+import { sha256Hex } from "../../ledger/src/sign.ts";
 import { devKeyProvider } from "../../ledger/src/sign.ts";
 import { LocalSnapshotStore } from "../../connectors/src/snapshot/local.ts";
 import { parseStatement } from "../../connectors/src/postgres/parse.ts";
@@ -27,7 +29,7 @@ const snapshotDigest = "sha256:" + "b".repeat(64) as `sha256:${string}`;
 
 const page: FeedPage = {
   verified: true,
-  signed: false,
+  signed: true,
   head: "c".repeat(64),
   records: [
     {
@@ -35,8 +37,9 @@ const page: FeedPage = {
       at: "2026-09-01T00:00:00.000Z",
       tool: "postgres.row.update",
       klass: "r1",
-      decision: "allow:resolved",
+      decision: "execute:completed",
       argsDigest,
+      captureDigest: snapshotDigest,
       prevDigest: "0".repeat(64),
       digest: "c".repeat(64),
     },
@@ -270,7 +273,7 @@ describe("persisted connector replay", () => {
     const out: string[] = [];
     const code = await runReplayCommand(["--list-connectors"], {
       stdout: (line) => out.push(line), stderr: () => {}, env: {},
-    }, { exec: { query } });
+    }, { exec: { query, begin: async()=>{}, commit: async()=>{}, rollback: async()=>{} } as ReplayExecutor });
     assert.equal(code, 0);
     assert.match(out.join("\n"), /postgres: executor configured/);
   });
@@ -328,7 +331,7 @@ describe("persisted connector replay", () => {
     const err: string[] = [];
     const code = await runReplayCommand(fixture.argv, {
       stdout: () => {}, stderr: (line) => err.push(line), env: {},
-    }, { exec: { query } });
+    }, { exec: { query, begin: async()=>{}, commit: async()=>{}, rollback: async()=>{} } as ReplayExecutor });
     assert.equal(code, 1);
     assert.equal(queries, 0);
     assert.match(err.join("\n"), /snapshot digest mismatch/);
@@ -340,7 +343,7 @@ describe("persisted connector replay", () => {
     const query: QueryExecutor["query"] = async () => { throw new Error("must not query"); };
     const code = await runReplayCommand([...fixture.argv, "--dry-run"], {
       stdout: () => {}, stderr: () => {}, env: {},
-    }, { exec: { query } });
+    }, { exec: { query, begin: async()=>{}, commit: async()=>{}, rollback: async()=>{} } as ReplayExecutor });
     assert.equal(code, 0);
   });
 
@@ -417,7 +420,7 @@ describe("persisted connector replay", () => {
     const out: string[] = [];
     const code = await runReplayCommand(fixture.argv, {
       stdout: (line) => out.push(line), stderr: () => {}, env: {},
-    }, { exec: { query } });
+    }, { exec: { query, begin: async()=>{}, commit: async()=>{}, rollback: async()=>{} } as ReplayExecutor });
     assert.equal(code, 1);
     assert.equal(statements.length, 1);
     assert.match(out.join("\n"), /refused update-0-public.accounts: drift/);
@@ -441,12 +444,12 @@ async function persistedFixture(tool = "postgres.row.update", snapshotBytes?: Ui
   const signer = await devKeyProvider({ dir: join(root, "keys"), env: {} });
   const ledgerDir = join(root, "ledger");
   await jsonlStore(signer, { dir: ledgerDir }).append({
-    workspace: "test", at: image.capturedAt, tool, klass: "r1", decision: "allow:resolved", argsDigest,
+    workspace: "test", at: image.capturedAt, tool, klass: "r1", decision: "execute:completed", captureDigest: captured.reference.digest, argsDigest,
   });
   return {
     root,
     snapshotPath: fileURLToPath(captured.reference.uri),
-    argv: ["--ledger", join(ledgerDir, "test.jsonl"), "--snapshot-dir", snapshotDir, "--seq", "1"],
+    argv: ["--ledger", join(ledgerDir, "test.jsonl"), "--snapshot-dir", snapshotDir, "--seq", "1", "--key", Buffer.from((await signer.publicKey(await signer.currentKeyId()))!).toString("base64")],
   };
 }
 
@@ -472,4 +475,27 @@ test("ambiguous before images refuse replay before calling a connector", async (
       connectors: { postgres: fakeConnector({ apply: async () => { called = true; return { applied: [], refused: [] }; } }) },
     });
   assert.equal(code, 1); assert.equal(called, false); assert.match(errors.join("\n"), /ambiguous/);
+});
+
+test('apply refuses unsigned history, authorization-only records, and unbound manifests without invoking inverse',async()=>{
+  for(const variant of [{...page,signed:false},{...page,records:page.records.map(r=>({...r,decision:'allow:resolved'}))},{...page,records:page.records.map(r=>({...r,captureDigest:'sha256:'+ 'd'.repeat(64)}))}]){
+    let touched=false;const errors:string[]=[];
+    const code=await runReplayCommand(['--ledger','unused','--snapshot-dir','unused','--seq','7'],{stdout:()=>{},stderr:line=>errors.push(line),env:{}},{readFeed:async()=>variant,readManifest:async()=>[{digest:argsDigest,reference,tool:'postgres.row.update'}],connectors:{postgres:{...fakeConnector({}),inverse:async()=>{touched=true;return plan}}}});
+    assert.equal(code,1);assert.equal(touched,false);assert.match(errors.join('\n'),/authenticated|execution completion|captureDigest/);
+  }
+});
+
+test('rewritten and rehashed signed ledger cannot authorize inverse execution',async t=>{
+  const fixture=await persistedFixture();t.after(()=>rm(fixture.root,{recursive:true,force:true}));
+  const path=fixture.argv[1]!,entry=JSON.parse((await readFile(path,'utf8')).trim());entry.body.tool='postgres.attacker';entry.hash=await entryHash(entry.body,entry.prev_hash,sha256Hex);await writeFile(path,JSON.stringify(entry)+'\n');
+  let queries=0;const errors:string[]=[];const code=await runReplayCommand(fixture.argv,{stdout:()=>{},stderr:line=>errors.push(line),env:{}},{exec:{query:async()=>{queries++;return[]}}});
+  assert.equal(code,1);assert.equal(queries,0);assert.match(errors.join('\n'),/signature/);
+});
+
+test('substituting another valid snapshot in manifest cannot redirect signed replay',async t=>{
+  const fixture=await persistedFixture();t.after(()=>rm(fixture.root,{recursive:true,force:true}));
+  const directory=join(fixture.root,'snapshots'),other=await LocalSnapshotStore(directory).put('postgres',new TextEncoder().encode('{}'));
+  await writeFile(join(directory,'manifest.jsonl'),JSON.stringify({digest:argsDigest,tool:'postgres.row.update',reference:other.reference})+'\n');
+  const errors:string[]=[];const code=await runReplayCommand(fixture.argv,{stdout:()=>{},stderr:line=>errors.push(line),env:{}},{exec:{query:async()=>{throw new Error('must not execute')}}});
+  assert.equal(code,1);assert.match(errors.join('\n'),/captureDigest/);
 });
