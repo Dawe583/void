@@ -2,6 +2,13 @@ const root = document.getElementById('agent-workbench');
 if (root) {
   const byId = id => document.getElementById(id);
   let active;
+  let catalog = [];
+  const presets = {
+    openrouter: ['https://openrouter.ai/api/v1', 'openai'], openai: ['https://api.openai.com/v1', 'openai'], anthropic: ['https://api.anthropic.com/v1', 'anthropic'],
+    google: ['https://generativelanguage.googleapis.com/v1beta/openai', 'openai'], groq: ['https://api.groq.com/openai/v1', 'openai'], deepseek: ['https://api.deepseek.com', 'openai'],
+    gateway: ['https://ai-gateway.vercel.sh/v1', 'openai'], ollama: ['http://localhost:11434/v1', 'openai'], lmstudio: ['http://localhost:1234/v1', 'openai'], custom: ['', 'openai'],
+  };
+  byId('provider-preset').addEventListener('change', () => { byId('provider-url').value = presets[byId('provider-preset').value][0]; byId('provider-key').value = ''; });
   let initialSelection = true;
   let renderedEvents = "";
   let stopped = false;
@@ -14,28 +21,35 @@ if (root) {
   };
   const status = text => { byId('session-status').textContent = text; };
   function models(items) {
-    byId('session-model').replaceChildren(...[...items].sort((a, b) => Number(b.id === 'openai/gpt-5.4-nano') - Number(a.id === 'openai/gpt-5.4-nano')).map(model => {
+    if (items) catalog = items;
+    const chosen = byId('session-model').value || localStorage.getItem('void-model');
+    const query = byId('model-search').value.toLowerCase();
+    byId('session-model').replaceChildren(...catalog.filter(m => `${m.name} ${m.id}`.toLowerCase().includes(query)).map(model => {
       const option = document.createElement('option'); option.value = model.id; option.textContent = model.name; return option;
     }));
+    if ([...byId('session-model').options].some(o => o.value === chosen)) byId('session-model').value = chosen;
   }
+  byId('model-search').addEventListener('input', () => models());
+  byId('session-model').addEventListener('change', () => localStorage.setItem('void-model', byId('session-model').value));
   async function provider() {
     try {
       const state = await api('/api/provider');
       models(state.models);
-      if (state.keyStorage === 'encrypted-cloud') {
-        byId('session-retention').textContent = 'Sessions, transcripts and signed evidence are saved in your cloud workspace.';
-        document.querySelector('label[for=provider-key]').textContent = 'API key (encrypted in your cloud workspace)';
-        byId('upstream-settings').hidden = false;
-      }
-      byId('provider-status').textContent = state.connected ? (state.keyStorage === 'encrypted-cloud' ? 'Cloud provider connected. Custom keys are encrypted before storage.' : 'Provider validated. Keys remain in runtime memory until shutdown.') : 'Connect a model provider to start an agent.';
+      for (const value of ['ollama', 'lmstudio']) byId('provider-preset').querySelector(`option[value=${value}]`).disabled = state.keyStorage === 'encrypted-cloud';
+      byId('session-retention').textContent = state.keyStorage === 'encrypted-cloud' ? 'Sessions, documents and signed evidence are saved in your cloud workspace.' : 'Sessions, documents and keys are encrypted on this device. History survives restarting the app.';
+      if (state.baseUrl) { byId('provider-url').value = state.baseUrl; byId('provider-preset').value = Object.entries(presets).find(([, p]) => p[0] === state.baseUrl)?.[0] ?? 'custom'; }
+      byId('provider-status').textContent = state.connected ? 'Connected. Model catalog loaded; generation depends on model access and your provider balance.' : 'Choose a provider and connect it to start your agent.';
       byId('provider-settings').open = !state.connected;
       byId('session-submit').disabled = !state.connected;
     } catch (error) { byId('provider-status').textContent = error.message; }
   }
   function show(session) {
-    status(`${session.status} / ${session.model}`);
+    status(`${session.status} / ${session.title ?? session.model}`);
+    window.dispatchEvent(new CustomEvent('void-session', { detail: session }));
     byId('session-submit').disabled = session.status !== 'idle';
-    byId('session-model').disabled = true;
+    byId('session-model').disabled = true; byId('model-search').disabled = true;
+    if (!catalog.some(m => m.id === session.model)) models([...catalog, { id: session.model, name: session.model }]);
+    byId('session-model').value = session.model;
     byId('session-cancel').disabled = session.status !== 'running';
     const eventKey = `${session.id}:${session.events.length}:${session.events.at(-1)?.seq}`;
     if (eventKey !== renderedEvents) {
@@ -61,14 +75,14 @@ if (root) {
       const result = await api('/api/sessions');
       if (initialSelection) {
         const workspace = new URLSearchParams(location.search).get('workspace');
-        active = result.sessions.find(session => session.workspace === workspace)?.id;
+        active = (result.sessions.find(session => session.workspace === workspace) ?? [...result.sessions].reverse().find(session => session.status === 'running'))?.id;
         initialSelection = false;
       }
       const list = byId('session-list');
       const focused = document.activeElement?.dataset?.session;
-      list.replaceChildren(...result.sessions.map(session => {
+      list.replaceChildren(...result.sessions.filter(session => `${session.title ?? ''} ${session.model}`.toLowerCase().includes(byId('session-search').value.toLowerCase())).map(session => {
         const button = document.createElement('button'); button.className = 'session-choice'; button.dataset.session = session.id;
-        button.textContent = `${session.status === 'running' ? '[>]' : '[.]'} ${session.model}`;
+        button.textContent = `${session.status === 'running' ? '[>]' : '[.]'} ${session.title ?? session.model}`;
         button.setAttribute('aria-pressed', String(session.id === active));
         button.addEventListener('click', () => { active = session.id; void refresh(); });
         return button;
@@ -84,8 +98,8 @@ if (root) {
     byId('provider-status').textContent = 'Validating provider and loading models...';
     const key = byId('provider-key');
     try {
-      const result = await api('/api/provider', 'POST', { baseUrl: byId('provider-url').value, apiKey: key.value });
-      key.value = ''; models(result.models); byId('provider-status').textContent = result.keyStorage === 'encrypted-cloud' ? 'Provider validated. Key encrypted in your cloud workspace.' : 'Provider validated. Key stored only in runtime memory.';
+      const result = await api('/api/provider', 'POST', { baseUrl: byId('provider-url').value, apiKey: key.value, kind: presets[byId('provider-preset').value][1] });
+      key.value = ''; models(result.models); byId('provider-status').textContent = result.keyStorage === 'encrypted-cloud' ? 'Provider validated. Key encrypted in your cloud workspace.' : 'Provider connected. Key encrypted on this device.';
       byId('session-submit').disabled = false; byId('provider-settings').open = false;
     } catch (error) { key.value = ''; byId('provider-status').textContent = error.message; }
   });
@@ -99,7 +113,7 @@ if (root) {
     try {
       if (active) await api(`/api/sessions/${active}`, 'POST', { prompt: prompt.value });
       else active = (await api('/api/sessions', 'POST', { prompt: prompt.value, model: byId('session-model').value })).session.id;
-      prompt.value = ''; await refresh();
+      localStorage.setItem('void-model', byId('session-model').value); prompt.value = ''; await refresh();
     } catch (error) { status(error.message); byId('session-submit').disabled = false; }
   });
   byId('session-cancel').addEventListener('click', async () => {
@@ -108,9 +122,11 @@ if (root) {
     catch (error) { status(error.message); }
   });
   byId('new-session').addEventListener('click', () => {
-    active = undefined; renderedEvents = ''; byId('session-model').disabled = false; byId('session-transcript').replaceChildren(); byId('session-ledger').hidden = true; byId('session-approvals').hidden = true;
+    active = undefined; renderedEvents = ''; byId('session-model').disabled = false; byId('model-search').disabled = false; window.dispatchEvent(new CustomEvent('void-session', { detail: null })); byId('session-transcript').replaceChildren(); byId('session-ledger').hidden = true; byId('session-approvals').hidden = true;
     byId('session-submit').disabled = !byId('session-model').options.length; status('Ready for a new session.'); byId('session-prompt').focus();
   });
+  byId('session-search').addEventListener('input', refresh);
+  window.addEventListener('void-refresh', refresh);
   const timer = setInterval(refresh, 2000);
   window.addEventListener('pagehide', () => { stopped = true; clearInterval(timer); }, { once: true });
   window.addEventListener("void-connected", () => { void provider(); void refresh(); });

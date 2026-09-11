@@ -1,0 +1,5 @@
+# Isolated native build tools; retain the repository's package age protection.
+packages: []
+minimumReleaseAge: 1440
+onlyBuiltDependencies:
+  - esbuild

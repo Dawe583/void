@@ -33,7 +33,7 @@ VOID does not make an agent safe by trusting the model. It protects the write pa
 
 ## Five-minute local path
 
-Use Node.js 24 or newer and `pnpm install --frozen-lockfile`. Packages are private at version 0.1.0. Start the responsive GUI with `pnpm gui`; see [the beta runbook](docs/BETA.md) for agent configuration, terminal controls, Vercel deployment and the reviewed feature boundaries.
+Use Node.js 24 or newer and `pnpm install --frozen-lockfile`. Packages are private at version 0.1.0. Start the agent GUI with `pnpm gui`, or run the native macOS app with `pnpm desktop:setup` followed by `pnpm desktop`. Connect a provider in Settings; managed documents and captured Undo work without a separate tool server. Build the installer with `pnpm desktop:build`; see [the beta runbook](docs/BETA.md) for agent configuration, terminal controls, Vercel deployment and the reviewed feature boundaries.
 
 From the repository root, start with the simulated hold moment:
 

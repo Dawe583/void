@@ -244,7 +244,7 @@ export function createApp({ document, fetch, now, timer, page, workspace, limit 
         } else {
           setText("record-action-result", body.lines.join("\n"));
           const button = document.getElementById("replay-apply");
-          if (button) { button.hidden = apply; button.disabled = !feedSigned; }
+          if (button) { button.hidden = apply; button.disabled = !feedSigned || body.canApply === false; }
         }
       } catch (error) { setText("record-action-result", errorMessage(error)); }
     },

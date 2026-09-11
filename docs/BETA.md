@@ -1,25 +1,45 @@
 # VOID 0.1 beta
 
-## Supported path
+## Desktop and web workspace
 
-The beta provides an MCP policy proxy, signed JSONL evidence, durable local
-approval decisions, a responsive ASCII web control plane, a live terminal inbox,
-and an OpenAI-compatible agent workbench shared by the GUI and CLI.
+The shared agent application includes provider presets (OpenAI-compatible APIs
+and native Anthropic), model search, reusable encrypted provider connections,
+multiple HTTP MCP connectors, persistent conversation history, export, approval
+links and a built-in managed document workspace. GUI, desktop and CLI use the
+same local agent implementation; Vercel runs durable cloud agent turns.
 
-Use Node.js 24 or newer and `pnpm install --frozen-lockfile`. Run `pnpm gui` for
-the local control plane. It binds to loopback by default. Set these runtime
-variables before starting an agent:
+Start locally with Node.js 24 or newer, `pnpm install --frozen-lockfile`, then
+`pnpm gui`. No MCP command or policy environment variable is needed for the
+built-in documents. Open Settings, connect a provider and select a model. Local
+Ollama and LM Studio endpoints work from the desktop/local app. The hosted app
+requires a publicly accessible HTTPS provider and cannot reach your localhost.
 
-- `VOID_UPSTREAM_COMMAND`: a JSON array containing the MCP executable and arguments.
-- `VOID_POLICY_PATH`: a policy YAML file.
-- `VOID_LEDGER_DIR`: a durable directory for signed evidence.
-- `VOID_FACTS_PATH`: optional declared target facts.
-- `OPENROUTER_API_KEY` and optional `VOID_PROVIDER_URL`: provider credentials and
-  an OpenAI-compatible API base URL. Alternatively use GUI Provider settings.
+For the native macOS application use `pnpm desktop:setup`, `pnpm desktop`, or
+`pnpm desktop:build`. The package includes Node and the backend. See
+[desktop packaging](../apps/desktop/README.md) for artifacts, native smoke checks,
+Keychain migration and signing requirements. macOS 13.5 or newer is required.
 
-The provider model catalog must validate before a session starts. Keys entered
-in the GUI stay in runtime memory. The model receives prompts and tool results.
-The proxy remains the authorization boundary for every tool request.
+Local sessions, provider profiles, connector credentials, documents and signed
+history persist in an atomic AES-256-GCM snapshot under `VOID_DATA_DIR` (default
+`~/.void/workbench`). The desktop keeps its encryption key in macOS Keychain;
+standalone CLI/GUI uses a mode-0600 key file. A conflicting writer is rejected.
+
+The document connector automatically captures before and after content. Every
+mutation and its signed evidence commit together. Open Documents & Undo, preview
+the restored content and explicitly confirm. Signatures and the complete capture
+digest are verified before undo. Newer changes, already-undone operations and
+modified captures are refused. Limits are 100 documents, 256 KB per document,
+2 MB total and 250 mutations, with another 250 history slots reserved for undo.
+Documents are managed storage, not arbitrary files on the host computer.
+
+Add external HTTP MCP servers in Settings. VOID discovers their tools and applies
+the configured policy and registry mapping. Unknown tools fail closed. External
+MCP has no automatic inverse unless a specific capture integration exists. A
+legacy stdio upstream can still be supplied with `VOID_UPSTREAM_COMMAND` (JSON
+array), `VOID_POLICY_PATH`, optional `VOID_FACTS_PATH` and `VOID_LEDGER_DIR`.
+`OPENROUTER_API_KEY` and `VOID_PROVIDER_URL` remain optional bootstrap settings.
+The provider catalog validates before a session starts. Live generation also
+requires provider authorization, model access and an available balance.
 
 For terminal agents run `node packages/cli/bin/void.mjs agent --model <id>`.
 For the live operator interface run `node packages/cli/bin/void.mjs watch` with
@@ -119,8 +139,30 @@ It does not claim a completed paid-model run or validation of customer buckets.
 ## Remaining roadmap
 
 This is not completion of every work package in the master plan. Native Codex,
-Claude Code and OpenCode process adapters, PTY embedding, desktop packaging,
-OS keychain persistence, token streaming, multi-agent
-orchestration, production KMS and a multiwriter ledger backend remain open.
-Local sessions/transcripts are bounded in memory; cloud sessions persist in Neon.
+Claude Code and OpenCode process adapters, PTY embedding, direct host-project
+editing, token streaming, product multi-agent orchestration and production KMS
+remain open. Desktop signing/notarization requires an Apple Developer identity;
+the local build is an unsigned beta. Windows/Linux packages are unverified.
 Only one model session runs at a time. Speculative execution is not supported.
+
+## Desktop and managed-workspace verification
+
+`pnpm check` passes all 500 shared-runtime tests. The added default-agent integration test
+runs a real built-in tool through a deterministic provider, restarts twice,
+verifies encrypted persistence and Ed25519 capture binding, rejects a forged
+capture, and applies an explicit inverse. The Anthropic adapter test covers
+native tool_use/tool_result conversion and usage accounting.
+
+`check-managed-cloud.mjs` ran successfully against a newly created disposable
+Neon database, then that database was removed. It exercised real HTTP cloud
+routes, two model turns, signed encrypted capture, authentication, confirmation,
+drift and forgery refusal, and idempotent undo. Production data was untouched.
+For repeat runs supply `VOID_TEST_DATABASE_URL` and
+`VOID_TEST_DATABASE_ISOLATED=1`; the script refuses the deployment database by
+default. No real paid model was used by this deterministic integration test.
+
+Browser QA exercised create, captured history, preview and explicit Undo, with
+no horizontal overflow at 320, 375, 430, 768 and 1280 pixels. Provider and
+connector settings were inspected on mobile, in both shared themes. Desktop
+verification includes Rust Keychain migration tests, source and bundled backend
+lifecycle checks, and the packaged native executable's `--smoke-test`.

@@ -1,3 +1,5 @@
+import { createWorkspace, executeWorkspaceTool, workspaceToolClass } from '../packages/workbench/src/workspace.ts';
+import { encrypt } from './store.mjs';
 import { read, write, transaction, event, append, decrypt } from "./store.mjs";
 import { ProviderRequestError } from "../packages/workbench/src/provider.ts";
 import { provider } from "./provider.mjs";
@@ -59,6 +61,7 @@ export async function advance(id, generation) {
         name: s.pending.name,
         args: s.pending.args,
         body: s.pending.body,
+        connectorId: s.pending.connectorId,
       };
       s.pending = null;
       await save(s, c);
@@ -73,9 +76,9 @@ export async function advance(id, generation) {
       const args = JSON.parse(call.function.arguments);
       if (!args || typeof args !== "object" || Array.isArray(args))
         throw new Error("Invalid tool arguments.");
-      const config = s.upstream ? decrypt(s.upstream) : {};
+      const config = tool.connectorId && s.connected?.[tool.connectorId] ? decrypt(s.connected[tool.connectorId].config) : s.upstream ? decrypt(s.upstream) : {};
       const name = config.mapping?.[tool.name] ?? tool.name;
-      const classification = classifyTool(name, {
+      const classification = tool.builtin ? { outcome: 'classified', tone: workspaceToolClass(tool.name) } : classifyTool(name, {
         facts: config.facts ?? {},
         args,
       });
@@ -91,7 +94,7 @@ export async function advance(id, generation) {
       };
       const decision =
         classification.outcome === "classified"
-          ? decide(policy, callInfo)
+          ? tool.builtin ? { kind: 'allow' } : decide(policy, callInfo)
           : { kind: "deny" };
       const body = {
         workspace: s.workspace,
@@ -116,7 +119,7 @@ export async function advance(id, generation) {
           },
           c,
         );
-        s.pending = { id: holdId, call, name: tool.name, args, body };
+        s.pending = { id: holdId, call, name: tool.name, args, body, connectorId: tool.connectorId };
         event(s, "tool", `${tool.name}: waiting for your approval`);
         await save(s, c);
         return { kind: "wait" };
@@ -135,7 +138,7 @@ export async function advance(id, generation) {
       }
       s.executing = "tool";
       await save(s, c);
-      return { kind: "tool", session: s, call, name: tool.name, args, body };
+      return { kind: "tool", session: s, call, name: tool.name, args, body, builtin: tool.builtin, connectorId: tool.connectorId };
     }
     if (s.turn >= 20 || s.messages.length > 200)
       throw new Error("Session limit reached. Start a new session.");
@@ -188,12 +191,28 @@ export async function advance(id, generation) {
         await save(current, c);
       });
     } else {
-      const config = decrypt(s.upstream);
+      if (claim.builtin) {
+        await transaction(id, async c => {
+          const current = await read(`session:${id}`, c);
+          if (current.status !== 'running' || current.generation !== generation) return;
+          const saved = await read(`workspace:${id}`, c), state = saved ? decrypt(saved) : createWorkspace();
+          const transition = executeWorkspaceTool(state, { id: `${id}-${generation}-${s.turn}-${claim.call.id}`, name: claim.name, arguments: claim.args });
+          await append({ ...claim.body, at: new Date().toISOString(), decision: transition.result.isError ? 'execute:failed' : 'execute:completed', ...(transition.operation ? { operationId: transition.operation.id, captureDigest: await sha256Hex(canonicalJson(transition.operation)) } : {}) }, c);
+          await write(`workspace:${id}`, encrypt(transition.state), c);
+          event(current, 'tool', `${claim.name}: ${transition.result.isError ? 'failed' : 'completed, change captured'}`);
+          current.executing = null; current.queue.shift();
+          current.messages.push({ role: 'tool', tool_call_id: claim.call.id, content: client.redact(JSON.stringify(transition.result)) });
+          await save(current, c);
+        });
+        return 'next';
+      }
+      const connection = claim.connectorId ? s.connected?.[claim.connectorId] : undefined;
+      const config = decrypt(connection?.config ?? s.upstream);
       const result = await rpc(
         config,
         "tools/call",
         { name: claim.name, arguments: claim.args },
-        s.mcpSession,
+        connection?.sessionId ?? s.mcpSession,
       );
       await transaction(id, async (c) => {
         const current = await read(`session:${id}`, c);

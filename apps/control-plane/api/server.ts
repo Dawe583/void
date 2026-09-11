@@ -68,7 +68,7 @@ type RouteOptions = {
 const here = fileURLToPath(new URL(".", import.meta.url));
 const defaultWebRoot = resolve(here, "../web");
 const maxBodyBytes = 64 * 1024;
-const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js", "/workbench.css", "/theme.js", "/sessions.js", "/cloud-settings.js", "/manifest.webmanifest", "/icon.svg"]);
+const publicScriptPaths: ReadonlySet<string> = new Set(["/app.js", "/workbench.css", "/theme.js", "/sessions.js", "/workspace-ui.js", "/cloud-settings.js", "/manifest.webmanifest", "/icon.svg"]);
 
 /**
  * Resolve a verification key without ever generating one. Reading is the
@@ -151,12 +151,46 @@ async function route(
       if (request.method === "GET") return sendJson(response, 200, await options.workbench.providerState());
       if (request.method === "DELETE") { options.workbench.clearProvider(); return sendJson(response, 200, { ok: true }); }
       if (request.method === "POST") {
-        const body = await readJsonBody(request) as { baseUrl?: string; apiKey?: string } | null;
+        const body = await readJsonBody(request) as { baseUrl?: string; apiKey?: string; kind?: "openai" | "anthropic" } | null;
         if (typeof body?.baseUrl !== "string" || typeof body.apiKey !== "string") return sendJson(response, 400, { error: "invalid_provider" });
-        const models = await options.workbench.configure({ baseUrl: body.baseUrl, apiKey: body.apiKey });
-        return sendJson(response, 200, { connected: true, models, keyStorage: "runtime-memory" });
+        const models = await options.workbench.configure({ baseUrl: body.baseUrl, apiKey: body.apiKey, kind: body.kind });
+        return sendJson(response, 200, { connected: true, models, keyStorage: "encrypted-local" });
       }
     } catch (error) { return sendJson(response, 400, { error: "provider_unavailable", message: error instanceof Error ? error.message : "Provider unavailable" }); }
+  }
+  if (parsed.pathname === '/api/connectors') {
+    try {
+      if (request.method === 'GET') return sendJson(response, 200, options.workbench.connectionState());
+      if (request.method === 'POST') {
+        const body = await readJsonBody(request) as { url: string; name?: string; token?: string; policy?: string; facts?: Record<string, boolean | string>; mapping?: Record<string, string> };
+        return sendJson(response, 200, await options.workbench.addConnector(body));
+      }
+    } catch (error) { return sendJson(response, 400, { message: error instanceof Error ? error.message : 'Connector unavailable.' }); }
+  }
+  const connectorMatch = /^\/api\/connectors\/([a-f0-9-]+)$/.exec(parsed.pathname);
+  if (connectorMatch && request.method === 'DELETE') { options.workbench.removeConnector(connectorMatch[1]!); return sendJson(response, 200, { ok: true }); }
+  const workspaceMatch = /^\/api\/sessions\/([a-f0-9-]+)\/(workspace|undo)(?:\/([A-Za-z0-9_.:-]+))?$/.exec(parsed.pathname);
+  if (workspaceMatch) {
+    try {
+      const id = workspaceMatch[1]!, operation = workspaceMatch[3]!;
+      if (workspaceMatch[2] === 'workspace' && request.method === 'GET') return sendJson(response, 200, { workspace: options.workbench.workspace(id) });
+      if (workspaceMatch[2] === 'undo' && request.method === 'GET') return sendJson(response, 200, await options.workbench.undoPreview(id, operation));
+      if (workspaceMatch[2] === 'undo' && request.method === 'POST') {
+        const body = await readJsonBody(request) as { confirm?: string };
+        if (body.confirm !== operation) return sendJson(response, 409, { message: 'Preview and confirm this change first.' });
+        return sendJson(response, 200, await options.workbench.undo(id, operation));
+      }
+    } catch (error) { return sendJson(response, 409, { message: error instanceof Error ? error.message : 'Workspace operation failed.' }); }
+  }
+  if (request.method === 'GET' && ['/api/feed', '/api/ledger/verify', '/api/ledger/export'].includes(parsed.pathname)) {
+    const workspace = parsed.searchParams.get('workspace') || options.workbench.list().at(-1)?.workspace;
+    const proof = workspace ? await options.workbench.ledger(workspace) : undefined;
+    if (proof && proof.entries.length) {
+      if (parsed.pathname === '/api/feed') return sendJson(response, 200, { entries: proof.entries.slice(-50).map(e => ({ seq: e.seq, ...(e.body as JsonObject), hash: e.hash, digest: e.hash, prev_hash: e.prev_hash })), verified: true, signed: true, integrity: true });
+      if (parsed.pathname === '/api/ledger/verify') return sendJson(response, 200, { ok: true, verified: true, signed: true, integrity: true, checked: proof.entries.length, head: proof.result.head });
+      response.setHeader('content-disposition', 'attachment; filename="void-ledger.json"');
+      return sendJson(response, 200, { format: 'void.signed-ledger.v1', entries: proof.entries });
+    }
   }
   if (parsed.pathname === "/api/sessions") {
     if (request.method === "GET") return sendJson(response, 200, { sessions: options.workbench.list() });
@@ -183,8 +217,27 @@ async function route(
   }
   const recordAction = /^\/api\/records\/(\d+)\/(taint|replay)$/.exec(parsed.pathname);
   if (recordAction && (request.method === "GET" || request.method === "POST")) {
-    const ledger = selectLedgerPath(options, parsed.searchParams.get("workspace"));
     const seq = Number(recordAction[1]);
+    const workspace = parsed.searchParams.get('workspace') || options.workbench.list().at(-1)?.workspace;
+    const managed = workspace ? options.workbench.list().find(s => s.workspace === workspace) : undefined;
+    const proof = managed ? await options.workbench.ledger(managed.workspace) : undefined;
+    if (managed && proof?.entries.length) {
+      const entry = proof.entries.find(e => e.seq === seq);
+      if (!entry) return sendJson(response, 404, { message: 'Record not found.' });
+      if (recordAction[2] === 'taint') return sendJson(response, 200, { ...neighbors(buildGraph(proof.entries), entry.hash, 8), note: DATA_EDGE_HONESTY_NOTE, signed: true });
+      const operationId = (entry.body as JsonObject).operationId;
+      if (typeof operationId !== 'string') return sendJson(response, 409, { message: 'This call has no captured document inverse.' });
+      try {
+        const preview = await options.workbench.undoPreview(managed.id, operationId);
+        if (request.method === 'POST') {
+          const body = await readJsonBody(request) as { digest?: string };
+          if (body.digest !== entry.hash) return sendJson(response, 409, { message: 'Preview this exact record first.' });
+          await options.workbench.undo(managed.id, operationId);
+        }
+        return sendJson(response, 200, { digest: entry.hash, canApply: preview.canApply, lines: [preview.path, preview.reason ?? 'Captured inverse verified.', `Current:\n${preview.before ?? '(absent)'}`, `After Undo:\n${preview.after ?? '(absent)'}`, ...(request.method === 'POST' ? ['Undo applied.'] : [])] });
+      } catch (error) { return sendJson(response, 409, { message: error instanceof Error ? error.message : 'Undo refused.' }); }
+    }
+    const ledger = selectLedgerPath(options, parsed.searchParams.get("workspace"));
     if (!ledger || !Number.isSafeInteger(seq) || seq < 1) return sendJson(response, 400, { error: "invalid_record" });
     const entries = await readLedgerEntries(ledger);
     const verified = await verifyChain(entries, { publicKey: options.publicKey });

@@ -113,9 +113,9 @@ export async function append(body, client) {
   );
   return entry;
 }
-export async function ledger(workspace) {
+export async function ledger(workspace, client = database()) {
   const entries = (
-    await database().query(
+    await client.query(
       "SELECT entry FROM void_cloud_ledger WHERE workspace=$1 ORDER BY seq",
       [workspace],
     )
@@ -142,6 +142,7 @@ export function view(session) {
     id: session.id,
     workspace: session.workspace,
     model: session.model,
+    title: session.title,
     status: session.status,
     events: session.events,
   };

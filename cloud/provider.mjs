@@ -20,6 +20,8 @@ export async function providerState() {
     const models = await client.models();
     return {
       connected: true,
+      baseUrl: (await read("provider"))?.secret ? decrypt((await read("provider")).secret).baseUrl : "https://ai-gateway.vercel.sh/v1",
+      profiles: Object.keys((await read("provider-profiles")) ?? {}),
       models,
       keyStorage: "encrypted-cloud",
       mode: (await read("provider"))?.secret ? "custom" : "vercel-gateway",

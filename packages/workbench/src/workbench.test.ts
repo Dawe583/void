@@ -29,7 +29,8 @@ test('model tool calls cross a real VOID proxy and produce a ledger', async t =>
     turn++;
     if (turn === 1) {
       const tool = request.tools.find((item: { function: { description: string } }) => item.function.description.startsWith('echo:'));
-      return reply({ choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'call1', type: 'function', function: { name: tool.function.name, arguments: JSON.stringify({ text: 'fixture echo' }) } }] } }] });
+      const document = request.tools.find((item: { function: { description: string } }) => item.function.description.startsWith('void_workspace_write:'));
+      return reply({ choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'document1', type: 'function', function: { name: document.function.name, arguments: JSON.stringify({ path: 'mixed.md', content: 'Managed and stdio in one session.' }) } }, { id: 'call1', type: 'function', function: { name: tool.function.name, arguments: JSON.stringify({ text: 'fixture echo' }) } }] } }] });
     }
     assert.equal(request.messages.at(-1).role, 'tool');
     return reply({ choices: [{ message: { role: 'assistant', content: `Finished ${secret}` } }], usage: { total_tokens: 23 } });
@@ -45,6 +46,9 @@ test('model tool calls cross a real VOID proxy and produce a ledger', async t =>
   assert.ok(!JSON.stringify(session).includes(secret));
   const feed = await readLedgerFeed(join(dir, `${started.workspace}.jsonl`));
   assert.ok(feed.records.some(record => record.tool === 'echo' && record.decision.startsWith('allow')));
+  const managed = await workbench.ledger(started.workspace);
+  assert.ok(managed?.entries.some(e => (e.body as {tool:string}).tool === 'void_workspace_write'));
+  assert.ok(managed?.entries.some(e => { const b = e.body as {tool:string;source?:string;klass:string}; return b.tool === 'echo' && b.source === 'stdio-proxy' && b.klass === feed.records.find(r => r.tool === 'echo')?.klass; }));
   workbench.cancel(started.id);
   assert.equal(workbench.get(started.id)?.status, 'cancelled');
 });

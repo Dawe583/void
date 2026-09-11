@@ -10,7 +10,11 @@
     "check": "pnpm run typecheck && pnpm test",
     "check:mirror": "node scripts/src/check-registry-mirror.mjs",
     "gui": "node apps/control-plane/api/server.ts",
-    "watch": "node packages/cli/bin/void.mjs watch"
+    "watch": "node packages/cli/bin/void.mjs watch",
+    "desktop:setup": "pnpm --dir apps/desktop install --ignore-workspace",
+    "desktop": "pnpm --dir apps/desktop dev",
+    "desktop:build": "pnpm --dir apps/desktop build",
+    "desktop:test": "pnpm --dir apps/desktop test"
   },
   "private": true,
   "devDependencies": {

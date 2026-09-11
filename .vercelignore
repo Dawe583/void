@@ -12,3 +12,5 @@ dist
 skills-lock.json
 .nitro
 .swc
+
+apps/desktop

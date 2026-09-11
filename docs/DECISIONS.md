@@ -949,3 +949,19 @@ execution marker and authorization record. If execution becomes ambiguous,
 refuse automatic retry. Model calls use Vercel AI Gateway OIDC by default or a
 validated custom provider. Catalog discovery alone does not prove billing or
 account verification permits generation.
+
+## Desktop and managed agent workspace, 2026-09-11
+
+Tauri 2 is the native shell, with a bundled, hash-verified Node 24 sidecar so the
+existing local policy and workbench remain the execution boundary. Its isolated
+package adds the Tauri CLI and esbuild to build the native app and transpile the
+shared backend; it preserves the minimum package release age. The webview has
+no Node integration or general shell IPC. Native macOS Keychain retains the
+workspace encryption key. The shell owns the backend lifecycle.
+
+Default agent actions operate on managed documents. A captured mutation and its
+signed evidence are persisted atomically (local encrypted snapshot or cloud SQL
+transaction). Undo verifies the full captured operation against signed history
+and rejects drift, duplicate inverses and newer changes. This does not imply
+that arbitrary external MCP tools or host files are reversible. Native Anthropic
+is normalized to the same model/tool interface as compatible providers.
