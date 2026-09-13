@@ -389,6 +389,16 @@ function App({
       </button>
     </>
   );
+  if (path === "/demo" && !demo.data?.available)
+    return (
+      <div className="app-loading" role="status">
+        {demo.error ? (
+          <ErrorBox error={demo.error} />
+        ) : (
+          t("Načítání dema…", "Loading demo…")
+        )}
+      </div>
+    );
   if (
     (path === "/demo" || (needsAuth && !privateLogin)) &&
     demo.data?.available
