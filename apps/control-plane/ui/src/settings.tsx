@@ -47,7 +47,7 @@ export function Settings({
         </p>
         <a
           className="button"
-          href="https://github.com/Dawe583/void/releases/download/desktop-v0.1.0-beta.2/VOID_0.1.0_aarch64.dmg"
+          href="https://github.com/Dawe583/void/releases/download/desktop-v0.1.0-beta.3/VOID_0.1.0_aarch64.dmg"
         >
           {t("Stáhnout pro macOS (.dmg)", "Download for macOS (.dmg)")}
         </a>

@@ -31,6 +31,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/demo",
+      "destination": "/index.html"
+    },
+    {
       "source": "/overview",
       "destination": "/index.html"
     },

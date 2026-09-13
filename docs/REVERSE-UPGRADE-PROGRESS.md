@@ -10,7 +10,7 @@ by the existence of a prototype or a narrow passing test.
 | R02 | Shared runtime used by managed CLI/MCP, TS SDK and local workbench document writes/Undo | Legacy proxy and general external-tool cloud conformance |
 | R03 | Encrypted durable artifacts, reserved capture/outcome/recovery capacity, shared quota, legacy reads, key rotation | Streaming, pin lifecycle, GC, retention, quota migration |
 | R04 | Structured row mutations, revision trigger, atomic outbox, verified restore, real prepare serialization conflict, managed deadlock and terminated database sessions | Cascade/tenant certification, migration, client process kill and network partition |
-| R05 | Not started | Filesystem/Git with declared scope and conflict handling |
+| R05 | Partial | Cooperative one-file create/write/delete and guarded Undo; Git and rename pending |
 | R06 | Single-operation plan, exact digest, signed recovery, uncertain recovery reconciliation | Multi-operation jobs, selection boundaries, dependencies, durable leases/checkpoints |
 | R07 | Existing taint modules retained | Runtime provenance and dependency-aware recovery integration |
 | R08 | Existing legacy S3 retained | Managed S3/versioning, Supabase-specific capability tests |
@@ -128,3 +128,9 @@ idempotent Undo. The local Prime worker protocol separately tests authentication
 single claim, stale-result refusal and no replay of a lost job. Prime tool calls
 are outside captured document Undo; its outer run is signed as R3, and individual
 tool notifications are informational rather than captured recovery receipts.
+
+## Cooperative filesystem and public demo, 2026-09-13
+
+The managed filesystem adapter and CLI/MCP configuration now support one regular file with bytes and mode recovery. Real filesystem tests cover binary data, restart, idempotence, human edits, ABA, permissions and unsafe paths. Missing atomic filesystem receipts leave uncertain outcomes unknown. This is not completion of R05.
+
+The public demo uses visitor-scoped managed cloud documents and a fixed TokenRouter model, without exposing private workspace or Prime credentials. Mobile controls use consistent SVG dimensions and a named native dialog. Research and the larger design sequence are recorded in `GUI-DESIGN-RESEARCH.md`.

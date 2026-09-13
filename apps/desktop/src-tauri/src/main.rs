@@ -126,7 +126,8 @@ fn launch_runtime(
 }
 
 fn main() {
-    let smoke = std::env::args().any(|argument| argument == "--smoke-test");
+    let mobile_smoke = std::env::args().any(|argument| argument == "--smoke-mobile");
+    let smoke = mobile_smoke || std::env::args().any(|argument| argument == "--smoke-test");
     let smoke_data =
         std::env::temp_dir().join(format!("void-desktop-native-smoke-{}", std::process::id()));
     let cleanup_data = smoke_data.clone();
@@ -183,8 +184,8 @@ fn main() {
                 WebviewUrl::External(format!("{origin}/").parse()?),
             )
             .title("VOID")
-            .visible(!smoke)
-            .inner_size(1200.0, 820.0)
+            .visible(!smoke || mobile_smoke)
+            .inner_size(if mobile_smoke { 390.0 } else { 1200.0 }, if mobile_smoke { 844.0 } else { 820.0 })
             .min_inner_size(360.0, 520.0)
             .on_navigation(move |url| url.origin().ascii_serialization() == allowed)
             .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
@@ -200,8 +201,8 @@ fn main() {
                     tauri::webview::DownloadEvent::Finished { success, .. } => {
                         if smoke {
                             let correct = success && std::fs::read(&finish_file).ok().as_deref() == Some(b"VOID desktop download smoke");
-                            if correct { println!("VOID native desktop smoke passed: bundled runtime, rendered WKWebView and Blob download verified."); }
-                            else { eprintln!("VOID native desktop smoke failed: Blob export was not saved correctly."); }
+                            if correct { println!("VOID native desktop smoke passed: bundled runtime, rendered WKWebView and Blob download verified. Mobile toolbar checks: {}.", mobile_smoke); }
+                            else { eprintln!("VOID native desktop smoke failed: {}", std::fs::read_to_string(&finish_file).unwrap_or_else(|_| "Blob export was not saved correctly".into())); }
                             download_app.exit(if correct { 0 } else { 1 });
                         }
                         true
@@ -213,7 +214,44 @@ fn main() {
                 if smoke && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                     // Exercise the same browser Blob + anchor.download mechanism
                     // as the production document and conversation export buttons.
+                    if mobile_smoke {
+                        let _ = window.eval(r#"(() => {
+                          const finish = text => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type: 'text/plain'})); a.download = 'void-desktop-download-smoke.txt'; document.body.appendChild(a); a.click(); a.remove(); };
+                          const check = (ok, reason) => { if (!ok) throw Error(reason); };
+                          let attempts = 0;
+                          const timer = setInterval(() => {
+                            const toggle = document.querySelector('.mobile-options-toggle');
+                            if (!toggle) { if (++attempts > 150) { clearInterval(timer); finish('FAIL: React toolbar did not render'); } return; }
+                            clearInterval(timer);
+                            try {
+                              check(innerWidth >= 360 && innerWidth <= 430, 'mobile viewport');
+                              check(document.documentElement.scrollWidth <= innerWidth, 'horizontal overflow');
+                              for (const button of document.querySelectorAll('.topbar > button')) {
+                                const rect = button.getBoundingClientRect();
+                                check(rect.width === 44 && rect.height === 44, 'toolbar target size');
+                                check(button.querySelector('svg')?.getBoundingClientRect().width === 20, 'SVG size');
+                              }
+                              toggle.click();
+                              setTimeout(() => {
+                                try {
+                                  check(document.querySelector('dialog[open]'), 'options dialog open');
+                                  const actions = [...document.querySelectorAll('.mobile-action-list button')];
+                                  check(actions.length >= 4, 'options present');
+                                  check(actions.every(button => button.getBoundingClientRect().height >= 51.9), 'options touch size: ' + actions.map(button => button.getBoundingClientRect().height).join(','));
+                                  const before = document.documentElement.dataset.theme;
+                                  document.querySelector('.mobile-action-list .theme-toggle').click();
+                                  setTimeout(() => {
+                                    try { check(document.documentElement.dataset.theme !== before, 'theme action'); finish('VOID desktop download smoke'); }
+                                    catch (error) { finish('FAIL: ' + error.message); }
+                                  }, 100);
+                                } catch (error) { finish('FAIL: ' + error.message); }
+                              }, 350);
+                            } catch (error) { finish('FAIL: ' + error.message); }
+                          }, 100);
+                        })()"#);
+                    } else {
                     let _ = window.eval("(() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['VOID desktop download smoke'], {type: 'text/plain'})); a.download = 'void-desktop-download-smoke.txt'; document.body.appendChild(a); a.click(); a.remove(); })()");
+                    }
                 }
             })
             .build()?;

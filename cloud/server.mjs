@@ -1,3 +1,4 @@
+import { demoRouter } from "./demo.mjs";
 import { mountPrimeRoutes, enqueuePrime, primeStatus } from "./prime.mjs";
 import { mutateCloudDocument, managedCloudUndo } from "./recovery.mjs";
 import { workspaceSessionCookie } from "../apps/control-plane/api/session-cookie.mjs";
@@ -66,6 +67,7 @@ const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "64kb" }));
 mountIntegrationCallback(app);
+app.use("/api/demo", demoRouter());
 const matches = (a, b) =>
   typeof a === "string" &&
   typeof b === "string" &&

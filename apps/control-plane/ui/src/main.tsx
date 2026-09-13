@@ -1,3 +1,4 @@
+import { Icon } from "./icons";
 import {
   LazyMotion,
   domAnimation,
@@ -7,7 +8,14 @@ import {
 import * as m from "motion/react-m";
 import { IntegrationContext } from "./integrations";
 import { BrandMark } from "./brand";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { api, ApiError, download, items, json } from "./api";
@@ -20,11 +28,40 @@ import {
   useApi,
   useText,
 } from "./ui";
-import { Chat } from "./chat";
-import { Documents } from "./documents";
-import { Approvals, Ledger, Models, Overview, Runs, Sessions } from "./pages";
-import { Connections, Settings } from "./settings";
 import "./styles.css";
+const PublicDemo = lazy(() =>
+  import("./demo").then((module) => ({ default: module.PublicDemo })),
+);
+const Chat = lazy(() =>
+  import("./chat").then((module) => ({ default: module.Chat })),
+);
+const Documents = lazy(() =>
+  import("./documents").then((module) => ({ default: module.Documents })),
+);
+const Approvals = lazy(() =>
+  import("./pages").then((module) => ({ default: module.Approvals })),
+);
+const Ledger = lazy(() =>
+  import("./pages").then((module) => ({ default: module.Ledger })),
+);
+const Models = lazy(() =>
+  import("./pages").then((module) => ({ default: module.Models })),
+);
+const Overview = lazy(() =>
+  import("./pages").then((module) => ({ default: module.Overview })),
+);
+const Runs = lazy(() =>
+  import("./pages").then((module) => ({ default: module.Runs })),
+);
+const Sessions = lazy(() =>
+  import("./pages").then((module) => ({ default: module.Sessions })),
+);
+const Connections = lazy(() =>
+  import("./settings").then((module) => ({ default: module.Connections })),
+);
+const Settings = lazy(() =>
+  import("./settings").then((module) => ({ default: module.Settings })),
+);
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000, refetchOnWindowFocus: true } },
 });
@@ -52,7 +89,15 @@ function Root() {
   }, [locale]);
   return (
     <Locale value={locale}>
-      <App locale={locale} setLocale={setLocale} />
+      <Suspense
+        fallback={
+          <div className="app-loading" role="status">
+            VOID
+          </div>
+        }
+      >
+        <App locale={locale} setLocale={setLocale} />
+      </Suspense>
     </Locale>
   );
 }
@@ -94,6 +139,13 @@ function App({
     document.documentElement.dataset.motion = motion ? "on" : "off";
     localStorage.setItem("void-motion", motion ? "on" : "off");
   }, [motion]);
+  const [privateLogin, setPrivateLogin] = useState(false);
+  const demo = useApi(
+    "/api/demo/status",
+    location.protocol === "https:" || path === "/demo",
+    60000,
+    false,
+  );
   const provider = useApi("/api/provider");
   const prefs = useApi("/api/preferences");
   const initialPreferences = useRef({
@@ -235,18 +287,6 @@ function App({
     };
   }, [drawer, context]);
   useEffect(() => {
-    if (!headerOptions) return;
-    const outside = (event: PointerEvent) => {
-      if (
-        event.target instanceof Element &&
-        !event.target.closest(".header-actions,.mobile-options-toggle")
-      )
-        setHeaderOptions(false);
-    };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [headerOptions]);
-  useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
     const update = () => {
@@ -274,6 +314,95 @@ function App({
   const needsAuth =
     provider.error instanceof ApiError &&
     (provider.error.status === 401 || provider.error.status === 403);
+  const headerActions = (
+    <>
+      <button
+        className="locale-toggle"
+        title={t("Přepnout do angličtiny", "Switch to Czech")}
+        aria-label={t("Přepnout do angličtiny", "Switch to Czech")}
+        onClick={() => {
+          const next = locale === "cs" ? "en" : "cs";
+          setLocale(next);
+          if (!needsAuth)
+            void api("/api/preferences", "PATCH", {
+              locale: next,
+            }).catch(setError);
+        }}
+      >
+        <Icon name="language" />
+        <span>{t("English", "Čeština")}</span>
+      </button>
+      <button
+        className="theme-toggle"
+        aria-label={t("Přepnout vzhled", "Toggle theme")}
+        onClick={() =>
+          setAppearance(
+            document.documentElement.dataset.theme === "dark"
+              ? "light"
+              : "dark",
+          )
+        }
+      >
+        <Icon name="theme" />
+        <span>{t("Změnit vzhled", "Change appearance")}</span>
+      </button>
+      <button
+        className="motion-toggle"
+        aria-label={t("Animace", "Animations")}
+        title={t("Zapnout nebo vypnout animace", "Turn animations on or off")}
+        aria-pressed={motion}
+        onClick={() => setMotion(!motion)}
+      >
+        <Icon name="motion" />
+        <span>{t("Animace", "Animations")}</span>
+        <small>{motion ? t("Zapnuto", "On") : t("Vypnuto", "Off")}</small>
+      </button>
+      {chatId && (
+        <button
+          onClick={async () => {
+            try {
+              const result = await api("/api/sessions/" + chatId);
+              download(
+                "void-" + chatId + ".json",
+                json(result.session),
+                "application/json",
+              );
+            } catch (e) {
+              setError(e);
+            }
+          }}
+          aria-label={t("Export konverzace", "Export conversation")}
+        >
+          <Icon name="download" />
+          <span>{t("Export konverzace", "Export conversation")}</span>
+        </button>
+      )}
+      <button
+        onClick={() => {
+          setHeaderOptions(false);
+          setContext(!context);
+        }}
+        aria-expanded={context}
+        aria-label={t("Otevřít kontext", "Open context")}
+      >
+        <Icon name="context" /> <span>{t("Kontext", "Context")}</span>
+      </button>
+    </>
+  );
+  if (
+    (path === "/demo" || (needsAuth && !privateLogin)) &&
+    demo.data?.available
+  )
+    return (
+      <PublicDemo
+        motion={motion}
+        onMotion={() => setMotion(!motion)}
+        onWorkspace={() => {
+          setPrivateLogin(true);
+          navigate("/chat/new");
+        }}
+      />
+    );
   return (
     <MotionEnabled value={motion && !reducedMotion}>
       <MotionConfig
@@ -344,7 +473,7 @@ function App({
                 onClick={() => setDrawer(false)}
                 aria-label={t("Zavřít menu", "Close menu")}
               >
-                ×
+                <Icon name="close" />
               </button>
             </div>
             <p className="workspace-name">
@@ -361,7 +490,7 @@ function App({
               <kbd>⌘ K</kbd>
             </button>
             <nav>
-              {routes.slice(1, -1).map(([slug, icon, cs, en]) => (
+              {routes.slice(1, -1).map(([slug, , cs, en]) => (
                 <a
                   key={slug}
                   href={"/" + slug}
@@ -374,7 +503,7 @@ function App({
                   title={t(cs, en)}
                 >
                   <span className="nav-icon" aria-hidden="true">
-                    {icon}
+                    <Icon name={slug} />
                   </span>
                   <span>{t(cs, en)}</span>
                   {slug === "approvals" && pending > 0 && (
@@ -472,17 +601,7 @@ function App({
                 onClick={() => setDrawer(true)}
                 aria-label={t("Otevřít menu", "Open menu")}
               >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  aria-hidden="true"
-                >
-                  <path d="M4 7h16M4 12h11M4 17h16" />
-                </svg>
+                <Icon name="menu" />
               </button>
               <div className="page-title">
                 <span>
@@ -498,102 +617,28 @@ function App({
                 aria-label={t("Nová konverzace", "New conversation")}
                 onClick={() => navigate("/chat/new")}
               >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  aria-hidden="true"
-                >
-                  <path d="M13 5H5v14h14v-8M14 4l6 6M10 14l2-5 6-6 3 3-6 6-5 2Z" />
-                </svg>
+                <Icon name="compose" />
               </button>
               <button
                 className="mobile-options-toggle"
                 aria-label={t("Možnosti zobrazení", "View options")}
                 aria-expanded={headerOptions}
-                aria-controls="header-actions"
+                aria-haspopup="dialog"
                 onClick={() => setHeaderOptions(!headerOptions)}
               >
-                ···
+                <Icon name="more" />
               </button>
-              <div
-                id="header-actions"
-                className="header-actions"
-                data-open={headerOptions}
-              >
-                <button
-                  className="locale-toggle"
-                  title={t("Přepnout do angličtiny", "Switch to Czech")}
-                  aria-label={t("Přepnout do angličtiny", "Switch to Czech")}
-                  onClick={() => {
-                    const next = locale === "cs" ? "en" : "cs";
-                    setLocale(next);
-                    if (!needsAuth)
-                      void api("/api/preferences", "PATCH", {
-                        locale: next,
-                      }).catch(setError);
-                  }}
+              <div className="header-actions">{headerActions}</div>
+              {headerOptions && (
+                <Dialog
+                  title={t("Možnosti konverzace", "Conversation options")}
+                  close={() => setHeaderOptions(false)}
                 >
-                  {locale === "cs" ? "EN" : "CS"}
-                </button>
-                <button
-                  className="theme-toggle"
-                  aria-label={t("Přepnout vzhled", "Toggle theme")}
-                  onClick={() =>
-                    setAppearance(
-                      document.documentElement.dataset.theme === "dark"
-                        ? "light"
-                        : "dark",
-                    )
-                  }
-                >
-                  ◐
-                </button>
-                <button
-                  className="motion-toggle"
-                  aria-label={t("Animace", "Animations")}
-                  title={t(
-                    "Zapnout nebo vypnout animace",
-                    "Turn animations on or off",
-                  )}
-                  aria-pressed={motion}
-                  onClick={() => setMotion(!motion)}
-                >
-                  ⌁
-                </button>
-                {chatId && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        const result = await api("/api/sessions/" + chatId);
-                        download(
-                          "void-" + chatId + ".json",
-                          json(result.session),
-                          "application/json",
-                        );
-                      } catch (e) {
-                        setError(e);
-                      }
-                    }}
-                    aria-label={t("Export konverzace", "Export conversation")}
-                  >
-                    ⇩
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setHeaderOptions(false);
-                    setContext(!context);
-                  }}
-                  aria-expanded={context}
-                  aria-label={t("Otevřít kontext", "Open context")}
-                >
-                  ◧ <span>{t("Kontext", "Context")}</span>
-                </button>
-              </div>
+                  <div id="header-actions" className="mobile-action-list">
+                    {headerActions}
+                  </div>
+                </Dialog>
+              )}
             </header>
             {!online && (
               <div className="offline" role="status">
@@ -796,7 +841,9 @@ function App({
                     navigate(href);
                   }}
                 >
-                  <span aria-hidden="true">{icon}</span>
+                  <span aria-hidden="true">
+                    <Icon name={href!.slice(1)} />
+                  </span>
                   {label}
                   {href === "/approvals" && pending > 0 ? " " + pending : ""}
                 </a>

@@ -129,7 +129,42 @@ export function recoveryMcpServer(options: {
     { name: "void-recovery", version: "0.1.0" },
     { capabilities: { tools: {} } },
   );
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+  const definitions =
+    options.adapterId === "filesystem.managed"
+      ? tools.map((definition) =>
+          definition.name !== "void_execute"
+            ? definition
+            : {
+                ...definition,
+                description:
+                  "Execute one cooperative workspace file write/delete with durable capture. Bytes and mode only. No shell or concurrent external writer guarantee. Reconcile unknown outcomes without redispatch.",
+                inputSchema: {
+                  ...definition.inputSchema,
+                  properties: {
+                    ...definition.inputSchema.properties,
+                    mutation: {
+                      type: "object",
+                      additionalProperties: false,
+                      required: ["action", "path"],
+                      properties: {
+                        action: { type: "string", enum: ["write", "delete"] },
+                        path: { type: "string" },
+                        base64: {
+                          type: "string",
+                          description:
+                            "Canonical base64, maximum 1 MiB decoded",
+                        },
+                        mode: { type: "integer", minimum: 0, maximum: 511 },
+                      },
+                    },
+                  },
+                },
+              },
+        )
+      : tools;
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: definitions,
+  }));
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
       const name = request.params.name as RecoveryTool;

@@ -2,6 +2,7 @@ import * as m from "motion/react-m";
 import {
   createContext,
   useContext,
+  useId,
   useEffect,
   useRef,
   useState,
@@ -67,6 +68,7 @@ export function Dialog({
   close: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const headingId = useId();
   const animate = useContext(MotionEnabled);
   const t = useText();
   useEffect(() => {
@@ -76,6 +78,7 @@ export function Dialog({
   }, []);
   return (
     <m.dialog
+      aria-labelledby={headingId}
       initial={animate ? { opacity: 0, y: 18, scale: 0.985 } : false}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       ref={ref}
@@ -85,7 +88,7 @@ export function Dialog({
       }}
     >
       <div className="dialog-heading">
-        <h2>{title}</h2>
+        <h2 id={headingId}>{title}</h2>
         <button onClick={close} aria-label={t("Zavřít", "Close")}>
           ×
         </button>

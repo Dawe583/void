@@ -1,3 +1,4 @@
+import { managedFilesystemAdapter } from "../../connectors/src/filesystem/managed.ts";
 import { readFile } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
 import { devKeyProvider } from "../../ledger/src/sign.ts";
@@ -25,7 +26,8 @@ type Config = {
   workspace: string;
   stateDir: string;
   encryptionKeyEnv: string;
-  postgres: {
+  filesystem?: { root: string; cooperative: true };
+  postgres?: {
     schema: string;
     tables: ManagedPostgresOptions["tables"];
     urlEnv: string;
@@ -68,19 +70,26 @@ export async function runRecoveryCommand(
   if (
     !/^[\w-]{1,100}$/.test(config.workspace) ||
     !config.stateDir ||
-    !config.postgres?.urlEnv
+    Boolean(config.postgres) === Boolean(config.filesystem)
   )
     throw new Error("Invalid recovery configuration.");
-  const url = env[config.postgres.urlEnv];
-  if (!url)
+  const postgres = config.postgres;
+  const url = postgres ? env[postgres.urlEnv] : undefined;
+  if (postgres && !url)
     throw new Error("Configured Postgres URL environment variable is absent.");
-  const options: ManagedPostgresOptions = {
-    workspace: config.workspace,
-    schema: config.postgres.schema,
-    tables: config.postgres.tables,
-    connect: () => postgresExecutor(url),
-  };
+  const options: ManagedPostgresOptions | undefined = postgres
+    ? {
+        workspace: config.workspace,
+        schema: postgres.schema,
+        tables: postgres.tables,
+        connect: () => postgresExecutor(url!),
+      }
+    : undefined;
   if (action === "install") {
+    if (!options)
+      throw new Error(
+        "Filesystem needs no installation. Configure an existing cooperative root.",
+      );
     await installManagedPostgres(options);
     print(
       JSON.stringify({
@@ -99,7 +108,20 @@ export async function runRecoveryCommand(
       : JSON.parse(await readFile(resolve(args.get("--input")!), "utf8"));
   if (input.workspace !== config.workspace)
     throw new Error("Input belongs to another workspace.");
-  const adapter = managedPostgresAdapter(options);
+  if (config.filesystem) {
+    const root = resolve(dirname(configPath), config.filesystem.root);
+    const state = resolve(dirname(configPath), config.stateDir);
+    if (state === root || state.startsWith(root + "/"))
+      throw new Error(
+        "Recovery state must be outside the managed filesystem root.",
+      );
+  }
+  const adapter = options
+    ? managedPostgresAdapter(options)
+    : managedFilesystemAdapter({
+        root: resolve(dirname(configPath), config.filesystem!.root),
+        cooperative: config.filesystem!.cooperative,
+      });
   if (action === "inspect") {
     const request = input as ExecutionRequest;
     if (request.adapterId !== adapter.id)
@@ -147,7 +169,7 @@ export async function runRecoveryCommand(
         loaded.ok &&
         decide(loaded, {
           tool,
-          connector: "postgres",
+          connector: options ? "postgres" : "filesystem",
           workspace: config.workspace,
           klass,
           blastRadius,

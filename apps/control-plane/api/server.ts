@@ -538,7 +538,7 @@ function sendJson(response: ServerResponse, statusCode: number, value: JsonObjec
 
 function staticPath(webRoot: string, pathname: string): string | null {
   if (pathname.startsWith('/api/')) return null;
-  const spa = /^\/(chat(?:\/[^/]*)?|overview|sessions|runs|documents|approvals|ledger|connections|models|settings)$/.test(pathname);
+  const spa = /^\/(chat(?:\/[^/]*)?|demo|overview|sessions|runs|documents|approvals|ledger|connections|models|settings)$/.test(pathname);
   const legacySpa = ['/feed.html','/approvals.html','/ledger.html'].includes(pathname) && !existsSync(join(webRoot, pathname));
   const name = pathname === '/' || spa || legacySpa ? '/index.html' : pathname;
   let normalized: string;

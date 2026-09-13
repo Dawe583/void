@@ -980,3 +980,22 @@ provider evidence resolves it. Recovery has its own signed receipt and can also
 be reconciled without repeating the inverse. The first MCP entry point is local
 stdio with operator-owned workspace and policy; interactive holds, cloud
 transport and multi-operation recovery are separate integration work.
+
+
+## Cooperative filesystem and public demo, 2026-09-13
+
+The first filesystem adapter covers one regular file in an operator-owned
+cooperative directory. Bytes and POSIX mode are its explicit scope. Node cannot
+provide an atomic conditional replace against hostile external writers; those
+writers are excluded by configuration contract. Observed drift conflicts,
+and missing durable outcomes remain unknown without automatic redispatch.
+
+Public testing uses a separate visitor namespace with managed documents only.
+It does not distribute the private workspace token or inherit Prime/OAuth/MCP
+capabilities. TokenRouter credentials remain server-side and the demo fixes the
+model and endpoint. Admission and model-run limits are durably reserved.
+
+Mobile toolbar controls use SVG instead of font-dependent symbols. Options use
+the shared native dialog with explicit accessible naming and 52-pixel rows.
+The native macOS shell continues using WKWebView; a SwiftUI migration remains
+separate from this bundled-interface update. Research: GUI-DESIGN-RESEARCH.md.
